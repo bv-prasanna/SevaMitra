@@ -1,0 +1,9 @@
+"use client";
+import {useState} from "react";import {ApiClient} from "@sevamitra/api-client";import Link from "next/link";
+const api=new ApiClient(process.env.NEXT_PUBLIC_API_BASE_URL||"http://localhost:8080");
+export default function Login(){const[mobile,setMobile]=useState("");const[otp,setOtp]=useState("");const[sent,setSent]=useState(false);const[msg,setMsg]=useState("");
+async function request(){setMsg("");try{await api.requestOtp({mobile});setSent(true);setMsg("OTP sent successfully");}catch(e:any){setMsg(e?.message||"Backend is not reachable. Check NEXT_PUBLIC_API_BASE_URL.");}}
+async function verify(){setMsg("");try{const r:any=await api.verifyOtp({mobile,otp});if(r?.accessToken)localStorage.setItem("sevamitra_token",r.accessToken);setMsg("Login successful");location.href="/marketplace";}catch(e:any){setMsg(e?.message||"OTP verification failed");}}
+return <main className="authPage"><section className="authCard"><Link href="/" className="back">← SevaMitra</Link><div className="pill">Trusted local services</div><h1>Welcome to SevaMitra</h1><p>Sign in with your mobile number. ನಿಮ್ಮ ಮೊಬೈಲ್ ಸಂಖ್ಯೆಯಿಂದ ಲಾಗಿನ್ ಮಾಡಿ.</p><label>Mobile number</label><input value={mobile} onChange={e=>setMobile(e.target.value.replace(/\D/g,"").slice(0,10))} placeholder="10 digit mobile number"/>
+{sent&&<><label>OTP</label><input value={otp} onChange={e=>setOtp(e.target.value.replace(/\D/g,"").slice(0,6))} placeholder="Enter OTP"/></>}
+<button className="primary wide" disabled={mobile.length!==10} onClick={sent?verify:request}>{sent?"Verify & continue":"Send OTP"}</button>{msg&&<div className="formMsg">{msg}</div>}<small>By continuing, you agree to SevaMitra's terms and privacy policy.</small></section></main>}
