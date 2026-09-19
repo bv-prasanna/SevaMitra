@@ -1,5 +1,5 @@
 "use client";
-import { Search, MapPin, ShieldCheck, Star, ArrowRight, Sparkles, Wrench, Zap, Droplets, HeartPulse, GraduationCap, MoreHorizontal, CheckCircle2, Users, Clock3, BadgeCheck, Smartphone, Languages } from "lucide-react";
+import { Search, MapPin, ShieldCheck, Star, ArrowRight, Sparkles, Wrench, Zap, Droplets, HeartPulse, GraduationCap, MoreHorizontal, CheckCircle2, Users, BadgeCheck, Smartphone, Languages } from "lucide-react";
 import { useState } from "react";
 
 const categories=[
@@ -15,7 +15,7 @@ export default function Home(){
  const [kn,setKn]=useState(false);
  return <main className="home">
   <header className="siteHeader">
-   <a className="brandLogo" href="/"><span className="brandPin"><span>✓</span></span><span><strong>Seva<span>Mitra</span></strong><small>Local Services. Stronger Communities.</small></span></a>
+   <a className="brandLogo" href="/"><img className="officialLogo" src="/sevamitra-logo.png" alt="SevaMitra — Trusted Services Near You."/></a>
    <nav className="mainNav"><a href="/marketplace">Services</a><a href="#customers">For Customers</a><a href="#providers">For Providers</a><a href="#agents">For Agents</a><a href="#about">About</a></nav>
    <div className="headerActions"><button className="locationBtn"><MapPin size={16}/>Select location</button><button className="languageBtn" onClick={()=>setKn(!kn)}><Languages size={16}/>{kn?"EN":"ಕನ್ನಡ"}</button><a className="loginLink" href="/login">Login</a><a className="signupBtn" href="/login">Sign Up</a></div>
   </header>
@@ -72,6 +72,6 @@ export default function Home(){
 
   <section className="communitySection" id="about"><div className="communityCopy"><span className="sectionKicker">Services for a better tomorrow</span><h2>Technology that keeps local communities at the centre.</h2><p>SevaMitra is designed to make local services easier to discover while helping skilled professionals participate in the digital economy.</p><div className="communityPoints"><span><CheckCircle2/>Local & accessible</span><span><CheckCircle2/>Transparent choices</span><span><CheckCircle2/>Community focused</span><span><CheckCircle2/>Designed for trust</span></div></div><div className="communityVisual"><div className="communityMark">SM</div><strong>Local Services.<br/>Stronger Communities.</strong><p>One marketplace connecting customers, providers and community partners.</p></div></section>
 
-  <footer className="premiumFooter"><div className="footerBrand"><a className="brandLogo inverse" href="/"><span className="brandPin"><span>✓</span></span><span><strong>Seva<span>Mitra</span></strong><small>Local Services. Stronger Communities.</small></span></a><p>Your trusted hyperlocal marketplace for discovering services and skilled professionals nearby.</p></div><div><b>Explore</b><a href="/marketplace">Services</a><a href="/login">Customer Login</a><a href="/provider">For Providers</a></div><div><b>Community</b><a href="/agent">For Agents</a><a href="#about">About SevaMitra</a></div><div><b>Support</b><span>Help & support</span><span>Safety & trust</span></div></footer>
+  <footer className="premiumFooter"><div className="footerBrand"><a className="brandLogo inverse" href="/"><img className="officialLogo footerLogo" src="/sevamitra-logo.png" alt="SevaMitra"/></a><p>Your trusted hyperlocal marketplace for discovering services and skilled professionals nearby.</p></div><div><b>Explore</b><a href="/marketplace">Services</a><a href="/login">Customer Login</a><a href="/provider">For Providers</a></div><div><b>Community</b><a href="/agent">For Agents</a><a href="#about">About SevaMitra</a></div><div><b>Support</b><span>Help & support</span><span>Safety & trust</span></div></footer>
  </main>
 }
