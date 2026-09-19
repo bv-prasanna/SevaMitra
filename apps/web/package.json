@@ -1,1 +1,24 @@
-{"name":"@sevamitra/web","private":true,"scripts":{"dev":"next dev","build":"next build","start":"next start","typecheck":"tsc --noEmit"},"dependencies":{"@sevamitra/api-client":"workspace:*","@sevamitra/i18n":"workspace:*","lucide-react":"^0.468.0","next":"^15.5.0","react":"^19.1.0","react-dom":"^19.1.0"},"devDependencies":{"@types/node":"^22.10.0","@types/react":"^19.0.0","@types/react-dom":"^19.0.0","typescript":"^5.7.0"}}
+{
+  "name": "@sevamitra/web",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@sevamitra/api-client": "workspace:*",
+    "@sevamitra/i18n": "workspace:*",
+    "lucide-react": "^0.468.0",
+    "next": "^15.5.0",
+    "react": "19.1.0",
+    "react-dom": "19.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "@types/react": "19.1.17",
+    "@types/react-dom": "19.1.7",
+    "typescript": "^5.7.0"
+  }
+}
