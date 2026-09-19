@@ -32,14 +32,10 @@ export default function Home(){
     </div>
     <div className="heroTrust"><span><ShieldCheck/>Verified profiles</span><span><Star/>Ratings & reviews</span><span><CheckCircle2/>Transparent service details</span></div>
    </div>
-   <div className="heroScene">
-    <div className="sceneGlow"></div>
-    <div className="proCard proOne"><div className="avatar">AC</div><div><b>AC & Appliance Care</b><span><Star size={13} fill="currentColor"/> Trusted local professional</span></div></div>
-    <div className="heroPhoto">
-      <div className="worker workerA"><span>SM</span><strong>Home Services</strong><small>Skilled • Local • Reliable</small></div>
-      <div className="worker workerB"><Wrench size={46}/><strong>Service Expert</strong></div>
-    </div>
-    <div className="availabilityCard"><Clock3/><div><b>Services near you</b><span>Choose your area to see availability</span></div></div>
+   <div className="heroScene" role="img" aria-label="Local service professional helping a customer">
+    <div className="heroImageShade"></div>
+    <div className="heroSlogan">Local People<br/>Real Support<br/><b>Brighter Communities</b></div>
+    <div className="heroSafety"><span><ShieldCheck/> Verified Professionals</span><span><CheckCircle2/> Reliable Local Services</span><span><Star/> Ratings & Reviews</span></div>
    </div>
   </section>
 
