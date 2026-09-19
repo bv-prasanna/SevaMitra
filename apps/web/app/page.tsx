@@ -34,13 +34,13 @@ export default function Home(){
       <div className="searchInput"><Search size={20}/><input placeholder={t.hero.searchPlaceholder}/></div>
       <a href="/marketplace">{t.hero.search} <ArrowRight size={18}/></a>
     </div>
-    <div className="heroTrust"><span><ShieldCheck/>Verified profiles</span><span><Star/>Ratings & reviews</span><span><CheckCircle2/>Transparent service details</span></div>
+    <div className="heroTrust"><span><ShieldCheck/>{kn?"ಪರಿಶೀಲಿತ ಪ್ರೊಫೈಲ್‌ಗಳು":"Verified profiles"}</span><span><Star/>{kn?"ರೇಟಿಂಗ್ ಮತ್ತು ವಿಮರ್ಶೆಗಳು":"Ratings & reviews"}</span><span><CheckCircle2/>{kn?"ಪಾರದರ್ಶಕ ಸೇವಾ ವಿವರಗಳು":"Transparent service details"}</span></div>
    </div>
   </section>
 
   <section className="categorySection" id="customers">
-   <div className="sectionIntro"><div><span className="sectionKicker">Explore services</span><h2>Help for every need, close to home</h2></div><a href="/marketplace">View all services <ArrowRight size={17}/></a></div>
-   <div className="categoryGrid">{categories.map(({name,icon:Icon,tone})=><a href="/marketplace" className="categoryCard" key={name}><span className={"categoryIcon "+tone}><Icon/></span><strong>{name}</strong><small>Explore options</small><ArrowRight className="cardArrow" size={18}/></a>)}</div>
+   <div className="sectionIntro"><div><span className="sectionKicker">{kn?"ಸೇವೆಗಳನ್ನು ಅನ್ವೇಷಿಸಿ":"Explore services"}</span><h2>{kn?"ಪ್ರತಿ ಅಗತ್ಯಕ್ಕೂ ನಿಮ್ಮ ಹತ್ತಿರದಲ್ಲೇ ಸಹಾಯ":"Help for every need, close to home"}</h2></div><a href="/marketplace">{kn?"ಎಲ್ಲಾ ಸೇವೆಗಳನ್ನು ನೋಡಿ":"View all services"} <ArrowRight size={17}/></a></div>
+   <div className="categoryGrid">{categories.map(({name,icon:Icon,tone},i)=><a href="/marketplace" className="categoryCard" key={name}><span className={"categoryIcon "+tone}><Icon/></span><strong>{kn?["ಮನೆ ಸ್ವಚ್ಛತೆ","ಎಲೆಕ್ಟ್ರಿಷಿಯನ್","ಪ್ಲಂಬರ್","ಸೌಂದರ್ಯ ಮತ್ತು ವೆಲ್‌ನೆಸ್","ಉಪಕರಣ ದುರಸ್ತಿ","ಟ್ಯೂಟರ್‌ಗಳು","ಇನ್ನಷ್ಟು ಸೇವೆಗಳು"][i]:name}</strong><small>{kn?"ಆಯ್ಕೆಗಳನ್ನು ನೋಡಿ":"Explore options"}</small><ArrowRight className="cardArrow" size={18}/></a>)}</div>
   </section>
 
   <section className="confidenceBand">
@@ -51,18 +51,18 @@ export default function Home(){
   </section>
 
   <section className="howPremium">
-   <div className="centerIntro"><span className="sectionKicker">Simple from search to service</span><h2>How SevaMitra works</h2><p>A straightforward experience designed around local availability and trust.</p></div>
+   <div className="centerIntro"><span className="sectionKicker">{kn?"ಹುಡುಕಾಟದಿಂದ ಸೇವೆಯವರೆಗೆ ಸರಳ":"Simple from search to service"}</span><h2>{t.how.title}</h2><p>{kn?"ಸ್ಥಳೀಯ ಲಭ್ಯತೆ ಮತ್ತು ವಿಶ್ವಾಸವನ್ನು ಕೇಂದ್ರವಾಗಿಟ್ಟ ಸರಳ ಅನುಭವ.":"A straightforward experience designed around local availability and trust."}</p></div>
    <div className="journey">
-    <article><span>01</span><div><MapPin/></div><h3>Choose your location</h3><p>Tell us where you need help so we can show relevant local services.</p></article>
-    <article><span>02</span><div><Search/></div><h3>Discover & compare</h3><p>Explore service options and provider information for your requirement.</p></article>
-    <article><span>03</span><div><Smartphone/></div><h3>Book your service</h3><p>Select the service details and a suitable schedule when available.</p></article>
-    <article><span>04</span><div><Star/></div><h3>Complete & review</h3><p>Get the service and share your experience to strengthen local trust.</p></article>
+    <article><span>01</span><div><MapPin/></div><h3>{kn?"ನಿಮ್ಮ ಸ್ಥಳ ಆಯ್ಕೆಮಾಡಿ":"Choose your location"}</h3><p>{kn?"ನಿಮ್ಮ ಪ್ರದೇಶಕ್ಕೆ ಸಂಬಂಧಿಸಿದ ಸೇವೆಗಳನ್ನು ತೋರಿಸಲು ಸ್ಥಳವನ್ನು ಆಯ್ಕೆಮಾಡಿ.":"Tell us where you need help so we can show relevant local services."}</p></article>
+    <article><span>02</span><div><Search/></div><h3>{kn?"ಹುಡುಕಿ ಮತ್ತು ಹೋಲಿಸಿ":"Discover & compare"}</h3><p>{kn?"ನಿಮ್ಮ ಅಗತ್ಯಕ್ಕೆ ತಕ್ಕ ಸೇವೆಗಳು ಮತ್ತು ಪೂರೈಕೆದಾರರ ವಿವರಗಳನ್ನು ಪರಿಶೀಲಿಸಿ.":"Explore service options and provider information for your requirement."}</p></article>
+    <article><span>03</span><div><Smartphone/></div><h3>{kn?"ಸೇವೆಯನ್ನು ಬುಕ್ ಮಾಡಿ":"Book your service"}</h3><p>{kn?"ಸೇವೆಯ ವಿವರಗಳು ಮತ್ತು ಲಭ್ಯವಿರುವ ಸೂಕ್ತ ಸಮಯವನ್ನು ಆಯ್ಕೆಮಾಡಿ.":"Select the service details and a suitable schedule when available."}</p></article>
+    <article><span>04</span><div><Star/></div><h3>{kn?"ಪೂರ್ಣಗೊಳಿಸಿ ಮತ್ತು ವಿಮರ್ಶಿಸಿ":"Complete & review"}</h3><p>{kn?"ಸೇವೆ ಪಡೆದ ನಂತರ ನಿಮ್ಮ ಅನುಭವವನ್ನು ಹಂಚಿಕೊಂಡು ಸ್ಥಳೀಯ ವಿಶ್ವಾಸವನ್ನು ಬಲಪಡಿಸಿ.":"Get the service and share your experience to strengthen local trust."}</p></article>
    </div>
   </section>
 
   <section className="growthPanels">
-   <article id="providers" className="providerPanel"><div className="panelBadge">For service professionals</div><h2>Grow your local service business with SevaMitra.</h2><p>Create your profile, define the services and areas you cover, manage availability and build your reputation with customers nearby.</p><a href="/provider">Become a Provider <ArrowRight size={18}/></a><div className="panelArt"><Wrench/><span>Build your local presence</span></div></article>
-   <article id="agents" className="agentPanel"><div className="panelBadge">For community partners</div><h2>Help local professionals join the digital marketplace.</h2><p>SevaMitra agents support provider onboarding and help expand trusted service access across local communities.</p><a href="/agent">Explore Agent Opportunities <ArrowRight size={18}/></a><div className="panelArt"><Users/><span>Connect communities</span></div></article>
+   <article id="providers" className="providerPanel"><div className="panelBadge">{kn?"ಸೇವಾ ವೃತ್ತಿಪರರಿಗೆ":"For service professionals"}</div><h2>{kn?"SevaMitra ಜೊತೆ ನಿಮ್ಮ ಸ್ಥಳೀಯ ಸೇವಾ ವ್ಯವಹಾರವನ್ನು ಬೆಳೆಸಿ.":"Grow your local service business with SevaMitra."}</h2><p>{kn?"ನಿಮ್ಮ ಪ್ರೊಫೈಲ್ ರಚಿಸಿ, ಸೇವೆಗಳು ಮತ್ತು ಸೇವಾ ಪ್ರದೇಶಗಳನ್ನು ನಿರ್ಧರಿಸಿ, ಲಭ್ಯತೆಯನ್ನು ನಿರ್ವಹಿಸಿ ಮತ್ತು ಹತ್ತಿರದ ಗ್ರಾಹಕರಲ್ಲಿ ವಿಶ್ವಾಸ ಬೆಳೆಸಿ.":"Create your profile, define the services and areas you cover, manage availability and build your reputation with customers nearby."}</p><a href="/provider">{kn?"ಪೂರೈಕೆದಾರರಾಗಿ ಸೇರಿ":"Become a Provider"} <ArrowRight size={18}/></a><div className="panelArt"><Wrench/><span>{kn?"ನಿಮ್ಮ ಸ್ಥಳೀಯ ಗುರುತನ್ನು ಬೆಳೆಸಿ":"Build your local presence"}</span></div></article>
+   <article id="agents" className="agentPanel"><div className="panelBadge">{kn?"ಸಮುದಾಯ ಪಾಲುದಾರರಿಗೆ":"For community partners"}</div><h2>{kn?"ಸ್ಥಳೀಯ ವೃತ್ತಿಪರರು ಡಿಜಿಟಲ್ ಮಾರುಕಟ್ಟೆಗೆ ಸೇರಲು ಸಹಾಯ ಮಾಡಿ.":"Help local professionals join the digital marketplace."}</h2><p>{kn?"SevaMitra ಏಜೆಂಟ್‌ಗಳು ಸೇವಾ ಪೂರೈಕೆದಾರರ ನೋಂದಣಿಗೆ ಸಹಾಯ ಮಾಡಿ, ಸಮುದಾಯಗಳಲ್ಲಿ ವಿಶ್ವಾಸಾರ್ಹ ಸೇವೆಗಳ ಲಭ್ಯತೆಯನ್ನು ವಿಸ್ತರಿಸುತ್ತಾರೆ.":"SevaMitra agents support provider onboarding and help expand trusted service access across local communities."}</p><a href="/agent">{kn?"ಏಜೆಂಟ್ ಅವಕಾಶಗಳನ್ನು ನೋಡಿ":"Explore Agent Opportunities"} <ArrowRight size={18}/></a><div className="panelArt"><Users/><span>{kn?"ಸಮುದಾಯಗಳನ್ನು ಸಂಪರ್ಕಿಸಿ":"Connect communities"}</span></div></article>
   </section>
 
   <section className="communitySection" id="about"><div className="communityCopy"><span className="sectionKicker">Services for a better tomorrow</span><h2>Technology that keeps local communities at the centre.</h2><p>SevaMitra is designed to make local services easier to discover while helping skilled professionals participate in the digital economy.</p><div className="communityPoints"><span><CheckCircle2/>Local & accessible</span><span><CheckCircle2/>Transparent choices</span><span><CheckCircle2/>Community focused</span><span><CheckCircle2/>Designed for trust</span></div></div><div className="communityVisual"><div className="communityMark"><span>S</span><span>M</span></div><strong>Local Services.<br/>Stronger Communities.</strong><p>One marketplace connecting customers, providers and community partners.</p></div></section>
