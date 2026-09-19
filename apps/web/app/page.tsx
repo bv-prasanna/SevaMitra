@@ -21,6 +21,9 @@ export default function Home(){
   </header>
 
   <section className="premiumHero">
+   <div className="heroScene">
+    <img className="heroPeopleImage" src="/sevamitra-hero.png" alt="SevaMitra local service professionals"/>
+   </div>
    <div className="heroContent">
     <span className="eyebrow"><BadgeCheck size={16}/>Your community service partner</span>
     <h1>Trusted local services,<br/><span>right when you need them.</span></h1>
@@ -31,9 +34,6 @@ export default function Home(){
       <a href="/marketplace">Find Services <ArrowRight size={18}/></a>
     </div>
     <div className="heroTrust"><span><ShieldCheck/>Verified profiles</span><span><Star/>Ratings & reviews</span><span><CheckCircle2/>Transparent service details</span></div>
-   </div>
-   <div className="heroScene">
-    <img className="heroPeopleImage" src="/sevamitra-hero.png" alt="SevaMitra local service professionals"/>
    </div>
   </section>
 
