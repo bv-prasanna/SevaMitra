@@ -32,10 +32,8 @@ export default function Home(){
     </div>
     <div className="heroTrust"><span><ShieldCheck/>Verified profiles</span><span><Star/>Ratings & reviews</span><span><CheckCircle2/>Transparent service details</span></div>
    </div>
-   <div className="heroScene" role="img" aria-label="Local service professional helping a customer">
-    <div className="heroImageShade"></div>
-    <div className="heroSlogan">Local People<br/>Real Support<br/><b>Brighter Communities</b></div>
-    <div className="heroSafety"><span><ShieldCheck/> Verified Professionals</span><span><CheckCircle2/> Reliable Local Services</span><span><Star/> Ratings & Reviews</span></div>
+   <div className="heroScene">
+    <img className="heroPeopleImage" src="/sevamitra-hero.png" alt="SevaMitra local service professionals"/>
    </div>
   </section>
 
