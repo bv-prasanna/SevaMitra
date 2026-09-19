@@ -1,6 +1,7 @@
 "use client";
 import { Search, MapPin, ShieldCheck, Star, ArrowRight, Sparkles, Wrench, Zap, Droplets, HeartPulse, GraduationCap, MoreHorizontal, CheckCircle2, Users, BadgeCheck, Smartphone, Languages } from "lucide-react";
 import { useState } from "react";
+import {messages} from "@sevamitra/i18n";
 
 const categories=[
   {name:"Home Cleaning",icon:Sparkles,tone:"green"},
@@ -12,12 +13,12 @@ const categories=[
   {name:"More Services",icon:MoreHorizontal,tone:"green"}
 ];
 export default function Home(){
- const [kn,setKn]=useState(false);
+ const [kn,setKn]=useState(false); const t=kn?messages.kn:messages.en;
  return <main className="home">
   <header className="siteHeader">
    <a className="brandLogo" href="/"><img className="officialLogo" src="/sevamitra-logo.png" alt="SevaMitra — Trusted Services Near You."/></a>
-   <nav className="mainNav"><a href="/marketplace">Services</a><a href="#customers">For Customers</a><a href="#providers">For Providers</a><a href="#agents">For Agents</a><a href="#about">About</a></nav>
-   <div className="headerActions"><button className="locationBtn"><MapPin size={16}/>Select location</button><button className="languageBtn" onClick={()=>setKn(!kn)}><Languages size={16}/>{kn?"EN":"ಕನ್ನಡ"}</button><a className="loginLink" href="/login">Login</a><a className="signupBtn" href="/login">Sign Up</a></div>
+   <nav className="mainNav"><a href="/marketplace">{t.nav.services}</a><a href="#customers">{kn?"ಗ್ರಾಹಕರಿಗೆ":"For Customers"}</a><a href="#providers">{t.nav.providers}</a><a href="#agents">{t.nav.agents}</a><a href="#about">{t.nav.about}</a></nav>
+   <div className="headerActions"><button className="locationBtn"><MapPin size={16}/>{kn?"ಸ್ಥಳ ಆಯ್ಕೆ":"Select location"}</button><button className="languageBtn" onClick={()=>setKn(!kn)}><Languages size={16}/>{kn?"English":"ಕನ್ನಡ"}</button><a className="loginLink" href="/login">{t.nav.login}</a><a className="signupBtn" href="/login">{t.nav.signup}</a></div>
   </header>
 
   <section className="premiumHero">
@@ -25,13 +26,13 @@ export default function Home(){
     <img className="heroPeopleImage" src="/sevamitra-hero.png" alt="SevaMitra local service professionals"/>
    </div>
    <div className="heroContent">
-    <span className="eyebrow"><BadgeCheck size={16}/>Your community service partner</span>
-    <h1>Trusted local services,<br/><span>right when you need them.</span></h1>
-    <p>Discover skilled professionals in your community, compare service options and book with confidence—all from one trusted local marketplace.</p>
+    <span className="eyebrow"><BadgeCheck size={16}/>{t.hero.badge}</span>
+    <h1>{t.hero.title1}<br/><span>{t.hero.title2}</span></h1>
+    <p>{t.hero.body}</p>
     <div className="heroSearch">
-      <button className="heroLocation"><MapPin size={20}/><span><small>Your location</small>Select your area</span></button>
-      <div className="searchInput"><Search size={20}/><input placeholder="What service do you need?"/></div>
-      <a href="/marketplace">Find Services <ArrowRight size={18}/></a>
+      <button className="heroLocation"><MapPin size={20}/><span><small>{kn?"ನಿಮ್ಮ ಸ್ಥಳ":"Your location"}</small>{t.hero.location}</span></button>
+      <div className="searchInput"><Search size={20}/><input placeholder={t.hero.searchPlaceholder}/></div>
+      <a href="/marketplace">{t.hero.search} <ArrowRight size={18}/></a>
     </div>
     <div className="heroTrust"><span><ShieldCheck/>Verified profiles</span><span><Star/>Ratings & reviews</span><span><CheckCircle2/>Transparent service details</span></div>
    </div>
@@ -64,7 +65,7 @@ export default function Home(){
    <article id="agents" className="agentPanel"><div className="panelBadge">For community partners</div><h2>Help local professionals join the digital marketplace.</h2><p>SevaMitra agents support provider onboarding and help expand trusted service access across local communities.</p><a href="/agent">Explore Agent Opportunities <ArrowRight size={18}/></a><div className="panelArt"><Users/><span>Connect communities</span></div></article>
   </section>
 
-  <section className="communitySection" id="about"><div className="communityCopy"><span className="sectionKicker">Services for a better tomorrow</span><h2>Technology that keeps local communities at the centre.</h2><p>SevaMitra is designed to make local services easier to discover while helping skilled professionals participate in the digital economy.</p><div className="communityPoints"><span><CheckCircle2/>Local & accessible</span><span><CheckCircle2/>Transparent choices</span><span><CheckCircle2/>Community focused</span><span><CheckCircle2/>Designed for trust</span></div></div><div className="communityVisual"><div className="communityMark">SM</div><strong>Local Services.<br/>Stronger Communities.</strong><p>One marketplace connecting customers, providers and community partners.</p></div></section>
+  <section className="communitySection" id="about"><div className="communityCopy"><span className="sectionKicker">Services for a better tomorrow</span><h2>Technology that keeps local communities at the centre.</h2><p>SevaMitra is designed to make local services easier to discover while helping skilled professionals participate in the digital economy.</p><div className="communityPoints"><span><CheckCircle2/>Local & accessible</span><span><CheckCircle2/>Transparent choices</span><span><CheckCircle2/>Community focused</span><span><CheckCircle2/>Designed for trust</span></div></div><div className="communityVisual"><div className="communityMark"><span>S</span><span>M</span></div><strong>Local Services.<br/>Stronger Communities.</strong><p>One marketplace connecting customers, providers and community partners.</p></div></section>
 
   <footer className="premiumFooter"><div className="footerBrand"><a className="brandLogo inverse" href="/"><img className="officialLogo footerLogo" src="/sevamitra-logo.png" alt="SevaMitra"/></a><p>Your trusted hyperlocal marketplace for discovering services and skilled professionals nearby.</p></div><div><b>Explore</b><a href="/marketplace">Services</a><a href="/login">Customer Login</a><a href="/provider">For Providers</a></div><div><b>Community</b><a href="/agent">For Agents</a><a href="#about">About SevaMitra</a></div><div><b>Support</b><span>Help & support</span><span>Safety & trust</span></div></footer>
  </main>
