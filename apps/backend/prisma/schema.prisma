@@ -1,0 +1,1560 @@
+// SevaMitra backend — Prisma schema
+// Schema-per-domain layout per docs/ARCHITECTURE.md §7.1.
+// Only the `auth` schema is populated so far (Auth module). Other domain
+// schemas (marketplace, finance, ops, platform) are added as their modules
+// are built, per docs/ARCHITECTURE.md §5.3 phasing.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// Prisma 7: connection URL lives in prisma.config.ts (for Migrate) and is
+// passed to the driver adapter at runtime (see src/prisma/prisma.service.ts),
+// not here. `multiSchema` is GA in Prisma 7 and no longer needs to be listed
+// under generator previewFeatures.
+datasource db {
+  provider = "postgresql"
+  schemas  = ["auth", "marketplace", "finance", "ops"]
+}
+
+// ---------------------------------------------------------------------------
+// auth schema — Auth + IAM modules (BRD §9 draws Auth vs IAM as a hard
+// boundary: Auth answers "who are you", IAM answers "what can you do"; both
+// land in the same `auth` Postgres schema per the original comment here —
+// they are two NestJS modules sharing one schema, not two schemas).
+// ---------------------------------------------------------------------------
+
+enum UserStatus {
+  PENDING
+  ACTIVE
+  SUSPENDED
+  DELETED
+
+  @@schema("auth")
+}
+
+enum OtpPurpose {
+  LOGIN
+  REGISTER
+  PASSWORD_RESET
+
+  @@schema("auth")
+}
+
+enum OtpChannel {
+  SMS
+  WHATSAPP
+
+  @@schema("auth")
+}
+
+enum OauthProvider {
+  GOOGLE
+  APPLE
+
+  @@schema("auth")
+}
+
+/// Core identity record. Deliberately minimal — profile data (name, address,
+/// preferences) belongs to the Customer/Provider/Agent modules, not Auth.
+model User {
+  id          String     @id @default(uuid())
+  phoneNumber String?    @unique @map("phone_number")
+  email       String?    @unique
+  status      UserStatus @default(PENDING)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  credential      Credential?
+  oauthIdentities OauthIdentity[]
+  refreshTokens   RefreshToken[]
+  otpChallenges   OtpChallenge[]
+  roleAssignments UserRoleAssignment[]
+  customerProfile CustomerProfile?
+  providerProfile ProviderProfile?
+  agentProfile    AgentProfile?
+
+  auditLogs     AuditLog[]
+  notifications Notification[]
+
+  @@map("users")
+  @@schema("auth")
+}
+
+/// Optional password credential. Not every user has one — OTP-only users
+/// never get a row here until they explicitly set a password.
+model Credential {
+  id           String   @id @default(uuid())
+  userId       String   @unique @map("user_id")
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  passwordHash String   @map("password_hash")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("credentials")
+  @@schema("auth")
+}
+
+/// Linked social-login identities (Google/Apple). A user may link more than
+/// one provider to the same account.
+model OauthIdentity {
+  id             String        @id @default(uuid())
+  userId         String        @map("user_id")
+  user           User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  provider       OauthProvider
+  providerUserId String        @map("provider_user_id")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@unique([provider, providerUserId])
+  @@map("oauth_identities")
+  @@schema("auth")
+}
+
+/// Hashed refresh tokens so a session can be revoked server-side (required
+/// for account suspension / offboarding per BRD §14.4, §19.5).
+model RefreshToken {
+  id        String    @id @default(uuid())
+  userId    String    @map("user_id")
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String    @unique @map("token_hash")
+  expiresAt DateTime  @map("expires_at")
+  revokedAt DateTime? @map("revoked_at")
+
+  createdByIp String? @map("created_by_ip")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([userId])
+  @@map("refresh_tokens")
+  @@schema("auth")
+}
+
+/// Short-lived OTP challenges. Only a hash of the OTP is stored; rate
+/// limiting on top of this happens at the API layer (NestJS Throttler).
+model OtpChallenge {
+  id           String     @id @default(uuid())
+  userId       String?    @map("user_id")
+  user         User?      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  phoneNumber  String     @map("phone_number")
+  otpHash      String     @map("otp_hash")
+  purpose      OtpPurpose
+  channel      OtpChannel @default(SMS)
+  attemptCount Int        @default(0) @map("attempt_count")
+  maxAttempts  Int        @default(5) @map("max_attempts")
+  expiresAt    DateTime   @map("expires_at")
+  consumedAt   DateTime?  @map("consumed_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([phoneNumber, purpose])
+  @@map("otp_challenges")
+  @@schema("auth")
+}
+
+// ---------------------------------------------------------------------------
+// IAM module — implements BRD §9's User Type -> Role -> Permissions -> Scope
+// model (docs/ARCHITECTURE.md §9.2). Roles and their permission bundles are
+// admin-configurable data, not code; Permission rows are the fixed catalog
+// of checks that actually exist in code (seeded — see prisma/seed.ts), added
+// as new modules ship real authorization checks.
+// ---------------------------------------------------------------------------
+
+/// Where a role assignment applies. Geography/Organization/ProviderGroup/
+/// ProviderCompany don't have their own tables yet (those modules aren't
+/// built) — `scopeId` is deliberately a loose string reference, not a
+/// foreign key, so IAM doesn't have to pre-model other modules' entities to
+/// exist. PLATFORM assignments always have a null scopeId.
+enum ScopeType {
+  PLATFORM
+  GEOGRAPHY
+  ORGANIZATION
+  PROVIDER_GROUP
+  PROVIDER_COMPANY
+  OPERATIONAL_AREA
+
+  @@schema("auth")
+}
+
+/// A single fixed authorization check that exists somewhere in the code
+/// (e.g. "iam.role.manage"). Not admin-creatable — the catalog grows only
+/// when a new @RequirePermissions() appears in code and is added to
+/// prisma/seed.ts's PERMISSION_CATALOG.
+model Permission {
+  id          String @id @default(uuid())
+  key         String @unique
+  description String
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  rolePermissions RolePermission[]
+
+  @@map("permissions")
+  @@schema("auth")
+}
+
+/// An admin-configurable, named bundle of Permissions. `isSystem` roles
+/// (currently just SUPER_ADMIN) are seeded, not creatable/deletable via the
+/// API — see AuthorizationService for the SUPER_ADMIN bypass.
+model Role {
+  id          String  @id @default(uuid())
+  name        String  @unique
+  description String?
+  isSystem    Boolean @default(false) @map("is_system")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  rolePermissions RolePermission[]
+  assignments     UserRoleAssignment[]
+
+  @@map("roles")
+  @@schema("auth")
+}
+
+model RolePermission {
+  roleId       String     @map("role_id")
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permissionId String     @map("permission_id")
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@id([roleId, permissionId])
+  @@map("role_permissions")
+  @@schema("auth")
+}
+
+/// Grants a Role to a User within a Scope. A user may hold several active
+/// assignments at once (e.g. a Taluk Ops role in one geography plus a
+/// Support role platform-wide) — effective permissions are the union across
+/// all non-revoked assignments (AuthorizationService).
+model UserRoleAssignment {
+  id        String    @id @default(uuid())
+  userId    String    @map("user_id")
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  roleId    String    @map("role_id")
+  role      Role      @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  scopeType ScopeType @default(PLATFORM) @map("scope_type")
+  scopeId   String?   @map("scope_id")
+
+  assignedBy String?   @map("assigned_by")
+  assignedAt DateTime  @default(now()) @map("assigned_at")
+  revokedAt  DateTime? @map("revoked_at")
+
+  @@index([userId])
+  @@index([roleId])
+  @@map("user_role_assignments")
+  @@schema("auth")
+}
+
+// ---------------------------------------------------------------------------
+// marketplace schema — Customer module (docs/ARCHITECTURE.md §7.1: Customer,
+// Provider, Agent, Catalogue, Geography, Booking, ... all eventually share
+// this schema; only Customer is modeled so far).
+// ---------------------------------------------------------------------------
+
+enum CustomerStatus {
+  ACTIVE
+  SUSPENDED
+  DELETED
+
+  @@schema("marketplace")
+}
+
+enum AddressLabel {
+  HOME
+  WORK
+  OTHER
+
+  @@schema("marketplace")
+}
+
+/// Customer-facing profile for an auth.User. Deliberately separate from
+/// User (docs/modules/AUTH_IMPLEMENTATION.md §1: Auth never stores profile
+/// data) — a user isn't a customer until they explicitly create this
+/// profile. No auto-creation on login, unlike Auth's OTP flow, since
+/// fullName can't be inferred from a phone number alone.
+///
+/// `status` tracks marketplace standing, independent of auth.User.status:
+/// a SUSPENDED customer can still log in (Auth-level concern) but can't
+/// book (a future Booking-module concern). DELETED follows BRD §14.4 —
+/// PII anonymization in place, not row deletion, since a future Booking
+/// module will hold a durable customerId reference.
+model CustomerProfile {
+  id     String @id @default(uuid())
+  userId String @unique @map("user_id")
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  fullName          String         @map("full_name")
+  preferredLanguage String         @default("kn") @map("preferred_language")
+  notificationOptIn Boolean        @default(true) @map("notification_opt_in")
+  status            CustomerStatus @default(ACTIVE)
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  addresses CustomerAddress[]
+  bookings  Booking[]
+
+  @@map("customer_profiles")
+  @@schema("marketplace")
+}
+
+/// Free-text town/district/state for now — the Geography module
+/// (docs/ARCHITECTURE.md §5.3 phasing) doesn't exist yet to normalize
+/// against. Same "opaque until the real module lands" pattern as IAM's
+/// UserRoleAssignment.scopeId. latitude/longitude are plain columns, not
+/// PostGIS geometry — radius/polygon matching is Serviceability's job
+/// once that module exists.
+model CustomerAddress {
+  id         String          @id @default(uuid())
+  customerId String          @map("customer_id")
+  customer   CustomerProfile @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  label     AddressLabel @default(HOME)
+  line1     String
+  line2     String?
+  landmark  String?
+  town      String
+  district  String?
+  state     String?
+  pincode   String
+  latitude  Float?
+  longitude Float?
+  isDefault Boolean      @default(false) @map("is_default")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([customerId])
+  @@map("customer_addresses")
+  @@schema("marketplace")
+}
+
+// ---------------------------------------------------------------------------
+// marketplace schema — Provider module (docs/ARCHITECTURE.md §5.3, Phase 1a
+// module #4: "Individual provider profiles, verification, status" only —
+// deliberately not documents/approval workflow (Provider Onboarding, #6),
+// not company/staff (Provider Organization, Phase 1b), not operational
+// area/coverage (Serviceability, #9).
+// ---------------------------------------------------------------------------
+
+/// Operational/account status. Starts PENDING, not ACTIVE like
+/// CustomerProfile — BRD §16.2's provider journey is explicit that a
+/// provider is validated before becoming active. Nothing flips this to
+/// ACTIVE yet (see docs/modules/PROVIDER_IMPLEMENTATION.md §8): that
+/// transition belongs to the Provider Onboarding module.
+enum ProviderStatus {
+  PENDING
+  ACTIVE
+  SUSPENDED
+  DELETED
+
+  @@schema("marketplace")
+}
+
+/// Identity/KYC-level verification (BRD §39), independent of any specific
+/// service's eligibility (that's Provider Offering's concern once it
+/// exists). Nothing transitions this yet either — same gap as
+/// ProviderStatus above.
+enum VerificationStatus {
+  UNVERIFIED
+  PENDING
+  VERIFIED
+  REJECTED
+
+  @@schema("marketplace")
+}
+
+/// Individual-provider profile for an auth.User. Same shape/reasoning as
+/// CustomerProfile (docs/modules/CUSTOMER_IMPLEMENTATION.md §1/§3) — a
+/// user isn't a provider until they explicitly create this profile.
+/// Deliberately has no addresses (unlike CustomerProfile): operational
+/// area/coverage is Serviceability's job, not Provider's.
+model ProviderProfile {
+  id     String @id @default(uuid())
+  userId String @unique @map("user_id")
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  fullName          String  @map("full_name")
+  businessName      String? @map("business_name")
+  bio               String?
+  experienceYears   Int?    @map("experience_years")
+  preferredLanguage String  @default("kn") @map("preferred_language")
+  notificationOptIn Boolean @default(true) @map("notification_opt_in")
+
+  status             ProviderStatus      @default(PENDING)
+  verificationStatus VerificationStatus  @default(UNVERIFIED) @map("verification_status")
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  onboardingApplication  OnboardingApplication?
+  coverageProfile        ProviderCoverageProfile?
+  coverageAreas          ProviderCoverageArea[]
+  offerings              ProviderOffering[]
+  availabilitySchedule   AvailabilitySchedule?
+  workingHours           WorkingHours[]
+  availabilityExceptions AvailabilityException[]
+  commissionRules        CommissionRule[]
+  settlementConfigs      SettlementConfig[]
+  settlements            Settlement[]
+  refundPolicies         RefundPolicy[]
+
+  @@map("provider_profiles")
+  @@schema("marketplace")
+}
+
+// ---------------------------------------------------------------------------
+// marketplace schema — Agent module (docs/ARCHITECTURE.md §5.3, Phase 1a
+// module #5: "Individual/company agents, attribution"). Unlike Provider,
+// company support is in scope for this module from day one — the phasing
+// doc puts Provider Organization in a later phase but bundles agent-company
+// support into this same Phase 1a module.
+// ---------------------------------------------------------------------------
+
+/// Mirrors ProviderStatus's reasoning (docs/modules/PROVIDER_IMPLEMENTATION.md
+/// §3): agents get real operational capability (onboarding other providers),
+/// so PENDING-first until vetted, not ACTIVE-on-creation like Customer.
+enum AgentStatus {
+  PENDING
+  ACTIVE
+  SUSPENDED
+  DELETED
+
+  @@schema("marketplace")
+}
+
+/// A lightweight shared entity an AgentProfile may optionally belong to.
+/// Deliberately thin (no staff/branch modeling — that level of complexity
+/// is exactly why Provider Organization was deferred to a later phase for
+/// providers; Agent companies here are kept to "a name agents can
+/// affiliate with," nothing more, per BRD §15's one-line treatment).
+model AgentCompany {
+  id                 String  @id @default(uuid())
+  name               String
+  registrationNumber String? @map("registration_number")
+  isActive           Boolean @default(true) @map("is_active")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  agents AgentProfile[]
+
+  @@map("agent_companies")
+  @@schema("marketplace")
+}
+
+/// Individual agent profile for an auth.User — same "explicit creation on
+/// top of auth.User" pattern as Customer/Provider. `agentCode` is the
+/// stable handle a future Provider Onboarding module will capture to
+/// attribute a new provider signup to this agent ("attribution" in the
+/// module's BRD description) — this module only issues and owns the code,
+/// it doesn't record attribution events itself (no onboarding flow exists
+/// yet to produce them). `geographyNote`/permissions follow the same
+/// "opaque until the real module exists" pattern as IAM's scopeId
+/// (docs/modules/IAM_IMPLEMENTATION.md §3) and Customer's address fields —
+/// an agent's actual responsibilities/geography/permissions (BRD §15) are
+/// meant to be modeled via IAM Role+Scope assignments, not fields here.
+model AgentProfile {
+  id             String        @id @default(uuid())
+  userId         String        @unique @map("user_id")
+  user           User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  agentCompanyId String?       @map("agent_company_id")
+  agentCompany   AgentCompany? @relation(fields: [agentCompanyId], references: [id], onDelete: SetNull)
+
+  fullName          String      @map("full_name")
+  agentCode         String      @unique @map("agent_code")
+  geographyNote     String?     @map("geography_note")
+  preferredLanguage String      @default("kn") @map("preferred_language")
+  notificationOptIn Boolean     @default(true) @map("notification_opt_in")
+  status            AgentStatus @default(PENDING)
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  referredApplications OnboardingApplication[]
+
+  @@map("agent_profiles")
+  @@schema("marketplace")
+}
+
+// ---------------------------------------------------------------------------
+// marketplace schema — Provider Onboarding module (docs/ARCHITECTURE.md
+// §5.3, Phase 1a module #6: "Self/agent/bulk onboarding, documents,
+// approval workflow"). This is the only module that ever moves
+// ProviderProfile.status/verificationStatus off their PENDING/UNVERIFIED
+// defaults (via ProviderService.markVerified/markRejected) and the first
+// consumer of AgentProfile.agentCode for real attribution.
+// ---------------------------------------------------------------------------
+
+/// SELF vs AGENT_REFERRED is the only distinction actually derivable from
+/// a single submission (whether a referredByAgentCode was supplied).
+/// "Bulk" (BRD §14.2) is an operational pattern — the same submission
+/// endpoint called many times — not a separate data shape; see
+/// docs/modules/PROVIDER_ONBOARDING_IMPLEMENTATION.md §1.
+enum OnboardingChannel {
+  SELF
+  AGENT_REFERRED
+
+  @@schema("marketplace")
+}
+
+/// One coarse status, not BRD §39's full "business review / eligibility
+/// review / provider verification / activation" pipeline — deliberately
+/// simplified until an actual multi-stage ops workflow is needed (see
+/// docs/modules/PROVIDER_ONBOARDING_IMPLEMENTATION.md §3).
+enum OnboardingStatus {
+  SUBMITTED
+  UNDER_REVIEW
+  APPROVED
+  REJECTED
+
+  @@schema("marketplace")
+}
+
+/// Mirrors the document types BRD §39 lists as possible verification
+/// inputs.
+enum OnboardingDocumentType {
+  IDENTITY
+  ADDRESS_PROOF
+  BUSINESS_REGISTRATION
+  SKILL_CERTIFICATE
+  LICENSE
+  REFERENCE
+  OTHER
+
+  @@schema("marketplace")
+}
+
+/// One application per ProviderProfile (rejection allows resubmission by
+/// resetting this same row — see docs/modules/PROVIDER_ONBOARDING_IMPLEMENTATION.md
+/// §4 — rather than accumulating a new row per attempt).
+model OnboardingApplication {
+  id         String          @id @default(uuid())
+  providerId String          @unique @map("provider_id")
+  provider   ProviderProfile @relation(fields: [providerId], references: [id], onDelete: Cascade)
+
+  channel           OnboardingChannel @default(SELF)
+  referredByAgentId String?           @map("referred_by_agent_id")
+  referredByAgent   AgentProfile?     @relation(fields: [referredByAgentId], references: [id], onDelete: SetNull)
+
+  status     OnboardingStatus @default(SUBMITTED)
+  reviewNote String?          @map("review_note")
+  reviewedBy String?          @map("reviewed_by")
+
+  submittedAt DateTime  @default(now()) @map("submitted_at")
+  reviewedAt  DateTime? @map("reviewed_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  documents OnboardingDocument[]
+
+  @@map("onboarding_applications")
+  @@schema("marketplace")
+}
+
+/// A document is a URL reference only — no Media/Document module (S3)
+/// exists yet (that's Phase 1b). fileUrl is trusted as given by the
+/// caller today; see docs/modules/PROVIDER_ONBOARDING_IMPLEMENTATION.md
+/// §1 for what changes once real upload infrastructure exists.
+model OnboardingDocument {
+  id            String                @id @default(uuid())
+  applicationId String                @map("application_id")
+  application   OnboardingApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+
+  type    OnboardingDocumentType
+  fileUrl String                 @map("file_url")
+  label   String?
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([applicationId])
+  @@map("onboarding_documents")
+  @@schema("marketplace")
+}
+
+// ---------------------------------------------------------------------------
+// marketplace schema — Service Catalogue module (docs/ARCHITECTURE.md
+// §5.3, Phase 1a module #7: "Categories, services, variants, attributes").
+// Pure platform master data — deliberately no pricing, no provider linkage.
+// §6.2 draws this boundary explicitly: "Adding a legitimate new service
+// category is a data operation, not a code change" (BRD §12.1); a
+// provider-specific price/coverage/availability/status is Provider
+// Offering's job (module #10, not yet built), never this module's.
+// ---------------------------------------------------------------------------
+
+/// Top-level grouping (BRD §12.1's example categories: home repair,
+/// appliance services, cleaning, beauty/events, vehicle, agri, tools,
+/// local professional services, installation/rental support, ...). No
+/// delete endpoint — isActive is the only deactivation path, same
+/// precedent as AgentCompany (docs/modules/AGENT_IMPLEMENTATION.md §3).
+model ServiceCategory {
+  id          String  @id @default(uuid())
+  name        String  @unique
+  description String?
+  isActive    Boolean @default(true) @map("is_active")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  services          Service[]
+  commissionRules   CommissionRule[]
+  settlementConfigs SettlementConfig[]
+  refundPolicies    RefundPolicy[]
+
+  @@map("service_categories")
+  @@schema("marketplace")
+}
+
+/// A standardized service definition per BRD §12.2 — name/description
+/// (what's included), exclusions, expected duration, customer prep and
+/// provider skill notes. Deliberately excludes anything pricing-shaped
+/// (indicative/fixed price, material handling rules, travel charges) —
+/// BRD §12.2 lists those alongside the definitional fields, but
+/// ARCHITECTURE §6.2 assigns all pricing to Provider Offering, not
+/// Catalogue, so those fields have no home here.
+model Service {
+  id         String          @id @default(uuid())
+  categoryId String          @map("category_id")
+  category   ServiceCategory @relation(fields: [categoryId], references: [id])
+
+  name                     String
+  description              String?
+  exclusionsNote           String?  @map("exclusions_note")
+  expectedDurationMinutes  Int?     @map("expected_duration_minutes")
+  customerPreparationNote  String?  @map("customer_preparation_note")
+  providerSkillNote        String?  @map("provider_skill_note")
+  tags                     String[]
+  isActive                 Boolean  @default(true) @map("is_active")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  variants          ServiceVariant[]
+  offerings         ProviderOffering[]
+  commissionRules   CommissionRule[]
+  settlementConfigs SettlementConfig[]
+  refundPolicies    RefundPolicy[]
+
+  @@index([categoryId])
+  @@map("services")
+  @@schema("marketplace")
+}
+
+/// A named sub-option of a Service (e.g. "1 BHK" vs "3 BHK" for a
+/// cleaning service, "Split AC" vs "Window AC" for AC repair). No price
+/// here either — once Provider Offering exists, a provider's price is
+/// expected to attach at the variant level for granularity, not here.
+model ServiceVariant {
+  id        String  @id @default(uuid())
+  serviceId String  @map("service_id")
+  service   Service @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+
+  name        String
+  description String?
+  isActive    Boolean @default(true) @map("is_active")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  offerings ProviderOffering[]
+
+  @@index([serviceId])
+  @@map("service_variants")
+  @@schema("marketplace")
+}
+
+// ---------------------------------------------------------------------------
+// marketplace schema — Provider Offering & Pricing module
+// (docs/ARCHITECTURE.md §5.3, Phase 1a module #10: "What a provider
+// offers, at what price, price rules/quotes"). This is what finally
+// closes the pricing boundary Catalogue deliberately left open (§6.2) —
+// price lives here, never on Service/ServiceVariant.
+// ---------------------------------------------------------------------------
+
+/// BRD §17.1's pricing model list, consolidated: "quotation after
+/// inspection/visit fee" and "custom quotation" both collapse to
+/// QUOTE_BASED (both mean "no number now, quote comes later"); "labor and
+/// materials" is either a FIXED/STARTING_AT number or QUOTE_BASED
+/// depending on whether the provider gives an upfront estimate, not a
+/// distinct model of its own.
+enum PricingModel {
+  FIXED
+  STARTING_AT
+  QUOTE_BASED
+  HOURLY
+  DAILY
+  PROJECT_BASED
+
+  @@schema("marketplace")
+}
+
+/// Links a provider to a specific Service (and optionally a specific
+/// ServiceVariant) with their own price — never gated by admin approval,
+/// per BRD §17.1's explicit rule that SevaMitra must not impose mandatory
+/// platform-wide pricing. `visitFee`/`travelFeeNote` implement §17.1's
+/// "any agreed additional charges (visit, material, distance)" — as
+/// simple fields, not a computed distance-pricing engine (no Serviceability-style
+/// radius math needed here — see docs/modules/PROVIDER_OFFERING_IMPLEMENTATION.md §1).
+model ProviderOffering {
+  id         String          @id @default(uuid())
+  providerId String          @map("provider_id")
+  provider   ProviderProfile @relation(fields: [providerId], references: [id], onDelete: Cascade)
+
+  serviceId String  @map("service_id")
+  service   Service @relation(fields: [serviceId], references: [id])
+
+  variantId String?         @map("variant_id")
+  variant   ServiceVariant? @relation(fields: [variantId], references: [id])
+
+  pricingModel  PricingModel
+  amount        Decimal?     @db.Decimal(10, 2)
+  visitFee      Decimal?     @db.Decimal(10, 2) @map("visit_fee")
+  travelFeeNote String?      @map("travel_fee_note")
+  currency      String       @default("INR")
+  notes         String?
+  isActive      Boolean      @default(true) @map("is_active")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  bookings Booking[]
+
+  @@index([providerId])
+  @@index([serviceId])
+  @@map("provider_offerings")
+  @@schema("marketplace")
+}
+
+// ---------------------------------------------------------------------------
+// marketplace schema — Geography module (docs/ARCHITECTURE.md §5.3, Phase
+// 1a module #8: "Country/state/district/taluk/town/village/PIN master
+// data"). Static master data only — §6.4 draws a hard line against any
+// dynamic "can provider X serve location Y right now" logic living here;
+// that's entirely Serviceability's job (module #9, not yet built).
+//
+// Deliberately 4 levels (State -> District -> Taluk -> TownVillage), not
+// the 5 ARCHITECTURE §7.2 illustrates (which starts with Country) — BRD
+// §12.3/§13.1 both describe the actual selection flow as exactly
+// state -> district -> taluk -> town/village -> PIN, and §7.2 explicitly
+// flags itself as "illustrative... not exhaustive." The pilot (and every
+// named rollout phase through pan-India, BRD §30.2) never leaves India, so
+// a Country table has no real consumer yet — add it back if genuine
+// multi-country scope ever appears.
+// ---------------------------------------------------------------------------
+
+model State {
+  id       String  @id @default(uuid())
+  name     String  @unique
+  code     String?
+  isActive Boolean @default(true) @map("is_active")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  districts District[]
+
+  @@map("geo_states")
+  @@schema("marketplace")
+}
+
+model District {
+  id      String @id @default(uuid())
+  stateId String @map("state_id")
+  state   State  @relation(fields: [stateId], references: [id])
+
+  name     String
+  isActive Boolean @default(true) @map("is_active")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  taluks Taluk[]
+
+  @@unique([stateId, name])
+  @@index([stateId])
+  @@map("geo_districts")
+  @@schema("marketplace")
+}
+
+model Taluk {
+  id         String   @id @default(uuid())
+  districtId String   @map("district_id")
+  district   District @relation(fields: [districtId], references: [id])
+
+  name     String
+  isActive Boolean @default(true) @map("is_active")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  townVillages TownVillage[]
+
+  @@unique([districtId, name])
+  @@index([districtId])
+  @@map("geo_taluks")
+  @@schema("marketplace")
+}
+
+/// BRD treats "town/village" as one interchangeable selection step, not
+/// two hierarchy levels — modeled as a single entity accordingly. PIN
+/// code is a plain field here, not its own master table: a PIN commonly
+/// covers several villages and BRD §12.3/§13.1 describe it as the last
+/// step after town/village selection, not a parallel hierarchy level.
+/// latitude/longitude are plain columns, not PostGIS geometry, matching
+/// Customer's address fields (docs/modules/CUSTOMER_IMPLEMENTATION.md
+/// §3) — radius/polygon queries are Serviceability's job once it exists.
+model TownVillage {
+  id      String @id @default(uuid())
+  talukId String @map("taluk_id")
+  taluk   Taluk  @relation(fields: [talukId], references: [id])
+
+  name      String
+  pincode   String
+  latitude  Float?
+  longitude Float?
+  isActive  Boolean @default(true) @map("is_active")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  primaryForCoverageProfiles ProviderCoverageProfile[]
+  coverageAreas              ProviderCoverageArea[]
+  bookings                   Booking[]
+  commissionRules            CommissionRule[]
+  settlementConfigs          SettlementConfig[]
+  refundPolicies             RefundPolicy[]
+
+  @@unique([talukId, name])
+  @@index([talukId])
+  @@index([pincode])
+  @@map("geo_town_villages")
+  @@schema("marketplace")
+}
+
+// ---------------------------------------------------------------------------
+// marketplace schema — Serviceability module (docs/ARCHITECTURE.md §5.3,
+// Phase 1a module #9: "PIN/radius/polygon coverage, provider coverage
+// matching"). Answers the dynamic question §6.4 keeps out of Geography:
+// "can provider X serve location Y right now" — evaluated from explicit
+// coverage areas + a radius from a primary point, never provider status
+// or availability (which belong to Provider and the future Availability
+// module respectively).
+// ---------------------------------------------------------------------------
+
+/// A provider's radius-based coverage, per BRD §13.2's "defined travel
+/// radius from primary operating location." 1:1 with ProviderProfile —
+/// a provider has at most one primary point + radius (as opposed to
+/// ProviderCoverageArea, where a provider can have many explicit village
+/// entries).
+model ProviderCoverageProfile {
+  id         String          @id @default(uuid())
+  providerId String          @unique @map("provider_id")
+  provider   ProviderProfile @relation(fields: [providerId], references: [id], onDelete: Cascade)
+
+  primaryTownVillageId String?      @map("primary_town_village_id")
+  primaryTownVillage   TownVillage? @relation(fields: [primaryTownVillageId], references: [id], onDelete: SetNull)
+  primaryLatitude      Float?       @map("primary_latitude")
+  primaryLongitude     Float?       @map("primary_longitude")
+  radiusKm             Float?       @map("radius_km")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("provider_coverage_profiles")
+  @@schema("marketplace")
+}
+
+/// BRD §13.2's "selected villages/towns or PIN codes" + §13.3's "governed
+/// by providers AND SevaMitra operations" — a provider proposes coverage
+/// of a specific TownVillage, ops approves/rejects. Only APPROVED rows
+/// count toward serviceability (CoverageCheckService.isServiceable).
+enum CoverageStatus {
+  PENDING
+  APPROVED
+  REJECTED
+
+  @@schema("marketplace")
+}
+
+model ProviderCoverageArea {
+  id         String          @id @default(uuid())
+  providerId String          @map("provider_id")
+  provider   ProviderProfile @relation(fields: [providerId], references: [id], onDelete: Cascade)
+
+  townVillageId String      @map("town_village_id")
+  townVillage   TownVillage @relation(fields: [townVillageId], references: [id])
+
+  status     CoverageStatus @default(PENDING)
+  reviewedBy String?        @map("reviewed_by")
+  reviewedAt DateTime?      @map("reviewed_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@unique([providerId, townVillageId])
+  @@index([providerId])
+  @@index([townVillageId])
+  @@map("provider_coverage_areas")
+  @@schema("marketplace")
+}
+
+// ---------------------------------------------------------------------------
+// marketplace schema — Availability module (docs/ARCHITECTURE.md §5.3,
+// Phase 1a module #11: "Working hours, leave, exceptions, bookable
+// slots"). Self-service only, no admin approval — BRD §41 describes
+// availability purely as something a provider defines, with no
+// SevaMitra-operations gate the way Serviceability's coverage areas have
+// (BRD §13.3). Answers "when is this provider open," never "is this
+// provider covering this location" (Serviceability) or "is this slot
+// already booked" (a future Booking module, which doesn't exist yet to
+// subtract from what this module computes).
+// ---------------------------------------------------------------------------
+
+enum DayOfWeek {
+  MONDAY
+  TUESDAY
+  WEDNESDAY
+  THURSDAY
+  FRIDAY
+  SATURDAY
+  SUNDAY
+
+  @@schema("marketplace")
+}
+
+/// Capacity limits — BRD §41's "max daily bookings, max concurrent
+/// bookings." 1:1 with ProviderProfile, same shape as
+/// ProviderCoverageProfile. Not enforced against anything yet (no
+/// Booking module exists to count against) — stored for Booking to read
+/// once it does.
+model AvailabilitySchedule {
+  id         String          @id @default(uuid())
+  providerId String          @unique @map("provider_id")
+  provider   ProviderProfile @relation(fields: [providerId], references: [id], onDelete: Cascade)
+
+  maxDailyBookings      Int? @map("max_daily_bookings")
+  maxConcurrentBookings Int? @map("max_concurrent_bookings")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("availability_schedules")
+  @@schema("marketplace")
+}
+
+/// A recurring weekly open window (e.g. Monday 09:00-13:00). A provider
+/// may have several rows for the same day to model a split shift.
+/// startTime/endTime are plain "HH:mm" strings, not a Postgres TIME
+/// column or a DateTime — this is wall-clock time-of-day with no date or
+/// timezone component, and modeling it as DateTime would invite
+/// timezone-handling bugs for no benefit over a validated string.
+model WorkingHours {
+  id         String          @id @default(uuid())
+  providerId String          @map("provider_id")
+  provider   ProviderProfile @relation(fields: [providerId], references: [id], onDelete: Cascade)
+
+  dayOfWeek DayOfWeek
+  startTime String    @map("start_time")
+  endTime   String    @map("end_time")
+  isActive  Boolean   @default(true) @map("is_active")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([providerId])
+  @@index([providerId, dayOfWeek])
+  @@map("working_hours")
+  @@schema("marketplace")
+}
+
+/// A date-range override of the recurring weekly schedule — BRD §41's
+/// "emergency/unplanned unavailability, temporary service pause,
+/// seasonal availability, provider leave, service-specific
+/// availability" all collapse to one of two shapes: fully unavailable
+/// for the range, or open with different hours than usual.
+enum ExceptionType {
+  UNAVAILABLE
+  CUSTOM_HOURS
+
+  @@schema("marketplace")
+}
+
+model AvailabilityException {
+  id         String          @id @default(uuid())
+  providerId String          @map("provider_id")
+  provider   ProviderProfile @relation(fields: [providerId], references: [id], onDelete: Cascade)
+
+  startDate        DateTime      @db.Date @map("start_date")
+  endDate          DateTime      @db.Date @map("end_date")
+  type             ExceptionType
+  customStartTime  String?       @map("custom_start_time")
+  customEndTime    String?       @map("custom_end_time")
+  reason           String?
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([providerId])
+  @@index([providerId, startDate, endDate])
+  @@map("availability_exceptions")
+  @@schema("marketplace")
+}
+
+// ---------------------------------------------------------------------------
+// marketplace schema — Booking module (docs/ARCHITECTURE.md §5.3, Phase 1a
+// module #12: "Service request, booking, assignment, lifecycle,
+// cancellation"). The system's spine (§6.5) — Customer, Serviceability,
+// Provider Offering, and Availability all converge here. Deliberately
+// does NOT include Payment, Commission, Settlement, or Review — those are
+// separate modules (Payment is #13/Phase 1a; Commission/Settlement/Review
+// are Phase 1b) that will reference a Booking, never the reverse.
+// ---------------------------------------------------------------------------
+
+/// A deliberately linear lifecycle. BRD §37's customer/provider
+/// cancellation and customer/provider no-show scenarios don't each get
+/// their own status — CANCELLED/NO_SHOW plus a BookingParty field records
+/// "which side," the same consolidation already used for
+/// AvailabilityException/PricingModel elsewhere in this schema.
+enum BookingStatus {
+  REQUESTED
+  ACCEPTED
+  REJECTED
+  CANCELLED
+  NO_SHOW
+  COMPLETED
+
+  @@schema("marketplace")
+}
+
+enum BookingParty {
+  CUSTOMER
+  PROVIDER
+
+  @@schema("marketplace")
+}
+
+/// Matching is "customer choice" (BRD §16.3's simplest listed method) —
+/// the customer browses Provider Offering's public listings (already
+/// serviceability/availability-checked at browse time is NOT enforced
+/// there; it's enforced here, at booking creation) and picks a specific
+/// offering directly. Round-robin/broadcast/auto-assignment (BRD §16.3's
+/// other listed methods) are explicitly deferred to a future
+/// Discovery/Matching module per docs/ARCHITECTURE.md §5.3's own note
+/// that this is "a refactor within existing boundaries, not new scope."
+///
+/// pricingModel/amount/visitFee/currency are copied from the
+/// ProviderOffering at creation time, not a live reference — BRD's
+/// pricing chain (§6.3) treats "Provider Pricing" and "Booking Price" as
+/// distinct concepts specifically so a provider changing their price
+/// later never retroactively changes an already-made booking.
+model Booking {
+  id String @id @default(uuid())
+
+  customerId String          @map("customer_id")
+  customer   CustomerProfile @relation(fields: [customerId], references: [id])
+
+  offeringId String           @map("offering_id")
+  offering   ProviderOffering @relation(fields: [offeringId], references: [id])
+
+  townVillageId String      @map("town_village_id")
+  townVillage   TownVillage @relation(fields: [townVillageId], references: [id])
+
+  scheduledDate      DateTime @db.Date @map("scheduled_date")
+  scheduledStartTime String   @map("scheduled_start_time")
+  scheduledEndTime   String   @map("scheduled_end_time")
+
+  pricingModel PricingModel
+  amount       Decimal?     @db.Decimal(10, 2)
+  visitFee     Decimal?     @db.Decimal(10, 2) @map("visit_fee")
+  currency     String
+
+  status BookingStatus @default(REQUESTED)
+
+  cancelledBy        BookingParty? @map("cancelled_by")
+  cancelledAt        DateTime?     @map("cancelled_at")
+  cancellationReason String?       @map("cancellation_reason")
+
+  rejectionReason String? @map("rejection_reason")
+
+  noShowBy BookingParty? @map("no_show_by")
+
+  providerConfirmedCompletionAt DateTime? @map("provider_confirmed_completion_at")
+  customerConfirmedCompletionAt DateTime? @map("customer_confirmed_completion_at")
+
+  notes String?
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  payments             Payment[]
+  commissionCalculation CommissionCalculation?
+  refund                Refund?
+
+  @@index([customerId])
+  @@index([offeringId])
+  @@index([townVillageId])
+  @@map("bookings")
+  @@schema("marketplace")
+}
+
+// ---------------------------------------------------------------------------
+// finance schema — Payment module (docs/ARCHITECTURE.md §5.3, Phase 1a
+// module #13: "Payment intent, Razorpay integration, transaction status").
+// Deliberately does NOT include Commission, Settlement, or Refund — those
+// are separate Phase 1b modules (docs/ARCHITECTURE.md §22) that will
+// reference a Payment, never the reverse. This is the first module to use
+// the `finance` Postgres schema.
+// ---------------------------------------------------------------------------
+
+/// How money actually moves. Deliberately just these two — BRD §36 also
+/// lists "pay-after-service" and "advance payment" as customer payment
+/// modes, but those describe *when* a customer pays relative to the
+/// service, not a distinct settlement mechanism: "pay after service" is
+/// just an ONLINE or CASH Payment row created later (after Booking
+/// reaches COMPLETED instead of at REQUESTED/ACCEPTED), and "advance" is
+/// just a Payment whose amount is less than the booking's outstanding
+/// balance, followed by a second Payment row for the remainder — both
+/// fall out of a booking allowing multiple Payment rows (see below)
+/// without needing their own enum values. "Quote-based payment" isn't a
+/// payment mechanism at all — it's Booking.pricingModel=QUOTE_BASED
+/// determining the amount before any Payment row exists.
+enum PaymentMethod {
+  ONLINE
+  CASH
+
+  @@schema("finance")
+}
+
+/// No REFUNDED here — refunds reference a completed Payment but are a
+/// separate Phase 1b Refund module's concern (docs/ARCHITECTURE.md §22),
+/// not a state this module transitions a Payment into itself.
+enum PaymentStatus {
+  INITIATED
+  SUCCEEDED
+  FAILED
+
+  @@schema("finance")
+}
+
+/// A booking may have several Payment rows (advance + final, or a
+/// retried attempt after a FAILED one) — deliberately not a 1:1 with
+/// Booking. `amount`/`currency` are per-payment, not copied from the
+/// booking's total, since an advance or partial payment is only part of
+/// what's owed.
+model Payment {
+  id String @id @default(uuid())
+
+  bookingId String  @map("booking_id")
+  booking   Booking @relation(fields: [bookingId], references: [id])
+
+  method   PaymentMethod
+  amount   Decimal       @db.Decimal(10, 2)
+  currency String
+
+  status PaymentStatus @default(INITIATED)
+
+  /// Set for ONLINE payments only — the Razorpay (or stand-in gateway)
+  /// order/payment identifiers and, on failure, why. All null for CASH.
+  gatewayOrderId   String? @map("gateway_order_id")
+  gatewayPaymentId String? @map("gateway_payment_id")
+  failureReason    String? @map("failure_reason")
+
+  settledAt DateTime? @map("settled_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([bookingId])
+  @@map("payments")
+  @@schema("finance")
+}
+
+/// BRD §18.2 lists seven configuration levels (platform default, category,
+/// service, provider-group, provider/company-negotiated, geography,
+/// promotional). Provider-group and promotional are dropped here — there is
+/// no ProviderGroup model (Provider Organization is Phase 1b) and no
+/// Promotion model (Phase 2) to scope a rule to yet; both are known gaps,
+/// not oversights. GEOGRAPHY is scoped to a single TownVillage, not a
+/// state/district/taluk hierarchy, matching how Serviceability and Booking
+/// already treat location (a bare TownVillage reference, never a multi-level
+/// geography walk) rather than inventing a different geography model here.
+enum CommissionScopeType {
+  PLATFORM
+  CATEGORY
+  SERVICE
+  PROVIDER
+  GEOGRAPHY
+
+  @@schema("finance")
+}
+
+/// BRD §18.2 also allows a "tiered structure" — dropped for the same reason
+/// as the two scope types above: no tier-threshold model exists, and
+/// nothing in the codebase yet needs one. PERCENTAGE and FIXED_AMOUNT cover
+/// every commission rule actually configurable today.
+enum CommissionType {
+  PERCENTAGE
+  FIXED_AMOUNT
+
+  @@schema("finance")
+}
+
+/// A rule is scoped by exactly one of category/service/provider/townVillage
+/// (or none, for PLATFORM) matching its scopeType — enforced in
+/// CommissionRuleService, not at the schema level (Prisma has no
+/// conditional-required-field constraint). At most one ACTIVE rule may
+/// exist per exact scope at a time — also application-enforced, the same
+/// "check then create" pattern used for Provider Offering's duplicate-
+/// offering check, since Prisma's declarative schema has no partial/filtered
+/// unique index support.
+model CommissionRule {
+  id String @id @default(uuid())
+
+  scopeType CommissionScopeType @map("scope_type")
+
+  categoryId String?          @map("category_id")
+  category   ServiceCategory? @relation(fields: [categoryId], references: [id])
+
+  serviceId String?  @map("service_id")
+  service   Service? @relation(fields: [serviceId], references: [id])
+
+  providerId String?          @map("provider_id")
+  provider   ProviderProfile? @relation(fields: [providerId], references: [id])
+
+  townVillageId String?      @map("town_village_id")
+  townVillage   TownVillage? @relation(fields: [townVillageId], references: [id])
+
+  commissionType CommissionType @map("commission_type")
+  percentage     Decimal?       @db.Decimal(5, 2)
+  fixedAmount    Decimal?       @db.Decimal(10, 2) @map("fixed_amount")
+
+  isActive Boolean @default(true) @map("is_active")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  calculations CommissionCalculation[]
+
+  @@index([scopeType])
+  @@index([categoryId])
+  @@index([serviceId])
+  @@index([providerId])
+  @@index([townVillageId])
+  @@map("commission_rules")
+  @@schema("finance")
+}
+
+/// One calculation per booking, ever — `bookingId` is unique, and
+/// CommissionCalculationService never updates or recalculates an existing
+/// row (see docs/modules/COMMISSION_IMPLEMENTATION.md §4.1 for why: the
+/// applied rule and gross amount are a snapshot of "what actually happened,"
+/// the same reasoning Booking already applies to its own price snapshot).
+/// `appliedRuleId` is never null — resolution always falls back to a
+/// PLATFORM-scoped default rule, and calculation fails outright if no such
+/// default has been configured, rather than silently defaulting to zero.
+model CommissionCalculation {
+  id String @id @default(uuid())
+
+  bookingId String  @unique @map("booking_id")
+  booking   Booking @relation(fields: [bookingId], references: [id])
+
+  appliedRuleId String         @map("applied_rule_id")
+  appliedRule   CommissionRule @relation(fields: [appliedRuleId], references: [id])
+
+  grossAmount           Decimal @db.Decimal(10, 2) @map("gross_amount")
+  commissionAmount      Decimal @db.Decimal(10, 2) @map("commission_amount")
+  providerEarningAmount Decimal @db.Decimal(10, 2) @map("provider_earning_amount")
+  currency              String
+
+  calculatedAt DateTime @default(now()) @map("calculated_at")
+
+  settlementId String?     @map("settlement_id")
+  settlement   Settlement? @relation(fields: [settlementId], references: [id])
+
+  @@index([appliedRuleId])
+  @@index([settlementId])
+  @@map("commission_calculations")
+  @@schema("finance")
+}
+
+/// Settlement module (docs/ARCHITECTURE.md §5.3, Phase 1b: "providers must
+/// actually get paid out" — the last link in the pricing chain, §6.3:
+/// Provider Earning -> Settlement). Reuses CommissionScopeType rather than
+/// a parallel enum — "at what level is a business rule scoped" is the same
+/// concept BRD §36 asks for settlement cycles too ("can vary by provider,
+/// provider company, service, category, or geography"), so one enum
+/// serves both. Provider-group scoping is dropped for the identical reason
+/// Commission dropped it: no ProviderGroup model exists yet.
+///
+/// `cycleDays` is stored now even though nothing reads it automatically —
+/// there is no Scheduler module yet to run settlement on a cadence, so
+/// every settlement run is admin-triggered per provider
+/// (docs/modules/SETTLEMENT_IMPLEMENTATION.md §1). Storing it means a
+/// future Scheduler reads an existing value rather than requiring a
+/// migration, the same "config before enforcement" reasoning already used
+/// for AvailabilitySchedule's capacity limits.
+model SettlementConfig {
+  id String @id @default(uuid())
+
+  scopeType CommissionScopeType @map("scope_type")
+
+  categoryId String?          @map("category_id")
+  category   ServiceCategory? @relation(fields: [categoryId], references: [id])
+
+  serviceId String?  @map("service_id")
+  service   Service? @relation(fields: [serviceId], references: [id])
+
+  providerId String?          @map("provider_id")
+  provider   ProviderProfile? @relation(fields: [providerId], references: [id])
+
+  townVillageId String?      @map("town_village_id")
+  townVillage   TownVillage? @relation(fields: [townVillageId], references: [id])
+
+  cycleDays Int @map("cycle_days")
+
+  isActive Boolean @default(true) @map("is_active")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([scopeType])
+  @@map("settlement_configs")
+  @@schema("finance")
+}
+
+enum SettlementStatus {
+  PENDING
+  PAID
+  FAILED
+
+  @@schema("finance")
+}
+
+/// One settlement = one payout run for one provider, covering every
+/// CommissionCalculation not yet attached to an earlier settlement at the
+/// time it ran. `totalAmount` is the sum of those calculations'
+/// providerEarningAmount — refunds/adjustments/cashback (BRD §36) are not
+/// netted in, since none of their source modules exist yet (Refund is
+/// Phase 1b, not yet built; cashback is Phase 2). A FAILED settlement
+/// leaves its calculations' settlementId null so the next run picks them
+/// up again — see docs/modules/SETTLEMENT_IMPLEMENTATION.md §4.1.
+model Settlement {
+  id String @id @default(uuid())
+
+  providerId String          @map("provider_id")
+  provider   ProviderProfile @relation(fields: [providerId], references: [id])
+
+  totalAmount Decimal @db.Decimal(10, 2) @map("total_amount")
+  currency    String
+
+  status SettlementStatus @default(PENDING)
+
+  payoutReference String? @map("payout_reference")
+  failureReason   String? @map("failure_reason")
+
+  paidAt DateTime? @map("paid_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  commissionCalculations CommissionCalculation[]
+
+  @@index([providerId])
+  @@map("settlements")
+  @@schema("finance")
+}
+
+/// Refund module (docs/ARCHITECTURE.md §5.3, Phase 1b: "cancellations/
+/// no-shows require refund handling"). BRD §37 defines outcomes by *why*
+/// a booking ended without completion — deliberately five reasons, one per
+/// distinct BookingStatus/BookingParty combination a Booking can actually
+/// reach (see RefundService.resolveReason,
+/// docs/modules/REFUND_IMPLEMENTATION.md §1): the customer or provider
+/// cancelled, either party no-showed, or the provider rejected the
+/// booking outright. A COMPLETED booking is never a refund trigger —
+/// Commission only calculates for COMPLETED bookings, so a booking is
+/// structurally either commissioned or (potentially) refunded, never both.
+enum RefundReason {
+  CUSTOMER_CANCELLED
+  PROVIDER_CANCELLED
+  CUSTOMER_NO_SHOW
+  PROVIDER_NO_SHOW
+  BOOKING_REJECTED
+
+  @@schema("finance")
+}
+
+enum RefundStatus {
+  PENDING
+  REFUNDED
+  FAILED
+
+  @@schema("finance")
+}
+
+/// Reuses CommissionScopeType for the same reason SettlementConfig does —
+/// "at what level is this business rule scoped" is identical across
+/// Commission/Settlement/Refund. Unlike CommissionRule (one active rule
+/// per scope) and SettlementConfig (one active config per scope), a
+/// RefundPolicy's uniqueness is per (scope, reason) — BRD §37 requires a
+/// different refund percentage for a customer cancellation than for a
+/// provider no-show at the very same scope, so scope alone isn't a
+/// specific enough key here. `refundPercentage` alone captures BRD §37's
+/// "full refund, partial refund, or no refund" (100 / partial / 0) — no
+/// separate outcome enum needed.
+model RefundPolicy {
+  id String @id @default(uuid())
+
+  scopeType CommissionScopeType @map("scope_type")
+
+  categoryId String?          @map("category_id")
+  category   ServiceCategory? @relation(fields: [categoryId], references: [id])
+
+  serviceId String?  @map("service_id")
+  service   Service? @relation(fields: [serviceId], references: [id])
+
+  providerId String?          @map("provider_id")
+  provider   ProviderProfile? @relation(fields: [providerId], references: [id])
+
+  townVillageId String?      @map("town_village_id")
+  townVillage   TownVillage? @relation(fields: [townVillageId], references: [id])
+
+  reason RefundReason
+
+  refundPercentage Decimal @db.Decimal(5, 2) @map("refund_percentage")
+
+  isActive Boolean @default(true) @map("is_active")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  refunds Refund[]
+
+  @@index([scopeType])
+  @@index([reason])
+  @@map("refund_policies")
+  @@schema("finance")
+}
+
+/// One refund row per booking, ever — `bookingId` is unique. Unlike
+/// CommissionCalculation (write-once) or Settlement (append-only batches),
+/// a FAILED refund is retried IN PLACE by RefundService.process (the row
+/// is reused, not duplicated) since a booking only ever has one refund to
+/// give, not a repeatable batch — see
+/// docs/modules/REFUND_IMPLEMENTATION.md §4.2.
+model Refund {
+  id String @id @default(uuid())
+
+  bookingId String  @unique @map("booking_id")
+  booking   Booking @relation(fields: [bookingId], references: [id])
+
+  reason RefundReason
+
+  appliedPolicyId String       @map("applied_policy_id")
+  appliedPolicy   RefundPolicy @relation(fields: [appliedPolicyId], references: [id])
+
+  grossPaidAmount Decimal @db.Decimal(10, 2) @map("gross_paid_amount")
+  refundAmount    Decimal @db.Decimal(10, 2) @map("refund_amount")
+  currency        String
+
+  status RefundStatus @default(PENDING)
+
+  refundReference String? @map("refund_reference")
+  failureReason   String? @map("failure_reason")
+
+  refundedAt DateTime? @map("refunded_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([appliedPolicyId])
+  @@map("refunds")
+  @@schema("finance")
+}
+
+// ---------------------------------------------------------------------------
+// ops schema — Audit + Notification modules (docs/ARCHITECTURE.md §5.3,
+// Phase 1a module #14, the last of the roadmap: "Who-changed-what audit
+// trail; SMS/WhatsApp/push delivery"). First use of the `ops` Postgres
+// schema. Deliberately does NOT include Support, Reporting, Configuration,
+// Theme/Localization, or Media/Document — all separate Phase 1b modules
+// (docs/ARCHITECTURE.md §22) that also live in `ops` but aren't built yet.
+// ---------------------------------------------------------------------------
+
+/// Append-only: every row is written once by AuditInterceptor and never
+/// updated. Deliberately generic (http method + route pattern) rather than
+/// a curated per-action enum — see docs/modules/AUDIT_IMPLEMENTATION.md §1
+/// for why a global interceptor was chosen over per-endpoint annotation.
+model AuditLog {
+  id String @id @default(uuid())
+
+  actorUserId String @map("actor_user_id")
+  actor       User   @relation(fields: [actorUserId], references: [id])
+
+  httpMethod String  @map("http_method")
+  routePath  String  @map("route_path")
+  entityId   String? @map("entity_id")
+  statusCode Int     @map("status_code")
+  ipAddress  String? @map("ip_address")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([actorUserId])
+  @@index([routePath])
+  @@map("audit_log")
+  @@schema("ops")
+}
+
+/// IN_APP has no external gateway — the row's existence in this table *is*
+/// the delivery (read via the self-service inbox). The other four map
+/// directly onto NotificationProvider's four methods
+/// (docs/ARCHITECTURE.md §12.2).
+enum NotificationChannel {
+  SMS
+  WHATSAPP
+  PUSH
+  EMAIL
+  IN_APP
+
+  @@schema("ops")
+}
+
+/// No PENDING — delivery via the stub/real gateway is synchronous from this
+/// module's point of view (§1), so a row is only ever created already
+/// resolved to one of these two.
+enum NotificationStatus {
+  SENT
+  FAILED
+
+  @@schema("ops")
+}
+
+model Notification {
+  id String @id @default(uuid())
+
+  userId String @map("user_id")
+  user   User   @relation(fields: [userId], references: [id])
+
+  channel NotificationChannel
+  title   String
+  body    String
+
+  status        NotificationStatus
+  failureReason String?            @map("failure_reason")
+
+  readAt DateTime? @map("read_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([userId])
+  @@map("notifications")
+  @@schema("ops")
+}

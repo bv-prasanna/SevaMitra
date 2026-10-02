@@ -1,0 +1,30 @@
+# Node
+node_modules/
+npm-debug.log*
+
+# Build output
+dist/
+coverage/
+
+# Environment — ignore everything env-shaped except the committed example
+.env*
+!.env.example
+
+# Prisma generated client (regenerated via `npx prisma generate`)
+generated/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Local-only docker-compose.prod.yml override for exercising the prod image
+# on a dev machine (contains dummy local secrets) — see chat history, not
+# part of the real deploy path.
+.local-deploy/

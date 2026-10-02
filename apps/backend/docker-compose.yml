@@ -1,0 +1,24 @@
+# Local development only (docs/ARCHITECTURE.md §14.3). Staging is a single
+# EC2 instance with Postgres self-hosted alongside the app — see
+# docker-compose.prod.yml. No Redis anywhere yet (§4 decision #11 — nothing
+# in the codebase uses it); add it back here too when that changes.
+services:
+  db:
+    image: postgis/postgis:16-3.4
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: sevamitra
+      POSTGRES_PASSWORD: sevamitra
+      POSTGRES_DB: sevamitra
+    ports:
+      - '5434:5432'
+    volumes:
+      - sevamitra_pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U sevamitra']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  sevamitra_pg_data:

@@ -1,0 +1,42 @@
+# Runs on the single staging/pilot EC2 instance. Cost-minimized deliberately:
+# Postgres is self-hosted here (not RDS), and there is no Redis at all —
+# nothing in the codebase uses it yet (no BullMQ jobs, no WebSocket gateway).
+# See docs/ARCHITECTURE.md §4/§14 for the tradeoffs and when to revisit this
+# (real user/financial data → managed RDS; a queue/real-time module gets
+# built → add Redis then, not before).
+services:
+  db:
+    image: postgis/postgis:16-3.4
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: sevamitra
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: sevamitra
+    volumes:
+      - sevamitra_pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U sevamitra']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    # Not exposed on a host port — only reachable from the api service over
+    # the compose network. Back this up (docs/ARCHITECTURE.md §19 assumes
+    # RDS automated snapshots; self-hosted means a cron pg_dump is our job).
+
+  api:
+    image: ${ECR_IMAGE}
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    env_file: .env
+    ports:
+      - '80:3000'
+    healthcheck:
+      test: ['CMD', 'node', '-e', "require('http').get('http://localhost:3000/api/health', r => process.exit(r.statusCode === 200 ? 0 : 1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  sevamitra_pg_data:
