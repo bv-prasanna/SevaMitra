@@ -1,4 +1,7 @@
-import { Body, Controller, Get, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Post, UseGuards, GoneException, UploadedFile, UseInterceptors, ParseEnumPipe } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { OnboardingDocumentType } from '@prisma/client';
+import { PrivateDocumentStorage, type UploadedDocument } from './private-document.storage';
 import {
   ApiBearerAuth,
   ApiConflictResponse,
@@ -22,7 +25,7 @@ import { ErrorResponseDto } from '../common/dto/error-response.dto';
 @UseGuards(JwtAuthGuard)
 @Controller({ path: 'provider-onboarding/applications/me', version: '1' })
 export class ApplicationController {
-  constructor(private readonly applicationService: ApplicationService) {}
+  constructor(private readonly applicationService: ApplicationService, private readonly storage:PrivateDocumentStorage) {}
 
   @Post()
   @ApiOperation({
@@ -66,7 +69,20 @@ export class ApplicationController {
     @CurrentUser() user: AuthenticatedUser,
     @Body() dto: CreateDocumentDto,
   ) {
-    return this.applicationService.addOwnDocument(user.id, dto);
+    throw new GoneException('External document URLs are no longer accepted. Use /documents/upload instead.');
+  }
+
+  @Post('documents/upload')
+  @UseInterceptors(FileInterceptor('file',{limits:{fileSize:5*1024*1024,files:1}}))
+  @ApiOperation({summary:'Upload a private PDF/JPEG/PNG (max 5MB) to the authenticated provider application'})
+  async uploadDocument(
+    @CurrentUser() user:AuthenticatedUser,
+    @Body('type',new ParseEnumPipe(OnboardingDocumentType)) type:OnboardingDocumentType,
+    @UploadedFile() file:UploadedDocument,
+  ){
+    const application=await this.applicationService.findOwn(user.id);
+    const fileUrl=await this.storage.upload(application.id,file);
+    return this.applicationService.addOwnDocument(user.id,{type,fileUrl});
   }
 
   @Get('documents')

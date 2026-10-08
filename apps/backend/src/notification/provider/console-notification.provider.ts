@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, ServiceUnavailableException } from '@nestjs/common';
 import { NotificationProvider } from './notification-provider.interface';
 
 /**
@@ -12,6 +12,9 @@ export class ConsoleNotificationProvider implements NotificationProvider {
   private readonly logger = new Logger(ConsoleNotificationProvider.name);
 
   sendSms(to: string, message: string): Promise<void> {
+    if (['staging','production'].includes(process.env.NODE_ENV??'')) {
+      throw new ServiceUnavailableException('Console notification delivery disabled in staging/production');
+    }
     this.logger.warn(
       `[STUB] SMS to ${to}: ${message} — no real notification provider configured`,
     );
@@ -19,6 +22,9 @@ export class ConsoleNotificationProvider implements NotificationProvider {
   }
 
   sendWhatsApp(to: string, message: string): Promise<void> {
+    if (['staging','production'].includes(process.env.NODE_ENV??'')) {
+      throw new ServiceUnavailableException('Console notification delivery disabled in staging/production');
+    }
     this.logger.warn(
       `[STUB] WhatsApp to ${to}: ${message} — no real notification provider configured`,
     );
@@ -26,6 +32,9 @@ export class ConsoleNotificationProvider implements NotificationProvider {
   }
 
   sendPush(userId: string, title: string, body: string): Promise<void> {
+    if (['staging','production'].includes(process.env.NODE_ENV??'')) {
+      throw new ServiceUnavailableException('Console notification delivery disabled in staging/production');
+    }
     this.logger.warn(
       `[STUB] Push to user ${userId}: "${title}" — ${body} — no real notification provider configured`,
     );
@@ -33,6 +42,9 @@ export class ConsoleNotificationProvider implements NotificationProvider {
   }
 
   sendEmail(to: string, subject: string, body: string): Promise<void> {
+    if (['staging','production'].includes(process.env.NODE_ENV??'')) {
+      throw new ServiceUnavailableException('Console notification delivery disabled in staging/production');
+    }
     this.logger.warn(
       `[STUB] Email to ${to}: "${subject}" — ${body} — no real notification provider configured`,
     );

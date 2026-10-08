@@ -20,6 +20,8 @@ describe('CommissionCalculationService', () => {
       findMany: jest.Mock;
     };
     commissionRule: { findFirst: jest.Mock };
+    providerMembership: { findUnique: jest.Mock };
+    townVillage: { findUnique: jest.Mock };
   };
   let bookingService: { findByIdOrThrow: jest.Mock };
   let paymentService: { sumSucceededAmount: jest.Mock };
@@ -50,6 +52,8 @@ describe('CommissionCalculationService', () => {
         findMany: jest.fn(),
       },
       commissionRule: { findFirst: jest.fn().mockResolvedValue(null) },
+      providerMembership: { findUnique: jest.fn().mockResolvedValue(null) },
+      townVillage: { findUnique: jest.fn().mockResolvedValue(null) },
     };
     bookingService = {
       findByIdOrThrow: jest.fn().mockResolvedValue(completedBooking),
@@ -184,6 +188,80 @@ describe('CommissionCalculationService', () => {
           providerEarningAmount: 0,
         }),
       });
+    });
+  });
+
+  describe('versioned commission selection', () => {
+    it('filters rules by booking date, not the current date', async () => {
+      const bookingCreatedAt = new Date('2026-09-10T10:00:00.000Z');
+      bookingService.findByIdOrThrow.mockResolvedValue({...completedBooking, createdAt: bookingCreatedAt});
+      prisma.commissionRule.findFirst.mockImplementation(
+        ({where}: {where:{scopeType:string}}) => where.scopeType===CommissionScopeType.PLATFORM
+        ? Promise.resolve({id:'historic',scopeType:CommissionScopeType.PLATFORM,commissionType:CommissionType.PERCENTAGE,percentage:10,fixedAmount:null,version:2,effectiveFrom:new Date('2026-09-01')})
+        : Promise.resolve(null),
+      );
+      await service.calculate('booking-1');
+      expect(prisma.commissionRule.findFirst).toHaveBeenCalledWith(expect.objectContaining({
+        where:expect.objectContaining({
+          effectiveFrom:{lte:bookingCreatedAt},
+          OR:[{effectiveTo:null},{effectiveTo:{gt:bookingCreatedAt}}],
+        }),
+      }));
+      expect(prisma.commissionCalculation.create).toHaveBeenCalledWith({
+        data:expect.objectContaining({
+          appliedRuleSnapshot:expect.objectContaining({
+            ruleId:'historic',version:2,bookingAsOf:bookingCreatedAt.toISOString(),
+          }),
+        }),
+      });
+    });
+
+    it('uses an active provider group rule ahead of the general service rule', async () => {
+      prisma.providerMembership.findUnique.mockResolvedValue({
+        status:'ACTIVE',companyId:'company-1',groupId:'group-1',company:{status:'ACTIVE'},
+      });
+      prisma.commissionRule.findFirst.mockImplementation(
+        ({where}:{where:{scopeType:string}}) =>
+          Promise.resolve(where.scopeType===CommissionScopeType.PROVIDER_GROUP
+          ? {id:'group-rate',commissionType:CommissionType.PERCENTAGE,percentage:5,fixedAmount:null,scopeType:CommissionScopeType.PROVIDER_GROUP}
+          : null),
+      );
+      await service.calculate('booking-1');
+      expect(prisma.commissionCalculation.create).toHaveBeenCalledWith({
+        data:expect.objectContaining({appliedRuleId:'group-rate',commissionAmount:29.95}),
+      });
+    });
+
+    it('ignores company/group scopes when membership is not active', async () => {
+      prisma.providerMembership.findUnique.mockResolvedValue({status:'PENDING',companyId:'company-1',groupId:'group-1',company:{status:'ACTIVE'}});
+      await expect(service.calculate('booking-1')).rejects.toThrow(ConflictException);
+      expect(prisma.commissionRule.findFirst.mock.calls.map(x=>x[0].where.scopeType))
+        .not.toContain(CommissionScopeType.PROVIDER_GROUP);
+    });
+
+    it('supports state scope using town, taluk and district hierarchy', async () => {
+      prisma.townVillage.findUnique.mockResolvedValue({taluk:{district:{stateId:'state-1'}}});
+      prisma.commissionRule.findFirst.mockImplementation(
+        ({where}:{where:{scopeType:string}}) =>
+          Promise.resolve(where.scopeType===CommissionScopeType.STATE?{
+            id:'state-rule',scopeType:CommissionScopeType.STATE,commissionType:CommissionType.FIXED_AMOUNT,fixedAmount:10,percentage:null,
+          }:null));
+      await service.calculate('booking-1');
+      expect(prisma.commissionRule.findFirst).toHaveBeenCalledWith(expect.objectContaining({
+        where:expect.objectContaining({scopeType:CommissionScopeType.STATE,stateId:'state-1'}),
+      }));
+    });
+
+    it('preserves paise precision for fractional commission rates', async () => {
+      paymentService.sumSucceededAmount.mockResolvedValue(199.99);
+      prisma.commissionRule.findFirst.mockImplementation(
+        ({where}:{where:{scopeType:string}})=>Promise.resolve(where.scopeType===CommissionScopeType.PLATFORM?{
+          id:'rate',scopeType:CommissionScopeType.PLATFORM,commissionType:CommissionType.PERCENTAGE,percentage:12.5,fixedAmount:null,
+        }:null));
+      await service.calculate('booking-1');
+      expect(prisma.commissionCalculation.create).toHaveBeenCalledWith({data:expect.objectContaining({
+        commissionAmount:25,providerEarningAmount:174.99,
+      })});
     });
   });
 

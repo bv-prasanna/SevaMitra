@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcryptjs';
+import { randomInt } from 'node:crypto';
 import { OtpChannel, OtpPurpose } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { OTP_SENDER } from './otp-sender.interface';
@@ -136,8 +137,6 @@ export class OtpService {
 
   private generateOtp(): string {
     if (this.fixedCode) return this.fixedCode;
-    const min = Math.pow(10, this.otpLength - 1);
-    const max = Math.pow(10, this.otpLength) - 1;
-    return Math.floor(min + Math.random() * (max - min + 1)).toString();
+    return randomInt(0, 10 ** this.otpLength).toString().padStart(this.otpLength, '0');
   }
 }

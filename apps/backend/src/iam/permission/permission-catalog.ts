@@ -39,6 +39,14 @@ export const PERMISSION_CATALOG: readonly PermissionCatalogEntry[] = [
     description: "View a user's role assignments",
   },
   {
+    key: 'provider.organization.manage',
+    description: 'Administer provider companies, groups, staff and provider memberships',
+  },
+  {
+    key: 'tax.assessment.manage',
+    description: 'Review statutory tax classification and post auditable tax entries',
+  },
+  {
     key: 'agent.company.manage',
     description: 'Create and update agent companies',
   },

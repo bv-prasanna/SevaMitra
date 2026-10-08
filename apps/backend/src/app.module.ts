@@ -10,6 +10,8 @@ import { AuthModule } from './auth/auth.module';
 import { IamModule } from './iam/iam.module';
 import { CustomerModule } from './customer/customer.module';
 import { ProviderModule } from './provider/provider.module';
+import { OrganizationModule } from './provider-organization/organization.module';
+import { TaxAssessmentModule } from './tax/tax.module';
 import { AgentModule } from './agent/agent.module';
 import { ProviderOnboardingModule } from './provider-onboarding/provider-onboarding.module';
 import { CatalogueModule } from './catalogue/catalogue.module';
@@ -40,6 +42,8 @@ import { RefundModule } from './refund/refund.module';
     IamModule,
     CustomerModule,
     ProviderModule,
+    OrganizationModule,
+    TaxAssessmentModule,
     AgentModule,
     ProviderOnboardingModule,
     CatalogueModule,

@@ -7,6 +7,9 @@ import {
   Post,
   Query,
   UseGuards,
+  StreamableFile,
+  NotFoundException,
+  Res,
 } from '@nestjs/common';
 import {
   ApiBearerAuth,
@@ -22,6 +25,8 @@ import type { AuthenticatedUser } from '../auth/token/jwt-payload.interface';
 import { PermissionsGuard } from '../iam/authorization/permissions.guard';
 import { RequirePermissions } from '../iam/authorization/require-permissions.decorator';
 import { ApplicationService } from './application.service';
+import { PrivateDocumentStorage } from './private-document.storage';
+import type { Response } from 'express';
 import { ListApplicationsQueryDto } from './dto/list-applications-query.dto';
 import { ReviewApplicationDto } from './dto/review-application.dto';
 import { ApplicationDto } from './dto/responses/application.dto';
@@ -33,7 +38,7 @@ import { ErrorResponseDto } from '../common/dto/error-response.dto';
 @RequirePermissions('provider.onboarding.review')
 @Controller({ path: 'provider-onboarding/applications', version: '1' })
 export class ApplicationAdminController {
-  constructor(private readonly applicationService: ApplicationService) {}
+  constructor(private readonly applicationService: ApplicationService, private readonly storage:PrivateDocumentStorage) {}
 
   @Get()
   @ApiOperation({
@@ -50,6 +55,23 @@ export class ApplicationAdminController {
   @ApiNotFoundResponse({ type: ErrorResponseDto })
   findOne(@Param('id') id: string) {
     return this.applicationService.findByIdOrThrow(id);
+  }
+
+  @Get(':id/documents/:documentId/download')
+  @ApiOperation({summary:'Authorized reviewer download of a private application document; no public URL'})
+  async download(
+    @Param('id') id:string,
+    @Param('documentId') documentId:string,
+    @Res({passthrough:true}) response:Response,
+  ){
+    const application=await this.applicationService.findByIdOrThrow(id);
+    const doc=application.documents.find(d=>d.id===documentId);
+    if(!doc)throw new NotFoundException('Document not found');
+    const result=await this.storage.download(doc.fileUrl);
+    response.setHeader('Cache-Control','private, no-store');
+    response.setHeader('X-Content-Type-Options','nosniff');
+    response.setHeader('Content-Disposition','attachment; filename="provider-evidence"');
+    return new StreamableFile(result.content,{type:result.contentType});
   }
 
   @Patch(':id/claim')

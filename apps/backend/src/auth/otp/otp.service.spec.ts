@@ -47,6 +47,21 @@ describe('OtpService', () => {
   });
 
   describe('requestOtp', () => {
+    it('generates codes without using Math.random', async () => {
+      const mathRandom = jest.spyOn(Math, 'random').mockImplementation(() => {
+        throw new Error('Insecure RNG invoked');
+      });
+      try {
+        prisma.otpChallenge.findFirst.mockResolvedValue(null);
+        await expect(service.requestOtp('+919876543210', OtpPurpose.LOGIN)).resolves.toBeDefined();
+        expect(otpSender.sendOtp).toHaveBeenCalledWith(
+          '+919876543210', expect.stringMatching(/^\\d{6}$/),
+        );
+      } finally {
+        mathRandom.mockRestore();
+      }
+    });
+
     it('creates a challenge and dispatches it when there is no recent request', async () => {
       prisma.otpChallenge.findFirst.mockResolvedValue(null);
       prisma.otpChallenge.create.mockResolvedValue({});

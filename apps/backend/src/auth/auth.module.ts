@@ -6,6 +6,8 @@ import { AuthService } from './auth.service';
 import { OtpService } from './otp/otp.service';
 import { OTP_SENDER } from './otp/otp-sender.interface';
 import { ConsoleOtpSender } from './otp/console-otp.sender';
+import { Msg91OtpSender } from './otp/msg91-otp.sender';
+import { ConfigService } from '@nestjs/config';
 import { TokenService } from './token/token.service';
 import { SocialAuthService } from './social/social-auth.service';
 import { JwtStrategy } from './strategies/jwt.strategy';
@@ -25,7 +27,14 @@ import { JwtStrategy } from './strategies/jwt.strategy';
     // NOTIFICATION_PROVIDER=console is the only implementation so far — see
     // src/auth/otp/otp-sender.interface.ts for the swap-in seam once the
     // Notification module (MSG91) exists.
-    { provide: OTP_SENDER, useClass: ConsoleOtpSender },
+    {
+      provide: OTP_SENDER,
+      inject: [ConfigService],
+      useFactory: (config: ConfigService) =>
+        config.get<string>('OTP_PROVIDER') === 'msg91'
+          ? new Msg91OtpSender(config)
+          : new ConsoleOtpSender(),
+    },
   ],
   exports: [AuthService, TokenService],
 })

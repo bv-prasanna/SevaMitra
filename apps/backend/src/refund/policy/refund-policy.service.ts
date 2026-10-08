@@ -1,5 +1,6 @@
 import {
   ConflictException,
+  BadRequestException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -18,7 +19,7 @@ import { CreateRefundPolicyDto } from './dto/create-refund-policy.dto';
 import { UpdateRefundPolicyDto } from './dto/update-refund-policy.dto';
 
 type ScopedEntityField =
-  'categoryId' | 'serviceId' | 'providerId' | 'townVillageId';
+  'categoryId' | 'serviceId' | 'providerId' | 'townVillageId' | 'stateId' | 'providerCompanyId' | 'providerGroupId';
 
 const SCOPE_ENTITY_FIELD: Record<
   CommissionScopeType,
@@ -29,6 +30,9 @@ const SCOPE_ENTITY_FIELD: Record<
   [CommissionScopeType.SERVICE]: 'serviceId',
   [CommissionScopeType.PROVIDER]: 'providerId',
   [CommissionScopeType.GEOGRAPHY]: 'townVillageId',
+  [CommissionScopeType.STATE]: 'stateId',
+  [CommissionScopeType.PROVIDER_COMPANY]: 'providerCompanyId',
+  [CommissionScopeType.PROVIDER_GROUP]: 'providerGroupId',
 };
 
 @Injectable()
@@ -42,6 +46,11 @@ export class RefundPolicyService {
   ) {}
 
   async create(dto: CreateRefundPolicyDto): Promise<RefundPolicy> {
+    const effectiveFrom = dto.effectiveFrom ? new Date(dto.effectiveFrom) : new Date();
+    const effectiveTo = dto.effectiveTo ? new Date(dto.effectiveTo) : null;
+    if(effectiveTo && effectiveTo <= effectiveFrom){
+      throw new BadRequestException('effectiveTo must follow effectiveFrom');
+    }
     await this.assertReferencedEntityExists(dto.scopeType, dto);
     await this.assertNoActivePolicyAtScope(dto.scopeType, dto.reason, dto);
 
@@ -52,6 +61,11 @@ export class RefundPolicyService {
         serviceId: dto.serviceId,
         providerId: dto.providerId,
         townVillageId: dto.townVillageId,
+        stateId: dto.stateId,
+        providerCompanyId: dto.providerCompanyId,
+        providerGroupId: dto.providerGroupId,
+        effectiveFrom,
+        effectiveTo,
         reason: dto.reason,
         refundPercentage: dto.refundPercentage,
       },
@@ -112,6 +126,21 @@ export class RefundPolicyService {
       case CommissionScopeType.GEOGRAPHY:
         await this.townVillageService.findByIdOrThrow(dto.townVillageId!);
         return;
+      case CommissionScopeType.STATE: {
+        const state=await this.prisma.state.findUnique({where:{id:dto.stateId!}});
+        if(!state)throw new BadRequestException('State scope is not recognized');
+        return;
+      }
+      case CommissionScopeType.PROVIDER_COMPANY: {
+        const company=await this.prisma.providerCompany.findUnique({where:{id:dto.providerCompanyId!}});
+        if(!company)throw new BadRequestException('Company scope is not recognized');
+        return;
+      }
+      case CommissionScopeType.PROVIDER_GROUP: {
+        const group=await this.prisma.providerGroup.findUnique({where:{id:dto.providerGroupId!}});
+        if(!group)throw new BadRequestException('Group scope is not recognized');
+        return;
+      }
       case CommissionScopeType.PLATFORM:
         return;
     }

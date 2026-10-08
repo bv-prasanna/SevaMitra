@@ -9,6 +9,8 @@ import {
   CommissionRule,
   CommissionScopeType,
   CommissionType,
+  OrganizationStatus,
+  Prisma,
 } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { BookingService } from '../../booking/booking.service';
@@ -22,6 +24,9 @@ interface ResolvedScope {
   serviceId: string;
   categoryId: string;
   townVillageId: string;
+  stateId?:string;
+  providerCompanyId?:string;
+  providerGroupId?:string;
 }
 
 const PRECEDENCE: {
@@ -29,9 +34,12 @@ const PRECEDENCE: {
   field: keyof ResolvedScope | null;
 }[] = [
   { scopeType: CommissionScopeType.PROVIDER, field: 'providerId' },
+  { scopeType: CommissionScopeType.PROVIDER_GROUP, field: 'providerGroupId' },
+  { scopeType: CommissionScopeType.PROVIDER_COMPANY, field: 'providerCompanyId' },
   { scopeType: CommissionScopeType.SERVICE, field: 'serviceId' },
   { scopeType: CommissionScopeType.CATEGORY, field: 'categoryId' },
   { scopeType: CommissionScopeType.GEOGRAPHY, field: 'townVillageId' },
+  { scopeType: CommissionScopeType.STATE, field: 'stateId' },
   { scopeType: CommissionScopeType.PLATFORM, field: null },
 ];
 
@@ -68,12 +76,27 @@ export class CommissionCalculationService {
     );
     const service = await this.serviceService.findOne(offering.serviceId);
 
+    const [membership, town] = await Promise.all([
+      this.prisma.providerMembership.findUnique({
+        where: {providerId: offering.providerId}, include: {company: true},
+      }),
+      this.prisma.townVillage.findUnique({
+        where: {id: booking.townVillageId},
+        include: {taluk: {include: {district: true}}},
+      }),
+    ]);
+    const organizationActive = membership?.status === OrganizationStatus.ACTIVE &&
+      membership.company.status === OrganizationStatus.ACTIVE;
+    const bookingAsOf = booking.createdAt ?? new Date();
     const rule = await this.resolveApplicableRule({
       providerId: offering.providerId,
       serviceId: offering.serviceId,
       categoryId: service.categoryId,
       townVillageId: booking.townVillageId,
-    });
+      stateId: town?.taluk.district.stateId,
+      providerCompanyId: organizationActive ? membership.companyId : undefined,
+      providerGroupId: organizationActive ? membership.groupId ?? undefined : undefined,
+    }, bookingAsOf);
 
     const grossAmount = await this.paymentService.sumSucceededAmount(bookingId);
     const commissionAmount = this.computeCommissionAmount(rule, grossAmount);
@@ -83,6 +106,15 @@ export class CommissionCalculationService {
       data: {
         bookingId,
         appliedRuleId: rule.id,
+        appliedRuleSnapshot: {
+          ruleId: rule.id, scopeType: rule.scopeType,
+          commissionType: rule.commissionType,
+          percentage: rule.percentage?.toString() ?? null,
+          fixedAmount: rule.fixedAmount?.toString() ?? null,
+          effectiveFrom: rule.effectiveFrom?.toISOString() ?? null,
+          version: rule.version ?? 1,
+          bookingAsOf: bookingAsOf.toISOString(),
+        },
         grossAmount,
         commissionAmount,
         providerEarningAmount,
@@ -143,14 +175,19 @@ export class CommissionCalculationService {
    */
   private async resolveApplicableRule(
     scope: ResolvedScope,
+    asOf: Date,
   ): Promise<CommissionRule> {
     for (const { scopeType, field } of PRECEDENCE) {
+      if (field && !scope[field]) continue;
       const rule = await this.prisma.commissionRule.findFirst({
         where: {
           scopeType,
           isActive: true,
+          effectiveFrom: {lte: asOf},
+          OR: [{effectiveTo: null}, {effectiveTo: {gt: asOf}}],
           ...(field ? { [field]: scope[field] } : {}),
         },
+        orderBy: [{version: 'desc'}, {createdAt: 'desc'}],
       });
       if (rule) {
         return rule;
@@ -166,15 +203,15 @@ export class CommissionCalculationService {
    * collected — commission can never exceed what was paid, which would
    * otherwise leave a negative provider earning.
    */
-  private computeCommissionAmount(
-    rule: CommissionRule,
-    grossAmount: number,
-  ): number {
-    if (rule.commissionType === CommissionType.PERCENTAGE) {
-      return (
-        Math.round(grossAmount * (Number(rule.percentage) / 100) * 100) / 100
-      );
+  private computeCommissionAmount(rule: CommissionRule,grossAmount:number):number{
+    // Decimal arithmetic avoids binary floating-point leakage into ledgers.
+    const gross=new Prisma.Decimal(grossAmount.toFixed(2));
+    if(gross.lte(0))return 0;
+    if(rule.commissionType===CommissionType.PERCENTAGE){
+      const percentage=new Prisma.Decimal(rule.percentage ?? 0);
+      return Prisma.Decimal.min(gross,Prisma.Decimal.max(0,gross.mul(percentage).div(100))).toDecimalPlaces(2).toNumber();
     }
-    return Math.min(Number(rule.fixedAmount), grossAmount);
+    return Prisma.Decimal.min(gross,Prisma.Decimal.max(0,new Prisma.Decimal(rule.fixedAmount ?? 0))).toDecimalPlaces(2).toNumber();
   }
+
 }

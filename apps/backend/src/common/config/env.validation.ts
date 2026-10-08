@@ -81,9 +81,15 @@ class EnvironmentVariables {
   @IsString()
   APPLE_CLIENT_ID?: string;
 
-  @IsString()
-  @IsNotEmpty()
+  @IsIn(['console','live'])
   NOTIFICATION_PROVIDER: string;
+
+  @IsOptional()
+  @IsIn(['console','msg91'])
+  OTP_PROVIDER?: string;
+
+  @IsOptional() @IsString() MSG91_AUTHKEY?: string;
+  @IsOptional() @IsString() MSG91_OTP_FLOW_ID?: string;
 }
 
 /** Fails fast on startup if required config is missing/malformed. */
@@ -101,5 +107,14 @@ export function validateEnv(config: Record<string, unknown>) {
     );
   }
 
+  if (['staging', 'production'].includes(validated.NODE_ENV)) {
+    if (validated.OTP_FIXED_CODE) throw new Error('OTP_FIXED_CODE is forbidden in staging/production');
+    if (validated.OTP_PROVIDER !== 'msg91' || !validated.MSG91_AUTHKEY || !validated.MSG91_OTP_FLOW_ID) {
+      throw new Error('A configured real OTP provider is mandatory in staging/production');
+    }
+    if (validated.NOTIFICATION_PROVIDER !== 'live') {
+      throw new Error('Console notification delivery is forbidden in staging/production');
+    }
+  }
   return validated;
 }

@@ -8,7 +8,21 @@ jobs:
     # PRs originating from develop/main are already checked by push; do not run twice.
     if: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository || (github.head_ref != 'develop' && github.head_ref != 'main') }}
     runs-on: ubuntu-latest
-    timeout-minutes: 35
+    timeout-minutes: 40
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: sevamitra_ci
+          POSTGRES_PASSWORD: sevamitra_ci
+          POSTGRES_DB: sevamitra_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U sevamitra_ci -d sevamitra_ci"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -29,6 +43,13 @@ jobs:
       - name: Backend dependencies
         working-directory: apps/backend
         run: npm ci
+      - name: Validate Prisma schema and all migrations against real PostgreSQL
+        working-directory: apps/backend
+        env:
+          DATABASE_URL: postgresql://sevamitra_ci:sevamitra_ci@localhost:5432/sevamitra_ci
+        run: |
+          npx prisma validate
+          npx prisma migrate deploy
       - name: Generate Prisma Client (schema only, no DB connection)
         working-directory: apps/backend
         env:
