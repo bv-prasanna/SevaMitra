@@ -17,7 +17,7 @@ export default function Admin(){
   setBusy(x.id);setMsg("");
   try{
    if(action==="claim")await api.patch(`/provider-onboarding/applications/${x.id}/claim`,{});
-   else await api.post(`/provider-onboarding/applications/${x.id}/review`,{decision:action==="approve"?"APPROVED":"REJECTED",...(action==="reject"?{reviewNote:notes[x.id].trim()}:{})});
+   else await api.post(`/provider-onboarding/applications/${x.id}/review`,{decision:action==="approve"?"APPROVED":"REJECTED",...(action==="reject"?{reviewNote:notes[x.id]?.trim()??""}:{})});
    await load();
   }catch(e){setMsg(e instanceof Error?e.message:"Update failed")}finally{setBusy(null)}
  }

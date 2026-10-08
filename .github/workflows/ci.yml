@@ -5,6 +5,8 @@ on:
     branches: [main, develop]
 jobs:
   quality:
+    # PRs originating from develop/main are already checked by push; do not run twice.
+    if: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository || (github.head_ref != 'develop' && github.head_ref != 'main') }}
     runs-on: ubuntu-latest
     timeout-minutes: 35
     steps:
