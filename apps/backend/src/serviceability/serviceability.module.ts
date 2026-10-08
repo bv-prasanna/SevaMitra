@@ -8,6 +8,8 @@ import { CoverageAreaController } from './coverage-area/coverage-area.controller
 import { CoverageAreaAdminController } from './coverage-area/coverage-area-admin.controller';
 import { CoverageAreaService } from './coverage-area/coverage-area.service';
 import { CheckController } from './check/check.controller';
+import { DiscoveryController } from './discovery/discovery.controller';
+import { DiscoveryService } from './discovery/discovery.service';
 import { CoverageCheckService } from './check/coverage-check.service';
 
 @Module({
@@ -17,11 +19,13 @@ import { CoverageCheckService } from './check/coverage-check.service';
     CoverageAreaController,
     CoverageAreaAdminController,
     CheckController,
+    DiscoveryController,
   ],
   providers: [
     CoverageProfileService,
     CoverageAreaService,
     CoverageCheckService,
+    DiscoveryService,
   ],
   exports: [CoverageCheckService],
 })

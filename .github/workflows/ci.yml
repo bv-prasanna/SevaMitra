@@ -29,6 +29,11 @@ jobs:
       - name: Backend dependencies
         working-directory: apps/backend
         run: npm ci
+      - name: Generate Prisma Client (schema only, no DB connection)
+        working-directory: apps/backend
+        env:
+          DATABASE_URL: postgresql://sevamitra:sevamitra@localhost:5432/sevamitra
+        run: npx prisma generate
       - name: Backend production compilation
         working-directory: apps/backend
         run: npm run build
