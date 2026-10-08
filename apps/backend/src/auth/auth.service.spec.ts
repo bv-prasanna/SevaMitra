@@ -131,6 +131,21 @@ describe('AuthService', () => {
       );
     });
 
+    it('never issues OTP login tokens to a suspended user', async () => {
+      prisma.user.findUnique.mockResolvedValue({
+        ...testUser,
+        status: UserStatus.SUSPENDED,
+      });
+      await expect(
+        service.verifyOtp({
+          phoneNumber: '+919876543210',
+          otp: '123456',
+          purpose: RequestOtpPurpose.LOGIN,
+        }),
+      ).rejects.toThrow('Account is not active');
+      expect(tokenService.issueTokenPair).not.toHaveBeenCalled();
+    });
+
     it('reuses an existing user on subsequent LOGIN verification', async () => {
       prisma.user.findUnique.mockResolvedValue(testUser);
 
@@ -157,6 +172,22 @@ describe('AuthService', () => {
         resetToken: 'reset-token',
         expiresIn: '10m',
       });
+      expect(tokenService.issueTokenPair).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('social account status', () => {
+    it('rejects a suspended Google-linked account before token issuance', async () => {
+      socialAuthService.verifyGoogleIdToken.mockResolvedValue({
+        providerUserId: 'google-user-1',
+        email: 'user@example.com',
+      });
+      prisma.oauthIdentity.findUnique.mockResolvedValue({
+        user: {...testUser, status: UserStatus.SUSPENDED},
+      });
+      await expect(service.loginWithGoogle('id-token')).rejects.toThrow(
+        'Account is not active',
+      );
       expect(tokenService.issueTokenPair).not.toHaveBeenCalled();
     });
   });

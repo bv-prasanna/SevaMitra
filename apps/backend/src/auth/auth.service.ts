@@ -172,6 +172,9 @@ export class AuthService {
       identity.providerUserId,
       identity.email,
     );
+    if (user.status !== UserStatus.ACTIVE) {
+      throw new UnauthorizedException('Account is not active');
+    }
     const tokens = await this.tokenService.issueTokenPair(user, ip);
     return { tokens, user: this.toPublicUser(user) };
   }
@@ -186,6 +189,9 @@ export class AuthService {
       identity.providerUserId,
       identity.email,
     );
+    if (user.status !== UserStatus.ACTIVE) {
+      throw new UnauthorizedException('Account is not active');
+    }
     const tokens = await this.tokenService.issueTokenPair(user, ip);
     return { tokens, user: this.toPublicUser(user) };
   }
@@ -195,6 +201,9 @@ export class AuthService {
       where: { phoneNumber },
     });
     if (existing) {
+      if (existing.status !== UserStatus.ACTIVE) {
+        throw new UnauthorizedException('Account is not active');
+      }
       return existing;
     }
     return this.prisma.user.create({

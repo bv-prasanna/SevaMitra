@@ -107,6 +107,20 @@ describe('TokenService', () => {
     );
   });
 
+  it('refuses refresh token rotation for suspended users', async () => {
+    prisma.refreshToken.findUnique.mockResolvedValue({
+      id: 'rt-1',
+      revokedAt: null,
+      expiresAt: new Date(Date.now() + 100_000),
+      user: {...testUser, status: UserStatus.SUSPENDED},
+    });
+    await expect(service.rotateRefreshToken('some-token')).rejects.toThrow(
+      'Account is not active',
+    );
+    expect(prisma.refreshToken.update).not.toHaveBeenCalled();
+    expect(prisma.refreshToken.create).not.toHaveBeenCalled();
+  });
+
   it('rotates a valid refresh token: revokes the old one, issues a new pair', async () => {
     prisma.refreshToken.findUnique.mockResolvedValue({
       id: 'rt-1',

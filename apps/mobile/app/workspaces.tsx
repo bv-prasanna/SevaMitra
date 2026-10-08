@@ -1,0 +1,6 @@
+import React from "react";
+import{SafeAreaView,View,Text,Pressable,StyleSheet}from"react-native";
+import{router}from"expo-router";
+const roles=[{label:"Customer",desc:"Find services and track bookings",path:"/customer" as const},{label:"Provider",desc:"Manage verification and work",path:"/provider" as const},{label:"Agent",desc:"Referral code and local onboarding",path:"/agent" as const},{label:"Admin",desc:"Review and approve onboarding",path:"/admin" as const}];
+export default function Workspaces(){return <SafeAreaView style={s.page}><Text style={s.title}>SevaMitra workspaces</Text><Text style={s.sub}>Access is checked by the backend for every protected action.</Text>{roles.map(x=><Pressable key={x.path} style={s.card} onPress={()=>router.push(x.path)}><Text style={s.bold}>{x.label} →</Text><Text style={s.sub}>{x.desc}</Text></Pressable>)}<Pressable onPress={()=>router.push("/login")}><Text style={s.link}>Login / switch account</Text></Pressable></SafeAreaView>}
+const s=StyleSheet.create({page:{flex:1,backgroundColor:"#F6FAF8",padding:20},title:{fontSize:26,fontWeight:"900",color:"#075840",marginVertical:16},sub:{color:"#65746C",marginTop:4},card:{backgroundColor:"#fff",borderWidth:1,borderColor:"#DCE9E0",padding:19,borderRadius:14,marginTop:12},bold:{fontSize:18,fontWeight:"800",color:"#164E39"},link:{marginTop:23,color:"#087A4B",fontWeight:"800"}});

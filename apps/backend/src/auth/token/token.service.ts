@@ -2,7 +2,7 @@ import { randomBytes, createHash } from 'crypto';
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService, JwtSignOptions } from '@nestjs/jwt';
-import { User } from '@prisma/client';
+import { User, UserStatus } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { parseDurationToSeconds } from '../../common/util/parse-duration';
 import type { JwtPayload } from './jwt-payload.interface';
@@ -68,6 +68,9 @@ export class TokenService {
       stored.expiresAt.getTime() < Date.now()
     ) {
       throw new UnauthorizedException('Invalid or expired refresh token');
+    }
+    if (stored.user.status !== UserStatus.ACTIVE) {
+      throw new UnauthorizedException('Account is not active');
     }
 
     await this.prisma.refreshToken.update({

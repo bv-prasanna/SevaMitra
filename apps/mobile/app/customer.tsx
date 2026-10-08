@@ -1,4 +1,29 @@
-import React from"react";import{SafeAreaView,ScrollView,View,Text,Pressable,StyleSheet}from"react-native";import{router}from"expo-router";
-const cards=[["🔎","Find a service","Search trusted professionals nearby"],["📅","My bookings","Track upcoming and completed services"],["💳","Payments","View payments, refunds and offers"],["🔔","Notifications","Booking, payment and service updates"],["⭐","Reviews","Rate completed services"],["🛟","Help & safety","Support, disputes and safety"]];
-export default function Customer(){return <SafeAreaView style={s.safe}><ScrollView contentContainerStyle={s.page}><View style={s.head}><View><Text style={s.logo}>Seva<Text style={s.o}>Mitra</Text></Text><Text style={s.muted}>Customer workspace</Text></View><Pressable onPress={()=>router.replace("/")}><Text style={s.link}>Home</Text></Pressable></View><View style={s.hero}><Text style={s.kicker}>CUSTOMER</Text><Text style={s.title}>Everything you need for local services.</Text><Text style={s.muted}>Discover, book, pay, track and review from one place.</Text><Pressable style={s.primary} onPress={()=>router.push("/marketplace")}><Text style={s.white}>Explore services →</Text></Pressable></View><Text style={s.section}>Your SevaMitra</Text><View style={s.grid}>{cards.map(x=><Pressable style={s.card} key={x[1]}><Text style={s.icon}>{x[0]}</Text><Text style={s.cardTitle}>{x[1]}</Text><Text style={s.muted}>{x[2]}</Text></Pressable>)}</View></ScrollView></SafeAreaView>}
-const s=StyleSheet.create({safe:{flex:1,backgroundColor:"#fff"},page:{padding:18,paddingBottom:40},head:{flexDirection:"row",justifyContent:"space-between",alignItems:"center"},logo:{fontSize:25,fontWeight:"900",color:"#087A4B"},o:{color:"#F47721"},link:{color:"#087A4B",fontWeight:"800"},muted:{color:"#66756F",lineHeight:20},hero:{backgroundColor:"#EFFAF4",padding:22,borderRadius:24,marginTop:20},kicker:{fontSize:11,fontWeight:"900",color:"#087A4B"},title:{fontSize:31,lineHeight:36,fontWeight:"900",color:"#10251F",marginVertical:10},primary:{backgroundColor:"#087A4B",padding:14,borderRadius:12,marginTop:18,alignItems:"center"},white:{color:"#fff",fontWeight:"800"},section:{fontSize:22,fontWeight:"900",marginVertical:18},grid:{flexDirection:"row",flexWrap:"wrap",marginHorizontal:-6},card:{width:"50%",padding:14,borderRadius:18,borderWidth:1,borderColor:"#E2EBE6",marginBottom:12},icon:{fontSize:26},cardTitle:{fontWeight:"900",fontSize:16,marginVertical:7}});
+import React,{useEffect,useState}from"react";
+import{Alert,SafeAreaView,ScrollView,Text,TextInput,Pressable,StyleSheet,View}from"react-native";
+import{router}from"expo-router";
+import{requestWithSession,signOut}from"../src/session";
+type Profile={fullName:string};
+type Booking={id:string;status:string;scheduledDate:string;scheduledStartTime:string;scheduledEndTime:string;amount?:string|null;currency:string};
+export default function Customer(){
+ const[profile,setProfile]=useState<Profile|null>(null),[bookings,setBookings]=useState<Booking[]>([]),[name,setName]=useState(""),[message,setMessage]=useState("Loading…"),[busy,setBusy]=useState(false);
+ async function load(){
+  try{
+   const p=await requestWithSession<Profile>("GET","/customers/me");setProfile(p);
+   const b=await requestWithSession<Booking[]>("GET","/bookings/me");setBookings(Array.isArray(b)?b:[]);setMessage("");
+  }catch(e){if((e as {status?:number}).status===404){setProfile(null);setMessage("Complete your customer profile to book services.")}else setMessage(e instanceof Error?e.message:"Unable to load bookings")}
+ }
+ useEffect(()=>{void load()},[]);
+ async function create(){if(name.trim().length<2)return;setBusy(true);try{await requestWithSession("POST","/customers/me",{fullName:name.trim(),preferredLanguage:"kn"});await load()}catch(e){setMessage(e instanceof Error?e.message:"Unable to create customer")}finally{setBusy(false)}}
+ async function cancel(id:string){setBusy(true);try{await requestWithSession("POST",`/bookings/me/${id}/cancel`,{reason:"Cancelled by customer"});await load()}catch(e){setMessage(e instanceof Error?e.message:"Cancellation failed")}finally{setBusy(false)}}
+ return <SafeAreaView style={s.safe}><ScrollView contentContainerStyle={s.page}><Text style={s.title}>Customer workspace</Text><View style={s.nav}><Pressable onPress={()=>router.push("/workspaces")}><Text style={s.link}>Workspaces</Text></Pressable><Pressable onPress={()=>void signOut().then(()=>router.replace("/login"))}><Text style={s.link}>Sign out</Text></Pressable></View>
+  {!!message&&<Text accessibilityRole="alert" style={s.notice}>{message}</Text>}
+  {!profile?<View style={s.card}><Text style={s.heading}>Complete your profile</Text><TextInput style={s.input} value={name} maxLength={150} placeholder="Full name" onChangeText={setName}/><Pressable disabled={busy||name.trim().length<2} style={s.btn} onPress={()=>void create()}><Text style={s.white}>Save profile</Text></Pressable></View>:<><Text style={s.heading}>Welcome, {profile.fullName}</Text>
+   <Pressable style={s.btn} onPress={()=>router.push("/marketplace")}><Text style={s.white}>Find services →</Text></Pressable>
+   <Text style={s.heading}>My bookings ({bookings.length})</Text>
+   {bookings.length===0&&<Text style={s.muted}>No bookings yet.</Text>}
+   {bookings.map(b=><View style={s.card} key={b.id}><Text style={s.heading}>{b.status}</Text><Text selectable style={s.muted}>Booking {b.id}</Text><Text>{String(b.scheduledDate).slice(0,10)} · {b.scheduledStartTime}–{b.scheduledEndTime}</Text><Text>{b.currency} {b.amount??"Price on request"}</Text>
+    {(b.status==="REQUESTED"||b.status==="ACCEPTED")&&<Pressable disabled={busy} style={s.danger} onPress={()=>Alert.alert("Cancel booking?","This may have a refund impact. Check the cancellation terms.",[{text:"Back",style:"cancel"},{text:"Cancel booking",style:"destructive",onPress:()=>void cancel(b.id)}])}><Text style={s.white}>Cancel booking</Text></Pressable>}
+   </View>)}</>}
+ </ScrollView></SafeAreaView>
+}
+const s=StyleSheet.create({safe:{flex:1,backgroundColor:"#F6FBF8"},page:{padding:18,paddingBottom:42},title:{fontSize:25,fontWeight:"900",color:"#0A5039"},heading:{fontSize:18,fontWeight:"800",marginVertical:10},nav:{flexDirection:"row",gap:20,marginVertical:14},link:{color:"#087A4B",fontWeight:"700"},card:{padding:17,borderRadius:14,backgroundColor:"#fff",marginVertical:8,borderWidth:1,borderColor:"#DBE9DE"},input:{borderWidth:1,borderColor:"#DCE6DF",padding:12,borderRadius:9},btn:{backgroundColor:"#087A4B",padding:13,borderRadius:10,alignItems:"center",marginVertical:8},danger:{backgroundColor:"#B42318",padding:12,borderRadius:10,alignItems:"center",marginTop:12},white:{color:"#fff",fontWeight:"800"},notice:{color:"#98551A",marginVertical:8},muted:{color:"#61776B",lineHeight:20}});

@@ -1,7 +1,32 @@
-"use client";import{useState}from"react";import{ApiClient}from"@sevamitra/api-client";import Link from"next/link";
+"use client";
+import{useState}from"react";import{ApiClient,extractOtpLoginTokens}from"@sevamitra/api-client";import Link from"next/link";
 const base=process.env.NEXT_PUBLIC_API_BASE_URL||"";const api=new ApiClient(base);
-const apiMobile=(mobile:string)=>mobile.startsWith("+91")?mobile:`+91${mobile}`;
-export default function Login(){const[mobile,setMobile]=useState("");const[otp,setOtp]=useState("");const[sent,setSent]=useState(false);const[msg,setMsg]=useState("");const[busy,setBusy]=useState(false);
-async function request(){if(!base){setMsg("API URL is not configured. Set NEXT_PUBLIC_API_BASE_URL in apps/web/.env.local.");return}setBusy(true);setMsg("");try{await api.requestOtp({phoneNumber:apiMobile(mobile),purpose:"LOGIN"});setSent(true);setMsg("OTP sent successfully");}catch(e:any){setMsg(e?.message||"Unable to connect to SevaMitra API.")}finally{setBusy(false)}}
-async function verify(){setBusy(true);setMsg("");try{const r:any=await api.verifyOtp({phoneNumber:apiMobile(mobile),otp,purpose:"LOGIN"});if(r?.accessToken)localStorage.setItem("sevamitra_token",r.accessToken);const roles=(r?.roles||r?.user?.roles||[]).map((x:any)=>typeof x==="string"?x:(x?.code||x?.name||"")).join(" ").toLowerCase();location.href=roles.includes("provider")?"/provider":roles.includes("agent")?"/agent":roles.includes("admin")?"/admin":"/marketplace";}catch(e:any){setMsg(e?.message||"OTP verification failed")}finally{setBusy(false)}}
-return <main className="authPage"><section className="authCard"><Link href="/" className="back">← SevaMitra</Link><div className="pill">Trusted local services</div><h1>Welcome to SevaMitra</h1><p>Sign in or create your account with your mobile number. ನಿಮ್ಮ ಮೊಬೈಲ್ ಸಂಖ್ಯೆಯಿಂದ ಲಾಗಿನ್ ಅಥವಾ ನೋಂದಣಿ ಮಾಡಿ.</p>{!base&&<div className="formMsg">API is not configured. Add NEXT_PUBLIC_API_BASE_URL to apps/web/.env.local.</div>}<label>Mobile number</label><input value={mobile} onChange={e=>setMobile(e.target.value.replace(/\D/g,"").slice(0,10))} placeholder="10 digit mobile number"/>{sent&&<><label>OTP</label><input value={otp} onChange={e=>setOtp(e.target.value.replace(/\D/g,"").slice(0,6))} placeholder="Enter OTP"/></>}<button className="primary wide" disabled={busy||mobile.length!==10} onClick={sent?verify:request}>{busy?"Please wait…":sent?"Verify & continue":"Send OTP"}</button>{msg&&<div className="formMsg">{msg}</div>}<small>By continuing, you agree to SevaMitra's terms and privacy policy.</small></section></main>}
+export default function Login(){
+ const[mobile,setMobile]=useState(""),[otp,setOtp]=useState(""),[sent,setSent]=useState(false),[msg,setMsg]=useState(""),[busy,setBusy]=useState(false);
+ const valid=/^[6-9]\d{9}$/.test(mobile);
+ async function go(){
+  if(!base){setMsg("API URL missing: configure NEXT_PUBLIC_API_BASE_URL.");return}
+  setBusy(true);setMsg("");
+  try{
+   const phoneNumber="+91"+mobile;
+   if(!sent){await api.requestOtp({phoneNumber,purpose:"LOGIN"});setSent(true);setMsg("OTP sent successfully.");return}
+   const response=await api.verifyOtp({phoneNumber,otp,purpose:"LOGIN"});
+   const tokens=extractOtpLoginTokens(response);
+   localStorage.setItem("sevamitra_token",tokens.accessToken);
+   // The backend OTP response deliberately has no roles. Authorize via real endpoints.
+   const authed=new ApiClient(base,()=>tokens.accessToken);
+   for(const [endpoint,route] of [["/provider-onboarding/applications","/admin"],["/providers/me","/provider"],["/agents/me","/agent"]] as const){
+    try{await authed.get(endpoint);window.location.assign(route);return}catch(e){if((e as {status?:number}).status===401)throw e}
+   }
+   window.location.assign("/customer");
+  }catch(e){setMsg(e instanceof Error?e.message:"OTP verification failed");}finally{setBusy(false)}
+ }
+ return <main className="authPage"><section className="authCard"><Link href="/" className="back">← SevaMitra</Link><div className="pill">Trusted local services</div><h1>Welcome to SevaMitra</h1><p>Sign in with your phone number. ನಿಮ್ಮ ಮೊಬೈಲ್ ಸಂಖ್ಯೆಯಿಂದ ಲಾಗಿನ್ ಮಾಡಿ.</p>
+  {!base&&<div className="formMsg">Configure NEXT_PUBLIC_API_BASE_URL in apps/web/.env.local.</div>}
+  <label>Mobile number</label><input autoComplete="tel" value={mobile} disabled={sent} onChange={e=>setMobile(e.target.value.replace(/\D/g,"").slice(0,10))} placeholder="10-digit mobile number"/>
+  {sent&&<><label>OTP</label><input autoComplete="one-time-code" inputMode="numeric" value={otp} onChange={e=>setOtp(e.target.value.replace(/\D/g,"").slice(0,6))} placeholder="6-digit OTP"/><button type="button" onClick={()=>{setSent(false);setOtp("");setMsg("")}}>Change number / resend</button></>}
+  <button className="primary wide" disabled={busy||!valid||(sent&&otp.length!==6)} onClick={()=>void go()}>{busy?"Please wait…":sent?"Verify & continue":"Send OTP"}</button>
+  {!!msg&&<div role="alert" className="formMsg">{msg}</div>}
+  <small>Only verified server permissions grant access to administrative functions.</small>
+ </section></main>;
+}
