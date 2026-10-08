@@ -55,7 +55,7 @@ describe('OtpService', () => {
         prisma.otpChallenge.findFirst.mockResolvedValue(null);
         await expect(service.requestOtp('+919876543210', OtpPurpose.LOGIN)).resolves.toBeDefined();
         expect(otpSender.sendOtp).toHaveBeenCalledWith(
-          '+919876543210', expect.stringMatching(/^\\d{6}$/),
+          '+919876543210', expect.stringMatching(/^\d{6}$/),
         );
       } finally {
         mathRandom.mockRestore();
