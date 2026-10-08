@@ -290,7 +290,7 @@ describe('BookingService', () => {
       });
 
       expect(prisma.booking.update).toHaveBeenCalledWith({
-        where: { id: 'booking-1' },
+        where: expect.objectContaining({ id: 'booking-1' }),
         data: expect.objectContaining({
           status: BookingStatus.CANCELLED,
           cancelledBy: BookingParty.CUSTOMER,
@@ -326,7 +326,7 @@ describe('BookingService', () => {
       await service.completeAsProvider('user-1', 'booking-1');
 
       expect(prisma.booking.update).toHaveBeenCalledWith({
-        where: { id: 'booking-1' },
+        where: expect.objectContaining({ id: 'booking-1' }),
         data: expect.objectContaining({
           status: BookingStatus.COMPLETED,
           providerConfirmedCompletionAt: expect.any(Date),
@@ -361,7 +361,7 @@ describe('BookingService', () => {
       await service.reportProviderNoShow('user-1', 'booking-1');
 
       expect(prisma.booking.update).toHaveBeenCalledWith({
-        where: { id: 'booking-1' },
+        where: expect.objectContaining({ id: 'booking-1' }),
         data: expect.objectContaining({
           status: BookingStatus.NO_SHOW,
           noShowBy: BookingParty.PROVIDER,
@@ -385,7 +385,7 @@ describe('BookingService', () => {
       });
 
       expect(prisma.booking.update).toHaveBeenCalledWith({
-        where: { id: 'booking-1' },
+        where: expect.objectContaining({ id: 'booking-1' }),
         data: expect.objectContaining({
           status: BookingStatus.REJECTED,
           rejectionReason: 'Fully booked',

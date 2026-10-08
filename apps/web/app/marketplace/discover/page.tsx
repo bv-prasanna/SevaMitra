@@ -29,7 +29,7 @@ export default function Discover(){
   setBusy(true);setResults([]);setSelected("");setConfirmed(null);setMessage("Searching verified providers…");
   try{
    const data=await api.post<{matches:(DiscoveredOffering&{rank:number})[]}>("/discovery/matches",{serviceId,townVillageId:town,strategy,...(date&&start&&end?{scheduledDate:date,scheduledStartTime:start,scheduledEndTime:end}:{})});
-   setResults(data.matches);setMessage(data.length?`${data.length} available offering(s) from verified providers.`:"No active verified provider is currently serving this area.");
+   setResults(data.matches);setMessage(data.matches.length?`${data.matches.length} available offering(s) from verified providers.`:"No active verified provider is currently serving this area.");
   }catch(e){setMessage(showError(e))}finally{setBusy(false)}
  // eslint-disable-next-line react-hooks/exhaustive-deps
  },[town,serviceId]);

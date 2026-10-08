@@ -86,7 +86,7 @@ export class BookingService {
     return this.prisma.$transaction(async (tx) => {
       await tx.$queryRaw`SELECT pg_advisory_xact_lock(
         hashtext(${offering.providerId}), hashtext(${dto.scheduledDate})
-      )`;
+      )::text AS locked`;
       const conflict = await tx.booking.findFirst({
         where: {
           offering: {providerId: offering.providerId},
