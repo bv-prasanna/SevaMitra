@@ -1,3 +1,30 @@
+-- Historical 2026-09 auth migrations created identity tables/types in public.
+-- Bring those legacy objects into their Prisma-declared auth schema without
+-- destroying existing data. Conditional for already-upgraded installations.
+CREATE SCHEMA IF NOT EXISTS "auth";
+DO $brd44$
+DECLARE name TEXT;
+BEGIN
+  FOREACH name IN ARRAY ARRAY[
+    'users','credentials','oauth_identities','refresh_tokens',
+    'otp_challenges','permissions','roles','role_permissions','user_role_assignments'
+  ] LOOP
+    IF to_regclass(format('auth.%I',name)) IS NULL
+       AND to_regclass(format('public.%I',name)) IS NOT NULL THEN
+      EXECUTE format('ALTER TABLE public.%I SET SCHEMA auth',name);
+    END IF;
+  END LOOP;
+  FOREACH name IN ARRAY ARRAY['UserStatus','OtpPurpose','OtpChannel','OauthProvider','ScopeType'] LOOP
+    IF EXISTS (SELECT 1 FROM pg_type t JOIN pg_namespace n ON n.oid=t.typnamespace
+       WHERE n.nspname='public' AND t.typname=name)
+       AND NOT EXISTS (SELECT 1 FROM pg_type t JOIN pg_namespace n ON n.oid=t.typnamespace
+       WHERE n.nspname='auth' AND t.typname=name) THEN
+      EXECUTE format('ALTER TYPE public.%I SET SCHEMA auth',name);
+    END IF;
+  END LOOP;
+END
+$brd44$;
+
 -- SevaMitra BRD 4.4 foundations. Non-destructive, data-preserving migration.
 ALTER TYPE "finance"."CommissionScopeType" ADD VALUE IF NOT EXISTS 'STATE';
 ALTER TYPE "finance"."CommissionScopeType" ADD VALUE IF NOT EXISTS 'PROVIDER_COMPANY';
