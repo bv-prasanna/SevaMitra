@@ -1,5 +1,5 @@
 import { ConflictException, NotFoundException } from '@nestjs/common';
-import { BookingParty, BookingStatus, PricingModel } from '@prisma/client';
+import { BookingParty, BookingStatus, PricingModel, ProviderStatus, VerificationStatus } from '@prisma/client';
 import { BookingService } from './booking.service';
 import type { PrismaService } from '../prisma/prisma.service';
 import type { CustomerService } from '../customer/customer.service';
@@ -16,7 +16,10 @@ describe('BookingService', () => {
       findMany: jest.Mock;
       findUnique: jest.Mock;
       update: jest.Mock;
+      findFirst: jest.Mock;
     };
+    providerProfile: { findUnique: jest.Mock };
+    $transaction: jest.Mock;
   };
   let customerService: { getActiveProfileOrThrow: jest.Mock };
   let providerService: { getActiveProfileOrThrow: jest.Mock };
@@ -53,8 +56,15 @@ describe('BookingService', () => {
         findMany: jest.fn(),
         findUnique: jest.fn(),
         update: jest.fn(),
+        findFirst: jest.fn().mockResolvedValue(null),
       },
+      providerProfile: {findUnique: jest.fn().mockResolvedValue({
+        status:ProviderStatus.ACTIVE,verificationStatus:VerificationStatus.VERIFIED,
+      })},
+      $transaction: jest.fn(),
     };
+    prisma.$transaction.mockImplementation(async (fn:(tx:unknown)=>Promise<unknown>)=>
+      fn({booking:prisma.booking,$queryRaw:jest.fn().mockResolvedValue([])}));
     customerService = {
       getActiveProfileOrThrow: jest.fn().mockResolvedValue(customer),
     };
@@ -104,6 +114,39 @@ describe('BookingService', () => {
         }),
       });
       expect(result).toEqual({ id: 'booking-1' });
+    });
+
+    it('reserves the requested provider slot inside a serializable transaction', async () => {
+      prisma.booking.create.mockResolvedValue({ id: 'booking-1' });
+      await service.create('user-1', createDto);
+      expect(prisma.$transaction).toHaveBeenCalled();
+      expect(prisma.booking.findFirst).toHaveBeenCalledWith(expect.objectContaining({
+        where: expect.objectContaining({
+          status: {in:[BookingStatus.REQUESTED,BookingStatus.ACCEPTED]},
+          scheduledStartTime:{lt:'10:00'},
+          scheduledEndTime:{gt:'09:00'},
+        }),
+      }));
+    });
+
+    it('rejects an overlapping active booking instead of double-booking', async () => {
+      prisma.booking.findFirst.mockResolvedValue({id:'existing'});
+      await expect(service.create('user-1',createDto)).rejects.toThrow(ConflictException);
+      expect(prisma.booking.create).not.toHaveBeenCalled();
+    });
+
+    it('allows scheduling adjacent non-overlapping slots', async () => {
+      prisma.booking.findFirst.mockResolvedValue(null);
+      prisma.booking.create.mockResolvedValue({id:'new-booking'});
+      await expect(service.create('user-1',createDto)).resolves.toEqual({id:'new-booking'});
+    });
+
+    it('rechecks provider verification on each booking attempt', async () => {
+      prisma.providerProfile.findUnique.mockResolvedValue({
+        status:ProviderStatus.PENDING,verificationStatus:VerificationStatus.UNVERIFIED,
+      });
+      await expect(service.create('user-1',createDto)).rejects.toThrow(ConflictException);
+      expect(prisma.$transaction).not.toHaveBeenCalled();
     });
 
     it('rejects when the offering is inactive', async () => {
@@ -212,7 +255,7 @@ describe('BookingService', () => {
       const result = await service.acceptAsProvider('user-1', 'booking-1');
 
       expect(prisma.booking.update).toHaveBeenCalledWith({
-        where: { id: 'booking-1' },
+        where: expect.objectContaining({ id: 'booking-1' }),
         data: { status: BookingStatus.ACCEPTED },
       });
       expect(result.status).toBe(BookingStatus.ACCEPTED);

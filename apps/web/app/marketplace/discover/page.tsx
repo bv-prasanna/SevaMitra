@@ -8,7 +8,7 @@ type BookingResponse={id:string;status:string};
 const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export default function Discover(){
  const[serviceId,setServiceId]=useState(""),[name,setName]=useState(""),[states,setStates]=useState<GeoArea[]>([]),[districts,setDistricts]=useState<GeoArea[]>([]),[taluks,setTaluks]=useState<GeoArea[]>([]),[towns,setTowns]=useState<GeoArea[]>([]),[state,setState]=useState(""),[district,setDistrict]=useState(""),[taluk,setTaluk]=useState(""),[town,setTown]=useState("");
- const[results,setResults]=useState<DiscoveredOffering[]>([]),[message,setMessage]=useState("Select your service area to find verified providers."),[busy,setBusy]=useState(false),[selected,setSelected]=useState(""),[date,setDate]=useState(""),[start,setStart]=useState(""),[end,setEnd]=useState(""),[notes,setNotes]=useState(""),[confirmed,setConfirmed]=useState<BookingResponse|null>(null);
+ const[strategy,setStrategy]=useState<"RANKED"|"ROUND_ROBIN"|"BROADCAST">("RANKED"),[results,setResults]=useState<DiscoveredOffering[]>([]),[message,setMessage]=useState("Select your service area to find verified providers."),[busy,setBusy]=useState(false),[selected,setSelected]=useState(""),[date,setDate]=useState(""),[start,setStart]=useState(""),[end,setEnd]=useState(""),[notes,setNotes]=useState(""),[confirmed,setConfirmed]=useState<BookingResponse|null>(null);
  const api=new ApiClient(base,()=>typeof window!=="undefined"?localStorage.getItem("sevamitra_token")||undefined:undefined);
  const showError=(e:unknown)=>{if((e as {status?:number}).status===401)return "Please sign in before finding local providers.";return e instanceof Error?e.message:"Unable to load data";};
  useEffect(()=>{
@@ -28,8 +28,8 @@ export default function Discover(){
   if(!town||!serviceId)return;
   setBusy(true);setResults([]);setSelected("");setConfirmed(null);setMessage("Searching verified providers…");
   try{
-   const data=await api.get<DiscoveredOffering[]>("/discovery/offerings",{query:{serviceId,townVillageId:town}});
-   setResults(data);setMessage(data.length?`${data.length} available offering(s) from verified providers.`:"No active verified provider is currently serving this area.");
+   const data=await api.post<{matches:(DiscoveredOffering&{rank:number})[]}>("/discovery/matches",{serviceId,townVillageId:town,strategy,...(date&&start&&end?{scheduledDate:date,scheduledStartTime:start,scheduledEndTime:end}:{})});
+   setResults(data.matches);setMessage(data.length?`${data.length} available offering(s) from verified providers.`:"No active verified provider is currently serving this area.");
   }catch(e){setMessage(showError(e))}finally{setBusy(false)}
  // eslint-disable-next-line react-hooks/exhaustive-deps
  },[town,serviceId]);
@@ -49,7 +49,14 @@ export default function Discover(){
  <section className="workspace"><h1>{name||"Find local professionals"}</h1><p>Only active, verified providers with approved service coverage are shown. Sign in to view providers and book.</p>
  <div style={{display:"flex",gap:12,flexWrap:"wrap",margin:"22px 0"}}>
   {([[states,state,(id:string)=>void loadDistricts(id),"State"],[districts,district,(id:string)=>void loadTaluks(id),"District"],[taluks,taluk,(id:string)=>void loadTowns(id),"Taluk"],[towns,town,(id:string)=>{setTown(id);setResults([]);setSelected("")},"Town/Village"]] as const).map(([options,current,onChange,label])=><label key={label} style={{display:"grid",gap:6,minWidth:180}}>{label}<select value={current} onChange={e=>onChange(e.target.value)}><option value="">Select {label}</option>{options.map(x=><option key={x.id} value={x.id}>{x.name}{x.pincode?` (${x.pincode})`:""}</option>)}</select></label>)}
- </div><button className="primary" disabled={busy||!town||!uuid.test(serviceId)} onClick={()=>void find()}>Find verified providers</button>
+ </div>
+ <label style={{display:"grid",maxWidth:280,gap:6}}>Provider matching
+ <select value={strategy} onChange={e=>setStrategy(e.target.value as "RANKED"|"ROUND_ROBIN"|"BROADCAST")}>
+  <option value="RANKED">Ranked (coverage and price)</option>
+  <option value="ROUND_ROBIN">Fair rotation (round robin)</option>
+  <option value="BROADCAST">Show all eligible providers</option>
+ </select></label>
+ <button className="primary" disabled={busy||!town||!uuid.test(serviceId)} onClick={()=>void find()}>Find verified providers</button>
  {!!message&&<p role="status" style={{marginTop:14}}>{message}</p>}
  {!localStorageSafe()&&<p><Link href="/login">Sign in to continue →</Link></p>}
  {confirmed&&<article style={{padding:18,background:"#EAF7EE",borderRadius:12}}><h2>Request submitted</h2><p>Booking {confirmed.id} · {confirmed.status}</p><Link href="/customer">View my bookings →</Link></article>}

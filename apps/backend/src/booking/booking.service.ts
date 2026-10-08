@@ -3,7 +3,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { Booking, BookingParty, BookingStatus, Prisma } from '@prisma/client';
+import { Booking, BookingParty, BookingStatus, Prisma, ProviderStatus, VerificationStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CustomerService } from '../customer/customer.service';
 import { ProviderService } from '../provider/provider.service';
@@ -45,6 +45,11 @@ export class BookingService {
       throw new NotFoundException('Offering not found or inactive');
     }
     await this.townVillageService.findByIdOrThrow(dto.townVillageId);
+    const currentProvider = await this.prisma.providerProfile.findUnique({where:{id:offering.providerId}});
+    if (!currentProvider || currentProvider.status !== ProviderStatus.ACTIVE ||
+        currentProvider.verificationStatus !== VerificationStatus.VERIFIED) {
+      throw new ConflictException('Provider is not active and verified');
+    }
 
     if (!isTimeBefore(dto.scheduledStartTime, dto.scheduledEndTime)) {
       throw new ConflictException(
@@ -75,21 +80,41 @@ export class BookingService {
       );
     }
 
-    return this.prisma.booking.create({
-      data: {
-        customerId: customer.id,
-        offeringId: offering.id,
-        townVillageId: dto.townVillageId,
-        scheduledDate: new Date(dto.scheduledDate),
-        scheduledStartTime: dto.scheduledStartTime,
-        scheduledEndTime: dto.scheduledEndTime,
-        pricingModel: offering.pricingModel,
-        amount: offering.amount,
-        visitFee: offering.visitFee,
-        currency: offering.currency,
-        notes: dto.notes,
-      },
-    });
+    // Provider/day-scoped advisory lock protects against two simultaneous
+    // requests passing availability checks before either booking is inserted.
+    // The booking conflict query and INSERT share the same transaction.
+    return this.prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT pg_advisory_xact_lock(
+        hashtext(${offering.providerId}), hashtext(${dto.scheduledDate})
+      )`;
+      const conflict = await tx.booking.findFirst({
+        where: {
+          offering: {providerId: offering.providerId},
+          scheduledDate: new Date(dto.scheduledDate),
+          status: {in: ACTIVE_STATUSES},
+          scheduledStartTime: {lt: dto.scheduledEndTime},
+          scheduledEndTime: {gt: dto.scheduledStartTime},
+        },
+        select: {id: true},
+      });
+      if (conflict) throw new ConflictException('Provider is already booked in the requested time window');
+      return tx.booking.create({
+        data: {
+          customerId: customer.id,
+          offeringId: offering.id,
+          townVillageId: dto.townVillageId,
+          scheduledDate: new Date(dto.scheduledDate),
+          scheduledStartTime: dto.scheduledStartTime,
+          scheduledEndTime: dto.scheduledEndTime,
+          pricingModel: offering.pricingModel,
+          amount: offering.amount,
+          visitFee: offering.visitFee,
+          currency: offering.currency,
+          notes: dto.notes,
+        },
+      });
+    },{isolationLevel:Prisma.TransactionIsolationLevel.Serializable});
+
   }
 
   async listAsCustomer(
@@ -257,7 +282,14 @@ export class BookingService {
         `Booking cannot move to this state from its current status (${booking.status})`,
       );
     }
-    return this.prisma.booking.update({ where: { id: booking.id }, data });
+    return this.prisma.booking.update({
+      where: {id:booking.id,status:{in:allowedFrom}},
+      data,
+    }).catch((error: unknown) => {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025')
+        throw new ConflictException('Booking status changed concurrently; refresh and retry');
+      throw error;
+    });
   }
 
   private async getOwnedByCustomerOrThrow(

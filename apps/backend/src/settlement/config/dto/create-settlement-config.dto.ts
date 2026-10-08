@@ -1,6 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { CommissionScopeType } from '@prisma/client';
-import { IsEnum, IsInt, IsPositive, IsUUID, ValidateIf } from 'class-validator';
+import { IsEnum, IsInt, IsPositive, IsUUID, ValidateIf, IsOptional, IsISO8601 } from 'class-validator';
 
 export class CreateSettlementConfigDto {
   @ApiProperty({
