@@ -184,6 +184,8 @@ describe('PaymentService', () => {
       status: PaymentStatus.INITIATED,
       gatewayOrderId: 'stub_order_1',
       booking: { customerId: 'customer-1' },
+      amount: 300,
+      currency: 'INR',
     };
 
     it('marks the payment SUCCEEDED when the gateway verifies it', async () => {
@@ -202,9 +204,11 @@ describe('PaymentService', () => {
         'stub_order_1',
         'pay_1',
         'sig_1',
+        300,
+        'INR',
       );
       expect(prisma.payment.update).toHaveBeenCalledWith({
-        where: { id: 'payment-1' },
+        where: { id: 'payment-1', status: PaymentStatus.INITIATED },
         data: expect.objectContaining({
           status: PaymentStatus.SUCCEEDED,
           gatewayPaymentId: 'pay_1',
@@ -226,7 +230,7 @@ describe('PaymentService', () => {
       });
 
       expect(prisma.payment.update).toHaveBeenCalledWith({
-        where: { id: 'payment-1' },
+        where: { id: 'payment-1', status: PaymentStatus.INITIATED },
         data: expect.objectContaining({ status: PaymentStatus.FAILED }),
       });
     });
@@ -308,7 +312,7 @@ describe('PaymentService', () => {
       await service.markCashCollectedAsProvider('user-1', 'payment-1');
 
       expect(prisma.payment.update).toHaveBeenCalledWith({
-        where: { id: 'payment-1' },
+        where: { id: 'payment-1', status: PaymentStatus.INITIATED },
         data: expect.objectContaining({ status: PaymentStatus.SUCCEEDED }),
       });
     });

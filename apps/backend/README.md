@@ -1,5 +1,7 @@
 # SevaMitra Backend
 
+**Deployment:** see [provider-first staging and mobile release runbook](../../docs/DEPLOYMENT_RUNBOOK.md) and [staging scripts](infra/STAGING.md). A green CI build does **not** authorize a live launch; real customer transactions require separate gateway and regulatory acceptance.
+
 A NestJS/Prisma/PostgreSQL backend for SevaMitra, a hyperlocal services
 marketplace connecting customers with individual providers and provider
 companies (initial market: Karnataka, Kannada-first).

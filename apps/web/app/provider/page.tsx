@@ -37,7 +37,7 @@ export default function Provider(){
   if(kind==="complete"&&!confirm("Confirm service completion?"))return;
   setBusy(true);try{await api.post(`/bookings/provider/me/${b.id}/${kind}`,kind==="reject"?{reason:reason.trim()}:{});setReason("");await load()}catch(e){setMsg(e instanceof Error?e.message:"Booking update failed")}finally{setBusy(false)}
  }
- return <main><header className="nav"><Link className="brand" href="/"><span className="mark">✦</span><div><b>Seva<span>Mitra</span></b><small>Provider workspace</small></div></Link><Link href="/workspaces">Workspaces</Link></header>
+ return <main><header className="nav"><Link className="brand" href="/"><span className="mark">✦</span><div><b>Seva<span>Mitra</span></b><small>Provider workspace</small></div></Link><div style={{display:"flex",gap:15}}><Link href="/provider/manage">Manage services & coverage</Link><Link href="/workspaces">Workspaces</Link></div></header>
  <section className="workspace"><div className="workspaceTop"><div><div className="pill">Provider</div><h1>{profile?.fullName||"Provider registration"}</h1><p>{profile?`Account: ${profile.status} · Verification: ${profile.verificationStatus}`:msg}</p></div><Link href="/login" className="primary">Sign in</Link></div>
  {!!msg&&<p role="alert">{msg}</p>}
  {!profile&&<article><label>Your full name</label><input maxLength={150} value={name} onChange={e=>setName(e.target.value)}/><button disabled={busy||name.trim().length<2} onClick={()=>void create()}>Create provider profile</button></article>}
@@ -48,7 +48,7 @@ export default function Provider(){
  <button disabled={busy||!uploadFile} onClick={()=>void upload()}>Upload securely</button>
  <p>{onboard.documents?.length||0} document(s) submitted</p>
  </section>}</article>
- <h2 style={{marginTop:25}}>Bookings ({bookings.length})</h2>{bookings.length===0&&<p>No bookings assigned yet.</p>}
+ <p><Link href="/provider/manage">Configure pricing, service areas and working hours →</Link></p><h2 style={{marginTop:25}}>Bookings ({bookings.length})</h2>{bookings.length===0&&<p>No bookings assigned yet.</p>}
  <div className="adminModules">{bookings.map(b=><article key={b.id}><h3>{b.status}</h3><p>{String(b.scheduledDate).slice(0,10)} · {b.scheduledStartTime}–{b.scheduledEndTime}</p><p>{b.currency} {b.amount??"Price on request"}</p><small>{b.id}</small>
  {b.status==="REQUESTED"&&<><label>Reason if rejecting</label><input value={reason} onChange={e=>setReason(e.target.value)} maxLength={500}/><div style={{display:"flex",gap:10}}><button disabled={busy} onClick={()=>void action(b,"accept")}>Accept</button><button disabled={busy} onClick={()=>void action(b,"reject")}>Reject</button></div></>}
  {b.status==="ACCEPTED"&&<button disabled={busy} onClick={()=>void action(b,"complete")}>Mark completed</button>}

@@ -10,6 +10,7 @@ import {
   Payment,
   PaymentMethod,
   PaymentStatus,
+  Prisma,
 } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { BookingService } from '../booking/booking.service';
@@ -117,14 +118,16 @@ export class PaymentService {
       );
     }
 
-    const verified = this.paymentGateway.verifyPayment(
+    const verified = await this.paymentGateway.verifyPayment(
       payment.gatewayOrderId!,
       dto.gatewayPaymentId,
       dto.gatewaySignature,
+      Number(payment.amount),
+      payment.currency,
     );
 
     return this.prisma.payment.update({
-      where: { id: payment.id },
+      where: { id: payment.id, status: PaymentStatus.INITIATED },
       data: verified
         ? {
             status: PaymentStatus.SUCCEEDED,
@@ -181,7 +184,7 @@ export class PaymentService {
     }
 
     return this.prisma.payment.update({
-      where: { id: payment.id },
+      where: { id: payment.id, status: PaymentStatus.INITIATED },
       data: { status: PaymentStatus.SUCCEEDED, settledAt: new Date() },
     });
   }

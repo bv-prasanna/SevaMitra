@@ -19,5 +19,7 @@ export interface PaymentGateway {
     gatewayOrderId: string,
     gatewayPaymentId: string,
     gatewaySignature: string,
-  ): boolean;
+    expectedAmount?: number,
+    expectedCurrency?: string,
+  ): boolean | Promise<boolean>;
 }

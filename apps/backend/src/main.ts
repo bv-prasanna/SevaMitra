@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AppModule } from './app.module';
+import { allowedBrowserOrigins } from './common/config/cors-origins';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -10,7 +11,23 @@ async function bootstrap() {
 
   app.setGlobalPrefix('api');
   app.enableVersioning({ type: VersioningType.URI, defaultVersion: '1' });
-  app.enableCors();
+  const origins = allowedBrowserOrigins(
+    config.get<string>('CORS_ALLOWED_ORIGINS'),
+    config.get<string>('NODE_ENV') ?? 'development',
+  );
+  app.enableCors({
+    origin: origins,
+    credentials: false,
+    methods: ['GET','POST','PUT','PATCH','DELETE','OPTIONS'],
+    allowedHeaders: ['Content-Type','Authorization','Idempotency-Key'],
+  });
+  app.use((_req: unknown, res: {setHeader:(name:string,value:string)=>void}, next:()=>void)=>{
+    res.setHeader('X-Content-Type-Options','nosniff');
+    res.setHeader('X-Frame-Options','DENY');
+    res.setHeader('Referrer-Policy','strict-origin-when-cross-origin');
+    res.setHeader('Cache-Control','no-store');
+    next();
+  });
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
@@ -28,7 +45,10 @@ async function bootstrap() {
     .addBearerAuth()
     .build();
   const document = SwaggerModule.createDocument(app, swaggerConfig);
-  SwaggerModule.setup('api/docs', app, document);
+  if (config.get<string>('NODE_ENV') !== 'production' ||
+      config.get<string>('ENABLE_API_DOCS') === 'true') {
+    SwaggerModule.setup('api/docs', app, document);
+  }
 
   const port = config.get<number>('PORT') ?? 3000;
   await app.listen(port);

@@ -1,8 +1,8 @@
 # Multi-stage build per docs/ARCHITECTURE.md §14.
 
-FROM node:20-slim AS builder
+FROM node:22-bookworm-slim AS builder
 WORKDIR /app
-# Prisma's query engine can't detect libssl on the bare node:20-slim image
+# Prisma's query engine can't detect libssl on the bare node:22-bookworm-slim image
 # without this — silent without it in some environments, hard failures in
 # others. Installed in both stages since `prisma generate` (builder) and
 # the actual query engine at runtime (runtime) both need it.
@@ -17,7 +17,7 @@ RUN npx prisma generate
 RUN npm run build
 RUN npm prune --omit=dev
 
-FROM node:20-slim AS runtime
+FROM node:22-bookworm-slim AS runtime
 WORKDIR /app
 ENV NODE_ENV=production
 RUN apt-get update -y && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*

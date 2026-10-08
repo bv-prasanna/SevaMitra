@@ -1,4 +1,5 @@
 import { plainToInstance } from 'class-transformer';
+import { allowedBrowserOrigins } from './cors-origins';
 import {
   IsIn,
   IsInt,
@@ -90,6 +91,20 @@ class EnvironmentVariables {
 
   @IsOptional() @IsString() MSG91_AUTHKEY?: string;
   @IsOptional() @IsString() MSG91_OTP_FLOW_ID?: string;
+
+  @IsOptional() @IsString() CORS_ALLOWED_ORIGINS?: string;
+  @IsOptional() @IsString() ENABLE_API_DOCS?: string;
+
+  @IsOptional() @IsIn(['stub','disabled','razorpay'])
+  PAYMENT_PROVIDER?: string;
+  @IsOptional() @IsIn(['stub','disabled'])
+  REFUND_PROVIDER?: string;
+  @IsOptional() @IsIn(['stub','disabled'])
+  PAYOUT_PROVIDER?: string;
+
+  @IsOptional() @IsString() RAZORPAY_KEY_ID?: string;
+  @IsOptional() @IsString() RAZORPAY_KEY_SECRET?: string;
+  @IsOptional() @IsString() RAZORPAY_WEBHOOK_SECRET?: string;
 }
 
 /** Fails fast on startup if required config is missing/malformed. */
@@ -107,7 +122,18 @@ export function validateEnv(config: Record<string, unknown>) {
     );
   }
 
+  allowedBrowserOrigins(validated.CORS_ALLOWED_ORIGINS, validated.NODE_ENV);
   if (['staging', 'production'].includes(validated.NODE_ENV)) {
+    if (validated.PAYMENT_PROVIDER === 'stub' ||
+        validated.REFUND_PROVIDER === 'stub' ||
+        validated.PAYOUT_PROVIDER === 'stub') {
+      throw new Error('Simulated payment/refund/payout providers are forbidden outside development');
+    }
+    if (validated.PAYMENT_PROVIDER === 'razorpay' &&
+        (!validated.RAZORPAY_KEY_ID || !validated.RAZORPAY_KEY_SECRET ||
+         !validated.RAZORPAY_WEBHOOK_SECRET)) {
+      throw new Error('Razorpay credentials and webhook secret are required');
+    }
     if (validated.OTP_FIXED_CODE) throw new Error('OTP_FIXED_CODE is forbidden in staging/production');
     if (validated.OTP_PROVIDER !== 'msg91' || !validated.MSG91_AUTHKEY || !validated.MSG91_OTP_FLOW_ID) {
       throw new Error('A configured real OTP provider is mandatory in staging/production');

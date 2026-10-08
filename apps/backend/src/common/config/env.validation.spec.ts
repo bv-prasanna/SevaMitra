@@ -23,7 +23,7 @@ describe('validateEnv production safety', () => {
   const validProd = {
     ...base, NODE_ENV: 'production', OTP_PROVIDER: 'msg91',
     MSG91_AUTHKEY: 'test-authkey', MSG91_OTP_FLOW_ID: 'test-flow',
-    NOTIFICATION_PROVIDER: 'live',
+    NOTIFICATION_PROVIDER: 'live', CORS_ALLOWED_ORIGINS: 'https://app.example.com',
   };
 
   it('accepts a complete development configuration', () => {
@@ -68,6 +68,20 @@ describe('validateEnv production safety', () => {
       .toThrow('A configured real OTP provider is mandatory');
     expect(() => validateEnv({ ...validProd, MSG91_OTP_FLOW_ID: undefined }))
       .toThrow('A configured real OTP provider is mandatory');
+  });
+  it('rejects wildcard CORS in production', () => {
+    expect(() => validateEnv({...validProd,CORS_ALLOWED_ORIGINS:'*'})).toThrow();
+  });
+  it('rejects stub money movement gateways in production', () => {
+    expect(() => validateEnv({...validProd, PAYMENT_PROVIDER:'stub'})).toThrow('Simulated payment');
+    expect(() => validateEnv({...validProd, REFUND_PROVIDER:'stub'})).toThrow('Simulated payment');
+    expect(() => validateEnv({...validProd, PAYOUT_PROVIDER:'stub'})).toThrow('Simulated payment');
+  });
+  it('rejects real-money gateway selection without webhook keys', () => {
+    expect(() => validateEnv({...validProd,PAYMENT_PROVIDER:'razorpay'})).toThrow('Razorpay credentials');
+  });
+  it('accepts a production provider-first pilot with online payments disabled', () => {
+    expect(validateEnv({...validProd,PAYMENT_PROVIDER:'disabled',REFUND_PROVIDER:'disabled',PAYOUT_PROVIDER:'disabled'}).NODE_ENV).toBe('production');
   });
   it('rejects a console notification provider in production', () => {
     expect(() => validateEnv({ ...validProd, NOTIFICATION_PROVIDER: 'console' }))

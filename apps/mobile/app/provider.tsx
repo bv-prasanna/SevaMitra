@@ -27,7 +27,7 @@ export default function Provider(){
   {profile&&<><View style={s.card}><Text style={s.heading}>{profile.fullName}</Text><Text>Status: {profile.status} · Verification: {profile.verificationStatus}</Text><Text style={s.muted}>Application: {onboard?.status||"Not submitted"}</Text>{onboard?.reviewNote&&<Text style={s.notice}>{onboard.reviewNote}</Text>}
    {(!onboard||onboard.status==="REJECTED")&&<Pressable disabled={busy} style={s.btn} onPress={()=>void submit()}><Text style={s.white}>{onboard?"Resubmit":"Submit"} verification application</Text></Pressable>}
   </View>
-  <Text style={s.heading}>My bookings ({bookings.length})</Text>
+  <Pressable style={s.btn} onPress={()=>router.push("/provider-manage")}><Text style={s.white}>Manage services, hours and coverage →</Text></Pressable><Text style={s.heading}>My bookings ({bookings.length})</Text>
   {bookings.length===0&&<Text style={s.muted}>No assigned bookings yet.</Text>}
   {bookings.map(b=><View style={s.card} key={b.id}><Text style={s.heading}>{b.status}</Text><Text selectable style={s.muted}>Booking {b.id}</Text><Text>{String(b.scheduledDate).slice(0,10)} · {b.scheduledStartTime}–{b.scheduledEndTime}</Text><Text>{b.currency} {b.amount??"Price on request"}</Text>
    {b.status==="REQUESTED"&&<><TextInput style={s.input} placeholder="Reason if rejecting" value={reason} onChangeText={setReason}/><View style={s.nav}><Pressable disabled={busy} style={s.btn} onPress={()=>void action(b,"accept")}><Text style={s.white}>Accept</Text></Pressable><Pressable disabled={busy} style={s.danger} onPress={()=>void action(b,"reject")}><Text style={s.white}>Reject</Text></Pressable></View></>}
