@@ -13,12 +13,10 @@ export default function Login(){
    const response=await api.verifyOtp({phoneNumber,otp,purpose:"LOGIN"});
    const tokens=extractOtpLoginTokens(response);
    localStorage.setItem("sevamitra_token",tokens.accessToken);
-   // The backend OTP response deliberately has no roles. Authorize via real endpoints.
+   // After OTP, the workspace menu is filtered by server-side profile and IAM.
    const authed=new ApiClient(base,()=>tokens.accessToken);
-   for(const [endpoint,route] of [["/provider-onboarding/applications","/admin"],["/providers/me","/provider"],["/agents/me","/agent"]] as const){
-    try{await authed.get(endpoint);window.location.assign(route);return}catch(e){if((e as {status?:number}).status===401)throw e}
-   }
-   window.location.assign("/customer");
+   await authed.get("/auth/workspaces");
+   window.location.assign("/workspaces");
   }catch(e){setMsg(e instanceof Error?e.message:"OTP verification failed");}finally{setBusy(false)}
  }
  return <main className="authPage"><section className="authCard"><Link href="/" className="back">← SevaMitra</Link><div className="pill">Trusted local services</div><h1>Welcome to SevaMitra</h1><p>Sign in with your phone number. ನಿಮ್ಮ ಮೊಬೈಲ್ ಸಂಖ್ಯೆಯಿಂದ ಲಾಗಿನ್ ಮಾಡಿ.</p>

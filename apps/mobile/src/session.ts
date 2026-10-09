@@ -58,14 +58,21 @@ export async function signOut():Promise<void>{
  await SecureStore.deleteItemAsync(KEY);
  if(s&&API_BASE)try{await new ApiClient(API_BASE).logout({refreshToken:s.refreshToken})}catch{/* already signed out locally */}
 }
-/** UI routing is not authorization. Every action remains guarded by the backend. */
+/** Navigation is derived from an authenticated server-side IAM/profile check.
+ * This is only a menu hint. Every API endpoint independently enforces access.
+ */
+export type WorkspaceEntitlements={
+ customer:boolean;provider:boolean;agent:boolean;admin:boolean;
+ canJoinProvider:boolean;canJoinAgent:boolean;
+ providerStatus:string|null;agentStatus:string|null;
+};
+export async function myWorkspaces():Promise<WorkspaceEntitlements>{
+ return requestWithSession<WorkspaceEntitlements>("GET","/auth/workspaces");
+}
 export async function initialWorkspace():Promise<"/admin"|"/provider"|"/agent"|"/customer">{
- for(const [url,target] of [
-  ["/provider-onboarding/applications","/admin"],
-  ["/providers/me","/provider"],
-  ["/agents/me","/agent"],
- ] as const){
-  try{await requestWithSession("GET",url);return target}catch(e){if((e as {status?:number}).status===401)throw e}
- }
+ const roles=await myWorkspaces();
+ if(roles.admin)return "/admin";
+ if(roles.provider)return "/provider";
+ if(roles.agent)return "/agent";
  return "/customer";
 }

@@ -2,7 +2,7 @@ import React,{useState}from"react";
 import{SafeAreaView,View,Text,TextInput,Pressable,StyleSheet}from"react-native";
 import{router}from"expo-router";
 import{ApiClient}from"@sevamitra/api-client";
-import{API_BASE,saveLoginResponse,initialWorkspace}from"../src/session";
+import{API_BASE,saveLoginResponse,myWorkspaces}from"../src/session";
 const api=new ApiClient(API_BASE);
 export default function Login(){
  const[mobile,setMobile]=useState("");const[otp,setOtp]=useState("");const[sent,setSent]=useState(false);const[msg,setMsg]=useState("");const[busy,setBusy]=useState(false);
@@ -16,11 +16,8 @@ export default function Login(){
    else{
     const response=await api.verifyOtp({phoneNumber,otp,purpose:"LOGIN"});
     await saveLoginResponse(response);
-    const dest=await initialWorkspace();
-    if(dest==="/admin")router.replace("/admin");
-    else if(dest==="/provider")router.replace("/provider");
-    else if(dest==="/agent")router.replace("/agent");
-    else router.replace("/customer");
+    await myWorkspaces();
+    router.replace("/workspaces");
    }
   }catch(e){setMsg(e instanceof Error?e.message:"Login failed. Please retry.")}finally{setBusy(false)}
  }

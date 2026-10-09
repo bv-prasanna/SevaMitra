@@ -1,7 +1,16 @@
-import React,{useState}from"react";import{SafeAreaView,ScrollView,View,Text,Pressable,TextInput,StyleSheet}from"react-native";import{messages,type Locale}from"@sevamitra/i18n";
+import React,{useState}from"react";
+import{router}from"expo-router";import{SafeAreaView,ScrollView,View,Text,Pressable,TextInput,StyleSheet}from"react-native";import{messages,type Locale}from"@sevamitra/i18n";
 const services=["🏠 Cleaning","⚡ Electrician","🔧 Plumber","✨ Beauty","👴 Elder Care","⚙️ Appliance","📚 Tutors","••• More"];
 export default function Home(){const[locale,setLocale]=useState<Locale>("kn");const t=messages[locale];return <SafeAreaView style={s.safe}><ScrollView contentContainerStyle={s.page}>
  <View style={s.header}><View><Text style={s.logo}>Seva<Text style={s.orange}>Mitra</Text></Text><Text style={s.tag}>Local Services. Stronger Communities.</Text></View><Pressable style={s.lang} onPress={()=>setLocale(locale==="kn"?"en":"kn")}><Text>{locale==="kn"?"EN":"ಕನ್ನಡ"}</Text></Pressable></View>
+ <View style={{flexDirection:"row",gap:12,marginHorizontal:20,marginVertical:6}}>
+  <Pressable style={{padding:12,borderRadius:12,backgroundColor:"#087A4B"}} onPress={()=>router.push("/login")}>
+   <Text style={{color:"#fff",fontWeight:"800"}}>Sign in / Login</Text>
+  </Pressable>
+  <Pressable style={{padding:12,borderRadius:12,backgroundColor:"#E3F2EA"}} onPress={()=>router.push("/workspaces")}>
+   <Text style={{color:"#075C40",fontWeight:"800"}}>My workspaces →</Text>
+  </Pressable>
+ </View>
  <View style={s.hero}><Text style={s.badge}>{t.hero.badge}</Text><Text style={s.title}>{t.hero.title1}{"\n"}<Text style={s.green}>{t.hero.title2}</Text></Text><Text style={s.subtitle}>{t.hero.subtitle}</Text><Text style={s.body}>{t.hero.body}</Text>
  <View style={s.location}><Text>📍</Text><Text style={s.locationText}>{t.hero.location}</Text></View><View style={s.search}><TextInput style={s.input} placeholder={t.hero.searchPlaceholder}/><Pressable style={s.searchBtn}><Text style={s.searchTxt}>⌕ {t.hero.search}</Text></Pressable></View></View>
  <Text style={s.section}>{t.nav.services}</Text><View style={s.grid}>{services.map(x=><Pressable key={x} style={s.card}><Text style={s.service}>{x}</Text></Pressable>)}</View>

@@ -2,6 +2,9 @@ import { Module } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
 import { AuthController } from './auth.controller';
+import { WorkspaceController } from './workspace.controller';
+import { WorkspaceService } from './workspace.service';
+import { IamModule } from '../iam/iam.module';
 import { AuthService } from './auth.service';
 import { OtpService } from './otp/otp.service';
 import { OTP_SENDER } from './otp/otp-sender.interface';
@@ -16,10 +19,12 @@ import { JwtStrategy } from './strategies/jwt.strategy';
   imports: [
     PassportModule.register({ defaultStrategy: 'jwt' }),
     JwtModule.register({}),
+    IamModule,
   ],
-  controllers: [AuthController],
+  controllers: [AuthController, WorkspaceController],
   providers: [
     AuthService,
+    WorkspaceService,
     OtpService,
     TokenService,
     SocialAuthService,
