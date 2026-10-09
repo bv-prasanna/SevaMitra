@@ -1618,7 +1618,7 @@ model Notification {
   title   String
   body    String
 
-  status         NotificationStatus @default(PENDING)
+  status         NotificationStatus
   failureReason  String?            @map("failure_reason")
   attemptCount   Int                @default(0) @map("attempt_count")
   nextAttemptAt  DateTime?          @map("next_attempt_at")
