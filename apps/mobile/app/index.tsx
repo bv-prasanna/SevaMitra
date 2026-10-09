@@ -1,7 +1,13 @@
-import React,{useState}from"react";
+import React,{useState,useEffect}from"react";
+import{myWorkspaces}from"../src/session";
 import{router}from"expo-router";import{SafeAreaView,ScrollView,View,Text,Pressable,TextInput,StyleSheet}from"react-native";import{messages,type Locale}from"@sevamitra/i18n";
 const services=["🏠 Cleaning","⚡ Electrician","🔧 Plumber","✨ Beauty","👴 Elder Care","⚙️ Appliance","📚 Tutors","••• More"];
-export default function Home(){const[locale,setLocale]=useState<Locale>("kn");const t=messages[locale];return <SafeAreaView style={s.safe}><ScrollView contentContainerStyle={s.page}>
+export default function Home(){const[locale,setLocale]=useState<Locale>("kn");
+ useEffect(()=>{let alive=true;void myWorkspaces().then(()=>{
+  if(alive)router.replace('/workspaces');
+ }).catch(()=>{/* No stored trusted session; display login normally */});
+ return ()=>{alive=false};},[]);
+ const t=messages[locale];return <SafeAreaView style={s.safe}><ScrollView contentContainerStyle={s.page}>
  <View style={s.header}><View><Text style={s.logo}>Seva<Text style={s.orange}>Mitra</Text></Text><Text style={s.tag}>Local Services. Stronger Communities.</Text></View><Pressable style={s.lang} onPress={()=>setLocale(locale==="kn"?"en":"kn")}><Text>{locale==="kn"?"EN":"ಕನ್ನಡ"}</Text></Pressable></View>
  <View style={{flexDirection:"row",gap:12,marginHorizontal:20,marginVertical:6}}>
   <Pressable style={{padding:12,borderRadius:12,backgroundColor:"#087A4B"}} onPress={()=>router.push("/login")}>

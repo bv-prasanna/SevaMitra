@@ -35,7 +35,7 @@ describe('AuthController transport contracts', () => {
   });
   it('passes refresh token and IP but not unrelated request fields', async () => {
     await controller.refresh({ refreshToken: 'refresh-1' }, request);
-    expect(service.refresh).toHaveBeenCalledWith('refresh-1', '127.0.0.1');
+    expect(service.refresh).toHaveBeenCalledWith('refresh-1', '127.0.0.1',undefined);
   });
   it('revokes the specific refresh token during logout', async () => {
     await controller.logout({ refreshToken: 'refresh-1' });

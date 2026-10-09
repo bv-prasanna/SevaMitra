@@ -128,6 +128,7 @@ describe('AuthService', () => {
       expect(tokenService.issueTokenPair).toHaveBeenCalledWith(
         testUser,
         undefined,
+        undefined,
       );
     });
 
@@ -236,6 +237,20 @@ describe('AuthService', () => {
 
       expect(result.tokens.accessToken).toBe('access');
     });
+  });
+
+  it('enrolls a mobile device only after correct password authentication',async()=>{
+    const passwordHash=await bcrypt.hash('correct-password',10);
+    prisma.user.findUnique.mockResolvedValue({...testUser,credential:{passwordHash}});
+    await service.loginWithPassword({
+      identifier:'+919876543210',password:'correct-password',
+      devicePlatform:'android',deviceLabel:'Galaxy Phone',
+    });
+    expect(tokenService.issueTokenPair).toHaveBeenCalledWith(
+      expect.objectContaining({id:testUser.id}),
+      undefined,
+      {platform:'android',label:'Galaxy Phone'},
+    );
   });
 
   describe('setPassword', () => {

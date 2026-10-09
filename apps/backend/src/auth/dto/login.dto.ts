@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsString, MinLength } from 'class-validator';
+import { IsString, MinLength, IsIn, IsOptional, MaxLength } from 'class-validator';
 
 export class LoginWithPasswordDto {
   @ApiProperty({
@@ -13,4 +13,13 @@ export class LoginWithPasswordDto {
   @IsString()
   @MinLength(8)
   password: string;
+
+  @ApiProperty({required:false,enum:['android','ios']})
+  @IsOptional() @IsIn(['android','ios'])
+  devicePlatform?:'android'|'ios';
+
+  @ApiProperty({required:false,description:'Displayed on trusted-device management page'})
+  @IsOptional() @IsString() @MaxLength(80)
+  deviceLabel?:string;
+
 }

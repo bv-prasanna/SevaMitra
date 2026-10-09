@@ -1,4 +1,5 @@
 import * as SecureStore from "expo-secure-store";
+import {eventLocationHeaders} from "./event-location";
 import {ApiClient,extractOtpLoginTokens,type SessionTokenPair} from "@sevamitra/api-client";
 
 export const API_BASE=process.env.EXPO_PUBLIC_API_BASE_URL||"";
@@ -41,13 +42,14 @@ export async function requestWithSession<T=unknown>(method:"GET"|"POST"|"PATCH"|
  let session=await loadSession();
  if(!session)throw new Error("Please sign in first");
  if(Date.now()>session.expiresAt-30000)session=await refreshSession(session);
+ const geo=method==='GET'?{}:await eventLocationHeaders();
  const execute=(token:string)=>{
   const api=new ApiClient(API_BASE,()=>token);
   if(method==="GET")return api.get<T>(path);
-  if(method==="POST")return api.post<T>(path,body);
-  if(method==="PATCH")return api.patch<T>(path,body);
-  if(method==="PUT")return api.put<T>(path,body);
-  return api.delete<T>(path);
+  if(method==="POST")return api.post<T>(path,body,{headers:geo});
+  if(method==="PATCH")return api.patch<T>(path,body,{headers:geo});
+  if(method==="PUT")return api.put<T>(path,body,{headers:geo});
+  return api.delete<T>(path,{headers:geo});
  };
  try{return await execute(session.accessToken)}
  catch(e){if((e as {status?:number}).status!==401)throw e;const renewed=await refreshSession(session);return execute(renewed.accessToken)}

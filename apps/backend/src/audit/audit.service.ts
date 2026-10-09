@@ -11,6 +11,12 @@ export interface RecordAuditEntryInput {
   entityId: string | null;
   statusCode: number;
   ipAddress: string | null;
+  latitude?:number|null;
+  longitude?:number|null;
+  accuracyMeters?:number|null;
+  locationCapturedAt?:Date|null;
+  locationStatus?:string;
+  outcome?:'SUCCESS'|'FAILED';
 }
 
 @Injectable()

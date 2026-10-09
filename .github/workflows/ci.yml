@@ -36,10 +36,19 @@ jobs:
         run: pnpm install --no-frozen-lockfile
       - name: Shared client login contract regression tests
         run: node --experimental-transform-types --test packages/api-client/test/*.test.mjs
+      - name: Frontend mobile role-navigation unit tests
+        run: node --experimental-transform-types --test apps/mobile/test/*.test.mjs
       - name: Shared package, web and mobile typecheck
         run: pnpm typecheck
       - name: Web production build
+        env:
+          NEXT_PUBLIC_API_BASE_URL: http://127.0.0.1:4173
         run: pnpm --filter @sevamitra/web build
+      - name: Install Chromium for frontend tests
+        run: pnpm --filter @sevamitra/web exec playwright install --with-deps chromium
+      - name: Frontend real-browser E2E tests
+        working-directory: apps/web
+        run: pnpm exec playwright test
       - name: Backend dependencies
         working-directory: apps/backend
         run: npm ci

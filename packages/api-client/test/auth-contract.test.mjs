@@ -24,3 +24,18 @@ test("rejects malformed or empty secrets",()=>{
 test("does not accept null",()=>{
  assert.throws(()=>extractOtpLoginTokens(null),/Invalid login response/);
 });
+
+test("OTP token parser returns server-enrolled device ID for mobile secure storage",()=>{
+ const response={kind:"tokens",tokens:{
+  accessToken:"a",refreshToken:"r",expiresIn:900,deviceId:"device-123",
+ }};
+ assert.deepEqual(extractOtpLoginTokens(response),{
+  accessToken:"a",refreshToken:"r",expiresIn:900,deviceId:"device-123",
+ });
+});
+test("rejects malformed device bindings rather than caching untrusted data",()=>{
+ const response={kind:"tokens",tokens:{
+  accessToken:"a",refreshToken:"r",expiresIn:900,deviceId:{malicious:true},
+ }};
+ assert.throws(()=>extractOtpLoginTokens(response),/Invalid device binding/);
+});

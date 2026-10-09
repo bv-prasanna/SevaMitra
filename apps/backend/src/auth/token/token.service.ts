@@ -21,7 +21,10 @@ export interface TokenPair {
   accessToken: string;
   refreshToken: string;
   expiresIn: number;
+  deviceId?: string;
 }
+export type EnrollmentDevice={platform:'android'|'ios';label?:string};
+
 
 @Injectable()
 export class TokenService {
@@ -37,9 +40,16 @@ export class TokenService {
     );
   }
 
-  async issueTokenPair(user: User, createdByIp?: string): Promise<TokenPair> {
+  async issueTokenPair(
+    user: User, createdByIp?: string, enroll?: EnrollmentDevice, existingDeviceId?: string,
+  ): Promise<TokenPair> {
+    // An enrolled device must be backed by completed OTP/password verification.
+    const newDevice = enroll ? await this.prisma.trustedDevice.create({
+      data:{userId:user.id,platform:enroll.platform,label:enroll.label?.trim().slice(0,80)},
+    }) : null;
+    const deviceId = newDevice?.id??existingDeviceId;
     const accessToken = this.signAccessToken(user);
-    const refreshToken = await this.issueRefreshToken(user.id, createdByIp);
+    const refreshToken = await this.issueRefreshToken(user.id, createdByIp,deviceId);
     const accessTtlSeconds = parseDurationToSeconds(
       this.config.getOrThrow<string>('JWT_ACCESS_TTL'),
     );
@@ -48,6 +58,7 @@ export class TokenService {
       accessToken,
       refreshToken,
       expiresIn: accessTtlSeconds,
+      ...(deviceId?{deviceId}:{}),
     };
   }
 
@@ -55,6 +66,7 @@ export class TokenService {
   async rotateRefreshToken(
     presentedToken: string,
     createdByIp?: string,
+    deviceId?: string,
   ): Promise<TokenPair> {
     const tokenHash = this.hashToken(presentedToken);
     const stored = await this.prisma.refreshToken.findUnique({
@@ -72,13 +84,28 @@ export class TokenService {
     if (stored.user.status !== UserStatus.ACTIVE) {
       throw new UnauthorizedException('Account is not active');
     }
+    if (stored.deviceId) {
+      // Device ID is a binding check, NOT the credential: a valid rotating
+      // refresh token must also be presented.
+      if (deviceId !== stored.deviceId) {
+        throw new UnauthorizedException('Session belongs to another device');
+      }
+      const device=await this.prisma.trustedDevice.findUnique({where:{id:stored.deviceId}});
+      if(!device||device.revokedAt||device.userId!==stored.userId){
+        throw new UnauthorizedException('Device access was revoked');
+      }
+    }
 
-    await this.prisma.refreshToken.update({
-      where: { id: stored.id },
-      data: { revokedAt: new Date() },
+    const revoked=await this.prisma.refreshToken.updateMany({
+      where:{id:stored.id,revokedAt:null},
+      data:{revokedAt:new Date()},
     });
+    if(revoked.count!==1)throw new UnauthorizedException('Refresh token was already used');
 
-    return this.issueTokenPair(stored.user, createdByIp);
+    if (stored.deviceId) {
+      await this.prisma.trustedDevice.update({where:{id:stored.deviceId},data:{lastSeenAt:new Date()}});
+    }
+    return this.issueTokenPair(stored.user, createdByIp,undefined,stored.deviceId??undefined);
   }
 
   async revokeRefreshToken(presentedToken: string): Promise<void> {
@@ -147,13 +174,14 @@ export class TokenService {
   private async issueRefreshToken(
     userId: string,
     createdByIp?: string,
+    deviceId?: string,
   ): Promise<string> {
     const plainToken = randomBytes(48).toString('hex');
     const tokenHash = this.hashToken(plainToken);
     const expiresAt = new Date(Date.now() + this.refreshTtlSeconds * 1000);
 
     await this.prisma.refreshToken.create({
-      data: { userId, tokenHash, expiresAt, createdByIp },
+      data: { userId, tokenHash, expiresAt, createdByIp,...(deviceId?{deviceId}:{}) },
     });
 
     return plainToken;

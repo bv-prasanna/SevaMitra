@@ -3,6 +3,7 @@ import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
 import { AuthController } from './auth.controller';
 import { WorkspaceController } from './workspace.controller';
+import { TrustedDeviceController } from './trusted-device.controller';
 import { WorkspaceService } from './workspace.service';
 import { IamModule } from '../iam/iam.module';
 import { AuthService } from './auth.service';
@@ -21,7 +22,7 @@ import { JwtStrategy } from './strategies/jwt.strategy';
     JwtModule.register({}),
     IamModule,
   ],
-  controllers: [AuthController, WorkspaceController],
+  controllers: [AuthController, WorkspaceController, TrustedDeviceController],
   providers: [
     AuthService,
     WorkspaceService,

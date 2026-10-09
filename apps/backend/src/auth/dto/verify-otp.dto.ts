@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsEnum, IsPhoneNumber, IsString, Length } from 'class-validator';
+import { IsEnum, IsPhoneNumber, IsString, Length, IsIn, IsOptional, MaxLength } from 'class-validator';
 import { RequestOtpPurpose } from './request-otp.dto';
 
 export class VerifyOtpDto {
@@ -15,4 +15,13 @@ export class VerifyOtpDto {
   @ApiProperty({ enum: RequestOtpPurpose, default: RequestOtpPurpose.LOGIN })
   @IsEnum(RequestOtpPurpose)
   purpose: RequestOtpPurpose;
+
+  @ApiProperty({required:false,enum:['android','ios']})
+  @IsOptional() @IsIn(['android','ios'])
+  devicePlatform?:'android'|'ios';
+
+  @ApiProperty({required:false,description:'Displayed on trusted-device management page'})
+  @IsOptional() @IsString() @MaxLength(80)
+  deviceLabel?:string;
+
 }

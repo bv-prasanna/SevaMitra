@@ -108,7 +108,7 @@ export class AuthController {
     type: ErrorResponseDto,
   })
   refresh(@Body() dto: RefreshTokenDto, @Req() req: Request) {
-    return this.authService.refresh(dto.refreshToken, req.ip);
+    return this.authService.refresh(dto.refreshToken, req.ip,dto.deviceId);
   }
 
   @Post('logout')

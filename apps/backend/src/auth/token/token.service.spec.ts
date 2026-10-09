@@ -36,6 +36,7 @@ describe('TokenService', () => {
       update: jest.Mock;
       updateMany: jest.Mock;
     };
+    trustedDevice:{create:jest.Mock;findUnique:jest.Mock;update:jest.Mock};
   };
   let jwtService: JwtService;
   let service: TokenService;
@@ -46,7 +47,12 @@ describe('TokenService', () => {
         create: jest.fn().mockResolvedValue({}),
         findUnique: jest.fn(),
         update: jest.fn().mockResolvedValue({}),
-        updateMany: jest.fn().mockResolvedValue({ count: 0 }),
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+      },
+      trustedDevice:{
+        create:jest.fn().mockResolvedValue({id:'device-1'}),
+        findUnique:jest.fn().mockResolvedValue({id:'device-1',userId:'user-1',revokedAt:null}),
+        update:jest.fn().mockResolvedValue({}),
       },
     };
     jwtService = new JwtService();
@@ -131,11 +137,67 @@ describe('TokenService', () => {
 
     const pair = await service.rotateRefreshToken('some-token');
 
-    expect(prisma.refreshToken.update).toHaveBeenCalledWith({
-      where: { id: 'rt-1' },
+    expect(prisma.refreshToken.updateMany).toHaveBeenCalledWith({
+      where: { id: 'rt-1',revokedAt:null },
       data: { revokedAt: expect.any(Date) },
     });
     expect(pair.accessToken).toEqual(expect.any(String));
+  });
+
+  describe('mobile trusted device enrollment and refresh',()=>{
+    const bound={
+      id:'rt-1',userId:'user-1',deviceId:'device-1',
+      revokedAt:null,expiresAt:new Date(Date.now()+100_000),user:testUser,
+    };
+    it('enrolls a trusted device ONLY after an authenticated token issuance',async()=>{
+      const pair=await service.issueTokenPair(testUser,'127.0.0.1',{platform:'android',label:'My phone'});
+      expect(prisma.trustedDevice.create).toHaveBeenCalledWith({
+        data:{userId:'user-1',platform:'android',label:'My phone'},
+      });
+      expect(pair.deviceId).toBe('device-1');
+      expect(prisma.refreshToken.create).toHaveBeenCalledWith({
+        data:expect.objectContaining({deviceId:'device-1'}),
+      });
+    });
+    it('rejects a valid refresh token missing the device binding',async()=>{
+      prisma.refreshToken.findUnique.mockResolvedValue(bound);
+      await expect(service.rotateRefreshToken('secret','127.0.0.1')).rejects.toThrow('another device');
+      expect(prisma.refreshToken.updateMany).not.toHaveBeenCalled();
+    });
+    it('rejects the wrong device ID even with a valid refresh token',async()=>{
+      prisma.refreshToken.findUnique.mockResolvedValue(bound);
+      await expect(service.rotateRefreshToken('secret','127.0.0.1','device-2')).rejects.toThrow('another device');
+    });
+    it('rejects a revoked device even if the refresh token has not expired',async()=>{
+      prisma.refreshToken.findUnique.mockResolvedValue(bound);
+      prisma.trustedDevice.findUnique.mockResolvedValue({id:'device-1',userId:'user-1',revokedAt:new Date()});
+      await expect(service.rotateRefreshToken('secret','127.0.0.1','device-1')).rejects.toThrow('revoked');
+    });
+    it('rejects presenting a device associated with a different user',async()=>{
+      prisma.refreshToken.findUnique.mockResolvedValue(bound);
+      prisma.trustedDevice.findUnique.mockResolvedValue({id:'device-1',userId:'another-user',revokedAt:null});
+      await expect(service.rotateRefreshToken('secret','127.0.0.1','device-1')).rejects.toThrow('revoked');
+    });
+    it('rotates a valid mobile token and preserves its bound device',async()=>{
+      prisma.refreshToken.findUnique.mockResolvedValue(bound);
+      const next=await service.rotateRefreshToken('secret','127.0.0.1','device-1');
+      expect(next.deviceId).toBe('device-1');
+      expect(prisma.trustedDevice.update).toHaveBeenCalledWith({
+        where:{id:'device-1'},data:{lastSeenAt:expect.any(Date)},
+      });
+      expect(prisma.refreshToken.create).toHaveBeenCalledWith({
+        data:expect.objectContaining({deviceId:'device-1'}),
+      });
+    });
+    it('rejects replay when refresh token was rotated concurrently',async()=>{
+      prisma.refreshToken.findUnique.mockResolvedValue({
+        id:'rt-1',deviceId:null,userId:'user-1',revokedAt:null,
+        expiresAt:new Date(Date.now()+100_000),user:testUser,
+      });
+      prisma.refreshToken.updateMany.mockResolvedValue({count:0});
+      await expect(service.rotateRefreshToken('replayed')).rejects.toThrow('already used');
+      expect(prisma.refreshToken.create).not.toHaveBeenCalled();
+    });
   });
 
   describe('reset tokens', () => {

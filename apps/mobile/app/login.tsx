@@ -1,5 +1,5 @@
 import React,{useState}from"react";
-import{SafeAreaView,View,Text,TextInput,Pressable,StyleSheet}from"react-native";
+import{SafeAreaView,View,Text,TextInput,Pressable,StyleSheet,Platform}from"react-native";
 import{router}from"expo-router";
 import{ApiClient}from"@sevamitra/api-client";
 import{API_BASE,saveLoginResponse,myWorkspaces}from"../src/session";
@@ -14,7 +14,11 @@ export default function Login(){
    const phoneNumber="+91"+mobile;
    if(!sent){await api.requestOtp({phoneNumber,purpose:"LOGIN"});setSent(true);setMsg("OTP sent / OTP ಕಳುಹಿಸಲಾಗಿದೆ");}
    else{
-    const response=await api.verifyOtp({phoneNumber,otp,purpose:"LOGIN"});
+    const response=await api.verifyOtp({
+      phoneNumber,otp,purpose:"LOGIN",
+      devicePlatform:Platform.OS==="ios"?"ios":"android",
+      deviceLabel:Platform.OS==="ios"?"SevaMitra iPhone":"SevaMitra Android",
+    });
     await saveLoginResponse(response);
     await myWorkspaces();
     router.replace("/workspaces");

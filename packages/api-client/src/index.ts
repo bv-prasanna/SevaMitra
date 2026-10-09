@@ -1,9 +1,47 @@
+
+export type BrowserEventCoordinate={latitude:number;longitude:number;accuracy:number|null;timestamp:number};
+export function formatEventLocationHeaders(coordinate:BrowserEventCoordinate|null,now=Date.now()):Record<string,string>{
+ if(!coordinate)return{};
+ const{latitude,longitude,accuracy,timestamp}=coordinate;
+ if(accuracy===null||!Number.isFinite(latitude)||!Number.isFinite(longitude)||
+    !Number.isFinite(accuracy)||!Number.isFinite(timestamp)||latitude < -90||latitude > 90||
+    longitude < -180||longitude > 180||accuracy<0||accuracy>5000||
+    Math.abs(now-timestamp)>300000)return{};
+ return{
+  'X-Event-Latitude':String(latitude),
+  'X-Event-Longitude':String(longitude),
+  'X-Event-Accuracy-Meters':String(accuracy),
+  'X-Event-Captured-At':new Date(timestamp).toISOString(),
+ };
+}
+/** Does not trigger the browser location prompt. Location is included only if
+ * a user has already granted foreground geolocation access.
+ */
+export async function permittedBrowserEventLocation():Promise<Record<string,string>>{
+ if(typeof navigator==='undefined'||!navigator.permissions?.query||!navigator.geolocation)return{};
+ try{
+  const permission=await navigator.permissions.query({name:'geolocation'});
+  if(permission.state!=='granted')return{};
+  const position=await new Promise<GeolocationPosition|null>(resolve=>{
+   navigator.geolocation.getCurrentPosition(
+    pos=>resolve(pos),
+    ()=>resolve(null),
+    {enableHighAccuracy:false,timeout:3000,maximumAge:60_000},
+   );
+  });
+  return formatEventLocationHeaders(position?{
+   latitude:position.coords.latitude,longitude:position.coords.longitude,
+   accuracy:position.coords.accuracy,timestamp:position.timestamp,
+  }:null);
+ }catch{return{}}
+}
+
 export type ApiError={code:string;message:string;details?:unknown;correlationId?:string};
 export type Query=Record<string,string|number|boolean|undefined|null>; export type RequestOptions={query?:Query;idempotencyKey?:string;headers?:Record<string,string>};
 const qs=(q?:Query)=>{if(!q)return"";const p=new URLSearchParams();Object.entries(q).forEach(([k,v])=>{if(v!=null)p.set(k,String(v))});const s=p.toString();return s?`?${s}`:""};
 export class ApiClient{
  constructor(private baseUrl:string,private getToken?:()=>string|undefined){}
- private async request<T>(method:string,path:string,body?:unknown,o:RequestOptions={}):Promise<T>{const token=this.getToken?.();const res=await fetch(this.baseUrl.replace(/\/$/,"")+"/api/v1"+path+qs(o.query),{method,headers:{"Content-Type":"application/json",...(token?{Authorization:`Bearer ${token}`}:{}),...(o.idempotencyKey?{"Idempotency-Key":o.idempotencyKey}:{}),...o.headers},...(body===undefined?{}:{body:JSON.stringify(body)})});if(!res.ok){const raw=await res.json().catch(()=>({error:{code:"HTTP_ERROR",message:res.statusText}}));const detail=raw?.error??raw;const e=new Error(typeof detail?.message==="string"?detail.message:`Request failed (HTTP ${res.status})`) as Error & ApiError & {status:number};e.code=typeof detail?.code==="string"?detail.code:"HTTP_ERROR";e.status=res.status;e.details=detail?.details;e.correlationId=detail?.correlationId;throw e}return res.status===204?undefined as T:res.json() as Promise<T>}
+ private async request<T>(method:string,path:string,body?:unknown,o:RequestOptions={}):Promise<T>{const token=this.getToken?.();const geo=token&&method!=="GET"?await permittedBrowserEventLocation():{};const res=await fetch(this.baseUrl.replace(/\/$/,"")+"/api/v1"+path+qs(o.query),{method,headers:{"Content-Type":"application/json",...geo,...(token?{Authorization:`Bearer ${token}`}:{}),...(o.idempotencyKey?{"Idempotency-Key":o.idempotencyKey}:{}),...o.headers},...(body===undefined?{}:{body:JSON.stringify(body)})});if(!res.ok){const raw=await res.json().catch(()=>({error:{code:"HTTP_ERROR",message:res.statusText}}));const detail=raw?.error??raw;const e=new Error(typeof detail?.message==="string"?detail.message:`Request failed (HTTP ${res.status})`) as Error & ApiError & {status:number};e.code=typeof detail?.code==="string"?detail.code:"HTTP_ERROR";e.status=res.status;e.details=detail?.details;e.correlationId=detail?.correlationId;throw e}return res.status===204?undefined as T:res.json() as Promise<T>}
  get<T=unknown>(p:string,o?:RequestOptions){return this.request<T>("GET",p,undefined,o)} post<T=unknown>(p:string,b?:unknown,o?:RequestOptions){return this.request<T>("POST",p,b,o)} put<T=unknown>(p:string,b?:unknown,o?:RequestOptions){return this.request<T>("PUT",p,b,o)} patch<T=unknown>(p:string,b?:unknown,o?:RequestOptions){return this.request<T>("PATCH",p,b,o)} delete<T=unknown>(p:string,o?:RequestOptions){return this.request<T>("DELETE",p,undefined,o)}
  // Auth
  requestOtp(b:unknown){return this.post("/auth/otp/request",b)} verifyOtp(b:unknown){return this.post("/auth/otp/verify",b)} passwordLogin(b:unknown){return this.post("/auth/login",b)} socialLogin(b:unknown){return this.post("/auth/social",b)} refresh(b:unknown){return this.post("/auth/refresh",b)} logout(b?:unknown){return this.post("/auth/logout",b)} me(){return this.get("/auth/me")} authMethods(){return this.get("/auth/methods")}
@@ -32,14 +70,15 @@ export class ApiClient{
 }
 
 /** The NestJS OTP LOGIN endpoint returns {kind:"tokens",tokens:{...},user}. */
-export type SessionTokenPair={accessToken:string;refreshToken:string;expiresIn:number};
+export type SessionTokenPair={accessToken:string;refreshToken:string;expiresIn:number;deviceId?:string};
 export function extractOtpLoginTokens(input:unknown):SessionTokenPair{
  if(!input||typeof input!=="object")throw new Error("Invalid login response");
  const r=input as {kind?:unknown;tokens?:unknown};
  if(r.kind!=="tokens"||!r.tokens||typeof r.tokens!=="object")throw new Error("Login did not return a token pair");
  const t=r.tokens as Partial<SessionTokenPair>;
  if(typeof t.accessToken!=="string"||!t.accessToken||typeof t.refreshToken!=="string"||!t.refreshToken||typeof t.expiresIn!=="number"||!Number.isFinite(t.expiresIn)||t.expiresIn<=0)throw new Error("Invalid token pair received");
- return {accessToken:t.accessToken,refreshToken:t.refreshToken,expiresIn:t.expiresIn};
+ if(t.deviceId!==undefined && (typeof t.deviceId!=='string'||!t.deviceId))throw new Error('Invalid device binding');
+ return {accessToken:t.accessToken,refreshToken:t.refreshToken,expiresIn:t.expiresIn,...(t.deviceId?{deviceId:t.deviceId}:{})};
 }
 
 export type ActiveService={id:string;name:string;description:string|null;categoryId:string;isActive:boolean};

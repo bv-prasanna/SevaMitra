@@ -78,4 +78,20 @@ describe('PermissionsGuard', () => {
       guard.canActivate(buildContext({ id: 'user-1' })),
     ).rejects.toThrow(ForbiddenException);
   });
+  it.each(['add','edit','delete'])('permits a fine-grained role.%s key independently',async(action)=>{
+    reflector.getAllAndOverride.mockReturnValue(['iam.role.'+action]);
+    authorization.getEffectivePermissionKeys.mockResolvedValue(new Set(['iam.role.'+action]));
+    await expect(guard.canActivate(buildContext({id:'admin-1'}))).resolves.toBe(true);
+  });
+  it('lets existing manage-role grants continue to authorize add/edit/delete',async()=>{
+    reflector.getAllAndOverride.mockReturnValue(['iam.role.delete']);
+    authorization.getEffectivePermissionKeys.mockResolvedValue(new Set(['iam.role.manage']));
+    await expect(guard.canActivate(buildContext({id:'admin-1'}))).resolves.toBe(true);
+  });
+  it('never lets role view permission modify role permissions',async()=>{
+    reflector.getAllAndOverride.mockReturnValue(['iam.role.edit']);
+    authorization.getEffectivePermissionKeys.mockResolvedValue(new Set(['iam.role.view']));
+    await expect(guard.canActivate(buildContext({id:'viewer'}))).rejects.toThrow(ForbiddenException);
+  });
+
 });

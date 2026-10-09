@@ -43,7 +43,13 @@ export class PermissionsGuard implements CanActivate {
       user.id,
     );
     const hasAll =
-      granted.has('*') || required.every((key) => granted.has(key));
+      granted.has('*') || required.every((key) =>
+        granted.has(key) ||
+        // Keep pre-existing 'manage' grants effective during granular migration.
+        // Newly created roles may grant view/add/edit/delete separately.
+        (['add','edit','delete'].includes(key.split('.').at(-1) ?? '') &&
+          granted.has(key.replace(/\.(add|edit|delete)$/, '.manage'))),
+      );
 
     if (!hasAll) {
       throw new ForbiddenException('Missing required permission');

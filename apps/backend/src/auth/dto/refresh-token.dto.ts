@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsString } from 'class-validator';
+import { IsString, IsOptional, IsUUID } from 'class-validator';
 
 export class RefreshTokenDto {
   @ApiProperty({
@@ -8,4 +8,7 @@ export class RefreshTokenDto {
   })
   @IsString()
   refreshToken: string;
+  @ApiProperty({required:false,description:'Bound mobile device identifier. Not an authentication credential.'})
+  @IsOptional() @IsUUID()
+  deviceId?:string;
 }

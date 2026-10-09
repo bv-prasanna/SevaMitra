@@ -18,6 +18,18 @@ export interface PermissionCatalogEntry {
 
 export const PERMISSION_CATALOG: readonly PermissionCatalogEntry[] = [
   {
+    key: 'iam.role.add',
+    description: 'Create non-system roles with selected permission bundles',
+  },
+  {
+    key: 'iam.role.edit',
+    description: 'Update existing non-system roles and permission bundles',
+  },
+  {
+    key: 'iam.role.delete',
+    description: 'Delete unassigned non-system roles',
+  },
+  {
     key: 'iam.role.manage',
     description:
       'Create, update, delete roles and edit their permission bundles',

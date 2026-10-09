@@ -66,7 +66,9 @@ export class AuthService {
 
     if (purpose === OtpPurpose.LOGIN) {
       const user = await this.findOrCreateUserByPhone(dto.phoneNumber);
-      const tokens = await this.tokenService.issueTokenPair(user, ip);
+      const tokens = await this.tokenService.issueTokenPair(user, ip,
+        dto.devicePlatform ? {platform:dto.devicePlatform,label:dto.deviceLabel} : undefined,
+      );
       return { kind: 'tokens', tokens, user: this.toPublicUser(user) };
     }
 
@@ -106,7 +108,9 @@ export class AuthService {
       throw new UnauthorizedException('Account is not active');
     }
 
-    const tokens = await this.tokenService.issueTokenPair(user, ip);
+    const tokens = await this.tokenService.issueTokenPair(user, ip,
+      dto.devicePlatform ? {platform:dto.devicePlatform,label:dto.deviceLabel} : undefined,
+    );
     return { tokens, user: this.toPublicUser(user) };
   }
 
@@ -154,8 +158,8 @@ export class AuthService {
     await this.tokenService.revokeAllForUser(userId);
   }
 
-  async refresh(refreshToken: string, ip?: string): Promise<TokenPair> {
-    return this.tokenService.rotateRefreshToken(refreshToken, ip);
+  async refresh(refreshToken: string, ip?: string,deviceId?:string): Promise<TokenPair> {
+    return this.tokenService.rotateRefreshToken(refreshToken, ip,deviceId);
   }
 
   async logout(refreshToken: string): Promise<void> {

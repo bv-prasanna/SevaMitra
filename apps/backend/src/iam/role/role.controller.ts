@@ -33,7 +33,7 @@ export class RoleController {
   constructor(private readonly roleService: RoleService) {}
 
   @Post()
-  @RequirePermissions('iam.role.manage')
+  @RequirePermissions('iam.role.add')
   @ApiOperation({ summary: 'Create a role with an initial permission bundle' })
   @ApiOkResponse({ type: RoleDto })
   create(@Body() dto: CreateRoleDto) {
@@ -57,7 +57,7 @@ export class RoleController {
   }
 
   @Patch(':id')
-  @RequirePermissions('iam.role.manage')
+  @RequirePermissions('iam.role.edit')
   @ApiOperation({
     summary:
       'Update a role — omitting permissionKeys leaves the bundle unchanged, passing it replaces the bundle wholesale',
@@ -69,7 +69,7 @@ export class RoleController {
   }
 
   @Delete(':id')
-  @RequirePermissions('iam.role.manage')
+  @RequirePermissions('iam.role.delete')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({
     summary:

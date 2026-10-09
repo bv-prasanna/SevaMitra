@@ -2,6 +2,8 @@ import React,{useCallback,useEffect,useState}from"react";
 import{SafeAreaView,View,Text,Pressable,ScrollView,StyleSheet}from"react-native";
 import{router}from"expo-router";
 import{myWorkspaces,signOut,type WorkspaceEntitlements}from"../src/session";
+import{enableEventLocation}from"../src/event-location";
+import{visibleWorkspaceRoles,canOfferRoleEnrollment}from"../src/workspace-policy";
 
 type Path="/customer"|"/provider"|"/agent"|"/admin";
 const roles=[
@@ -26,7 +28,7 @@ export default function Workspaces(){
   <Text style={s.title}>SevaMitra workspaces</Text>
   <Text style={s.sub}>One app. Your available workspaces are based on your verified account and permissions.</Text>
   {!!message&&<Text accessibilityRole="alert" style={s.notice}>{message}</Text>}
-  {access&&roles.filter(item=>access[item.key]).map(item=>
+  {access&&roles.filter(item=>visibleWorkspaceRoles(access).includes(item.key)).map(item=>
    <Pressable key={item.key} accessibilityRole="button" style={s.card} onPress={()=>router.push(item.path as Path)}>
     <Text style={s.bold}>{item.label} →</Text><Text style={s.sub}>{item.desc}</Text>
     {item.key==="provider"&&access.providerStatus&&<Text style={s.status}>Provider status: {access.providerStatus}</Text>}
@@ -35,12 +37,19 @@ export default function Workspaces(){
   )}
   {access&&<View style={s.enrol}>
    <Text style={s.section}>Interested in joining?</Text>
-   {access.canJoinProvider&&<Pressable onPress={()=>router.push("/provider")} style={s.secondary}><Text style={s.link}>Apply as a provider →</Text></Pressable>}
-   {access.canJoinAgent&&<Pressable onPress={()=>router.push("/agent")} style={s.secondary}><Text style={s.link}>Apply as an agent →</Text></Pressable>}
+   {canOfferRoleEnrollment(access,'provider')&&<Pressable onPress={()=>router.push("/provider")} style={s.secondary}><Text style={s.link}>Apply as a provider →</Text></Pressable>}
+   {canOfferRoleEnrollment(access,'agent')&&<Pressable onPress={()=>router.push("/agent")} style={s.secondary}><Text style={s.link}>Apply as an agent →</Text></Pressable>}
    {!access.canJoinProvider&&!access.canJoinAgent&&<Text style={s.sub}>Your existing roles are shown above.</Text>}
+  </View>}
+  {access&&<View style={s.enrol}><Text style={s.section}>Optional event location</Text>
+   <Text style={s.sub}>Attach recent GPS location to booking and operational changes, when permitted. No background tracking.</Text>
+   <Pressable style={s.secondary} onPress={()=>void enableEventLocation().then(ok=>setMessage(ok?'Location sharing enabled for future operational actions':'Location was not permitted. Actions remain available.'))}>
+    <Text style={s.link}>Enable location for service events →</Text>
+   </Pressable>
   </View>}
   <View style={s.footer}>
    <Pressable onPress={()=>void load()}><Text style={s.link}>↻ Refresh permissions</Text></Pressable>
+   <Pressable onPress={()=>router.push('/devices')}><Text style={s.link}>Trusted devices</Text></Pressable>
    <Pressable onPress={()=>void logout()}><Text style={s.link}>Sign out / Switch account</Text></Pressable>
   </View>
   {!access&&<Pressable onPress={()=>router.replace("/login")}><Text style={s.link}>Go to login</Text></Pressable>}

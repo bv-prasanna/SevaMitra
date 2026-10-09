@@ -69,6 +69,7 @@ model User {
   credential      Credential?
   oauthIdentities OauthIdentity[]
   refreshTokens   RefreshToken[]
+  trustedDevices  TrustedDevice[]
   otpChallenges   OtpChallenge[]
   roleAssignments UserRoleAssignment[]
   customerProfile CustomerProfile?
@@ -123,6 +124,8 @@ model RefreshToken {
   tokenHash String    @unique @map("token_hash")
   expiresAt DateTime  @map("expires_at")
   revokedAt DateTime? @map("revoked_at")
+  deviceId String? @map("device_id")
+  device TrustedDevice? @relation(fields:[deviceId],references:[id],onDelete:SetNull)
 
   createdByIp String? @map("created_by_ip")
 
@@ -130,6 +133,24 @@ model RefreshToken {
 
   @@index([userId])
   @@map("refresh_tokens")
+  @@schema("auth")
+}
+
+
+/** App-scoped enrollment, only after OTP/password. A device UUID never
+ * authenticates a request independently of a valid rotating refresh token. */
+model TrustedDevice {
+  id String @id @default(uuid())
+  userId String @map("user_id")
+  user User @relation(fields:[userId],references:[id],onDelete:Cascade)
+  platform String
+  label String?
+  approvedAt DateTime @default(now()) @map("approved_at")
+  lastSeenAt DateTime @default(now()) @map("last_seen_at")
+  revokedAt DateTime? @map("revoked_at")
+  refreshTokens RefreshToken[]
+  @@index([userId,revokedAt])
+  @@map("trusted_devices")
   @@schema("auth")
 }
 
@@ -1537,6 +1558,14 @@ model AuditLog {
   entityId   String? @map("entity_id")
   statusCode Int     @map("status_code")
   ipAddress  String? @map("ip_address")
+
+  // Client-reported location is supporting evidence, never proof of physical presence.
+  latitude Float?
+  longitude Float?
+  accuracyMeters Float? @map("accuracy_meters")
+  locationCapturedAt DateTime? @map("location_captured_at")
+  locationStatus String @default("NOT_PROVIDED") @map("location_status")
+  outcome String @default("SUCCESS")
 
   createdAt DateTime @default(now()) @map("created_at")
 
