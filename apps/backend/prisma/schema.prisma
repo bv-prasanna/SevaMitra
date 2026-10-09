@@ -1191,8 +1191,8 @@ model Payment {
 
   /// Set for ONLINE payments only — the Razorpay (or stand-in gateway)
   /// order/payment identifiers and, on failure, why. All null for CASH.
-  gatewayOrderId   String? @map("gateway_order_id")
-  gatewayPaymentId String? @map("gateway_payment_id")
+  gatewayOrderId   String? @unique @map("gateway_order_id")
+  gatewayPaymentId String? @unique @map("gateway_payment_id")
   failureReason    String? @map("failure_reason")
 
   settledAt DateTime? @map("settled_at")
