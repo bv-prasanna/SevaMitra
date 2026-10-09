@@ -1,6 +1,9 @@
 import React,{useEffect,useState}from"react";
 import{Alert,SafeAreaView,ScrollView,View,Text,TextInput,Pressable,StyleSheet}from"react-native";
 import{router}from"expo-router";
+import * as SecureStore from "expo-secure-store";
+import{newBookingRequestId,isPendingBookingDraft,type PendingBookingDraft}from"../src/booking-pending";
+const PENDING_BOOKING_KEY="sevamitra.pending-booking.v1";
 import{ApiClient,type ActiveService,type GeoArea,type DiscoveredOffering,type BookingCreate}from"@sevamitra/api-client";
 import{API_BASE,requestWithSession}from"../src/session";
 
@@ -12,6 +15,15 @@ export default function Marketplace(){
  const[state,setState]=useState(""),[district,setDistrict]=useState(""),[taluk,setTaluk]=useState(""),[town,setTown]=useState("");
  const[offerings,setOfferings]=useState<DiscoveredOffering[]>([]),[selected,setSelected]=useState(""),[date,setDate]=useState(""),[start,setStart]=useState(""),[end,setEnd]=useState(""),[notes,setNotes]=useState("");
  const[busy,setBusy]=useState(false),[message,setMessage]=useState("Loading services…"),[booking,setBooking]=useState<BookingResult|null>(null);
+ const[pendingDraft,setPendingDraft]=useState<PendingBookingDraft|null>(null);
+ useEffect(()=>{void SecureStore.getItemAsync(PENDING_BOOKING_KEY).then(raw=>{
+  if(!raw)return;
+  try{
+   const draft=JSON.parse(raw) as unknown;
+   if(isPendingBookingDraft(draft)){setPendingDraft(draft);setMessage("A booking request is awaiting confirmation. Retry the same request ID before creating another.")}
+   else void SecureStore.deleteItemAsync(PENDING_BOOKING_KEY);
+  }catch{void SecureStore.deleteItemAsync(PENDING_BOOKING_KEY)}
+ }).catch(()=>undefined)},[]);
  const publicApi=new ApiClient(API_BASE);
  useEffect(()=>{
   if(!API_BASE){setMessage("API not configured. Set EXPO_PUBLIC_API_BASE_URL.");return}
@@ -48,15 +60,36 @@ export default function Marketplace(){
    setOfferings(result);setMessage(result.length?"Choose a provider and request a time slot.":"No active verified provider is currently available in this area.");
   }catch(e){error(e)}finally{setBusy(false)}
  }
- async function submit(){
-  if(!selected||!town||!date||!start||!end){setMessage("Complete booking date and time.");return}
-  if(!/^\d{4}-\d{2}-\d{2}$/.test(date)||!/^([01]\d|2[0-3]):[0-5]\d$/.test(start)||!/^([01]\d|2[0-3]):[0-5]\d$/.test(end)||start>=end){setMessage("Use YYYY-MM-DD and HH:mm times, with end after start.");return}
+ async function sendDraft(draft:PendingBookingDraft){
   setBusy(true);
   try{
-   const payload:BookingCreate={offeringId:selected,townVillageId:town,scheduledDate:date,scheduledStartTime:start,scheduledEndTime:end,...(notes.trim()?{notes:notes.trim()}: {})};
-   const result=await requestWithSession<BookingResult>("POST","/bookings/me",payload);
-   setBooking(result);setMessage("Booking request submitted. The provider must accept it.");
-  }catch(e){error(e)}finally{setBusy(false)}
+   const result=await requestWithSession<BookingResult>("POST","/bookings/me",draft.payload);
+   await SecureStore.deleteItemAsync(PENDING_BOOKING_KEY);
+   setPendingDraft(null);setBooking(result);
+   setMessage("Booking request submitted. The provider must accept it.");
+  }catch(e){
+   setMessage("Booking not confirmed. Keep this saved request and retry with the same ID. "+err(e));
+  }finally{setBusy(false)}
+ }
+ async function submit(){
+  if(!selected||!town||!date||!start||!end){setMessage("Complete booking date and time.");return}
+  if(!/^\\d{4}-\\d{2}-\\d{2}$/.test(date)||!/^([01]\\d|2[0-3]):[0-5]\\d$/.test(start)||!/^([01]\\d|2[0-3]):[0-5]\\d$/.test(end)||start>=end){setMessage("Use YYYY-MM-DD and HH:mm times, with end after start.");return}
+  if(pendingDraft){setMessage("Resolve or discard the earlier booking request first.");return}
+  const payload:BookingCreate={
+   offeringId:selected,townVillageId:town,scheduledDate:date,
+   scheduledStartTime:start,scheduledEndTime:end,
+   ...(notes.trim()?{notes:notes.trim()}:{}),clientRequestId:newBookingRequestId(),
+  };
+  const draft:PendingBookingDraft={payload:payload as PendingBookingDraft["payload"],savedAt:Date.now()};
+  try{await SecureStore.setItemAsync(PENDING_BOOKING_KEY,JSON.stringify(draft))}
+  catch{setMessage("Unable to save the retry key securely; booking was not sent.");return}
+  setPendingDraft(draft);
+  await sendDraft(draft);
+ }
+ async function discardDraft(){
+  try{await SecureStore.deleteItemAsync(PENDING_BOOKING_KEY);setPendingDraft(null);
+   setMessage("Saved request discarded. Before creating a new booking, check My bookings for a possible previous confirmation.");
+  }catch(e){error(e)}
  }
  const shown=services.filter(x=>x.name.toLowerCase().includes(search.trim().toLowerCase()));
  const chosen=services.find(x=>x.id===serviceId);
@@ -75,6 +108,13 @@ export default function Marketplace(){
    <Pressable style={[s.btn,(!town||busy)&&s.disabled]} disabled={!town||busy} onPress={()=>void find()}><Text style={s.white}>Find verified providers</Text></Pressable>
   </>}
   {!!message&&<Text accessibilityRole="alert" style={s.message}>{message}</Text>}
+  {!!pendingDraft&&<View style={s.card}>
+   <Text style={s.head}>Booking not yet confirmed</Text>
+   <Text style={s.muted}>Offline/sent status is uncertain. Retry with the original request ID; don't submit a fresh request automatically.</Text>
+   <Text selectable style={s.muted}>Request ID: {pendingDraft.payload.clientRequestId}</Text>
+   <Pressable disabled={busy} style={[s.btn,busy&&s.disabled]} onPress={()=>void sendDraft(pendingDraft)}><Text style={s.white}>Retry pending request</Text></Pressable>
+   <Pressable disabled={busy} onPress={()=>Alert.alert("Discard saved request?","Check My bookings first. A previous request might have succeeded.",[{text:"Keep",style:"cancel"},{text:"Discard",style:"destructive",onPress:()=>void discardDraft()}])}><Text style={s.link}>Discard saved request</Text></Pressable>
+  </View>}
   {offerings.map(o=><Pressable key={o.id} style={[s.card,o.id===selected&&s.selected]} onPress={()=>{setSelected(o.id);setBooking(null)}}><Text style={s.head}>{o.providerName}</Text><Text>{o.amount===null?"Price on quote":o.currency+" "+o.amount} · {o.pricingModel}</Text>{o.visitFee!==null&&<Text style={s.muted}>Visit fee: {o.currency} {o.visitFee}</Text>}{o.notes&&<Text style={s.muted}>{o.notes}</Text>}<Text style={s.link}>{o.id===selected?"✓ Selected":"Choose provider →"}</Text></Pressable>)}
   {!!selected&&!booking&&<View style={s.card}><Text style={s.head}>Request booking</Text><Text style={s.muted}>Enter local service date (YYYY-MM-DD) and time (HH:mm). Availability is validated on the server.</Text>
    <TextInput style={s.input} value={date} placeholder="2026-10-20" maxLength={10} onChangeText={setDate}/><TextInput style={s.input} value={start} placeholder="Start 09:00" maxLength={5} onChangeText={setStart}/><TextInput style={s.input} value={end} placeholder="End 10:00" maxLength={5} onChangeText={setEnd}/><TextInput style={s.input} value={notes} placeholder="Special instructions (optional)" maxLength={1000} onChangeText={setNotes}/>
