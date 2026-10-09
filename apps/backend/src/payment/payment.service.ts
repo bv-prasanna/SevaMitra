@@ -170,19 +170,18 @@ export class PaymentService {
       payment.currency,
     );
 
+    // An attacker can submit a forged callback. Invalid signatures must not
+    // change an otherwise valid order to FAILED (payment-confirmation DoS).
+    if (!verified) {
+      throw new ConflictException('Gateway verification failed; payment remains pending reconciliation');
+    }
     return this.prisma.payment.update({
       where: { id: payment.id, status: PaymentStatus.INITIATED },
-      data: verified
-        ? {
-            status: PaymentStatus.SUCCEEDED,
-            gatewayPaymentId: dto.gatewayPaymentId,
-            settledAt: new Date(),
-          }
-        : {
-            status: PaymentStatus.FAILED,
-            gatewayPaymentId: dto.gatewayPaymentId,
-            failureReason: 'Gateway signature verification failed',
-          },
+      data: {
+        status: PaymentStatus.SUCCEEDED,
+        gatewayPaymentId: dto.gatewayPaymentId,
+        settledAt: new Date(),
+      },
     });
   }
 
@@ -264,7 +263,8 @@ export class PaymentService {
     const totalDue =
       Number(booking.amount ?? 0) + Number(booking.visitFee ?? 0);
     if (totalDue === 0) {
-      return;
+      // Never charge an arbitrary amount against an unapproved quote.
+      throw new ConflictException('A finalized quote or fixed amount is required before payment');
     }
 
     const existing = await tx.payment.findMany({
