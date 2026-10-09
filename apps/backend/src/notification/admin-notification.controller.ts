@@ -34,4 +34,10 @@ export class AdminNotificationController {
       dto.body,
     );
   }
+
+  @Post('retry-due')
+  @ApiOperation({ summary: 'Process up to 25 due notification deliveries with database leases; restrict to authorized operations jobs' })
+  retryDue() {
+    return this.notificationService.retryDue();
+  }
 }
