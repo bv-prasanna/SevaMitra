@@ -26,6 +26,7 @@ import { NotificationModule } from './notification/notification.module';
 import { CommissionModule } from './commission/commission.module';
 import { SettlementModule } from './settlement/settlement.module';
 import { RefundModule } from './refund/refund.module';
+import { RuntimeFlagsModule } from './runtime-flags/runtime-flags.module';
 
 @Module({
   imports: [
@@ -58,6 +59,7 @@ import { RefundModule } from './refund/refund.module';
     CommissionModule,
     SettlementModule,
     RefundModule,
+    RuntimeFlagsModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: ThrottlerGuard },
