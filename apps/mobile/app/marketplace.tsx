@@ -73,7 +73,7 @@ export default function Marketplace(){
  }
  async function submit(){
   if(!selected||!town||!date||!start||!end){setMessage("Complete booking date and time.");return}
-  if(!/^\\d{4}-\\d{2}-\\d{2}$/.test(date)||!/^([01]\\d|2[0-3]):[0-5]\\d$/.test(start)||!/^([01]\\d|2[0-3]):[0-5]\\d$/.test(end)||start>=end){setMessage("Use YYYY-MM-DD and HH:mm times, with end after start.");return}
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(date)||!/^([01]\d|2[0-3]):[0-5]\d$/.test(start)||!/^([01]\d|2[0-3]):[0-5]\d$/.test(end)||start>=end){setMessage("Use YYYY-MM-DD and HH:mm times, with end after start.");return}
   if(pendingDraft){setMessage("Resolve or discard the earlier booking request first.");return}
   const payload:BookingCreate={
    offeringId:selected,townVillageId:town,scheduledDate:date,
