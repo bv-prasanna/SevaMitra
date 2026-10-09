@@ -1080,6 +1080,8 @@ enum BookingParty {
 /// later never retroactively changes an already-made booking.
 model Booking {
   id String @id @default(uuid())
+  /// Client-generated stable request UUID; nullable for legacy clients.
+  clientRequestId String? @map("client_request_id")
 
   customerId String          @map("customer_id")
   customer   CustomerProfile @relation(fields: [customerId], references: [id])
@@ -1122,6 +1124,7 @@ model Booking {
   refund                Refund?
 
   @@index([customerId])
+  @@unique([customerId, clientRequestId])
   @@index([offeringId])
   @@index([townVillageId])
   @@map("bookings")
@@ -1174,6 +1177,8 @@ enum PaymentStatus {
 /// what's owed.
 model Payment {
   id String @id @default(uuid())
+  /// Client-generated stable request UUID; prevents duplicate payment intents.
+  clientRequestId String? @map("client_request_id")
 
   bookingId String  @map("booking_id")
   booking   Booking @relation(fields: [bookingId], references: [id])
@@ -1196,6 +1201,7 @@ model Payment {
   updatedAt DateTime @updatedAt @map("updated_at")
 
   @@index([bookingId])
+  @@unique([bookingId, clientRequestId])
   @@map("payments")
   @@schema("finance")
 }
