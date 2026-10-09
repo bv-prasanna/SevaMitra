@@ -106,7 +106,7 @@ describe('PaymentService', () => {
         }),
       });
       expect(prisma.payment.update).toHaveBeenCalledWith({
-        where: { id: 'payment-1', status: PaymentStatus.INITIATED, gatewayOrderId: null },
+        where: { id: 'payment-1', status: PaymentStatus.INITIATED, AND: [{ gatewayOrderId: null }] },
         data: { gatewayOrderId: 'stub_order_1' },
       });
       expect(result).toEqual({ id: 'payment-1' });
