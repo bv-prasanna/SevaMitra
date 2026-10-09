@@ -116,12 +116,12 @@ export class PaymentService {
         dto.amount, booking.currency, payment.id,
       );
       return await this.prisma.payment.update({
-        where: { id: payment.id, status: PaymentStatus.INITIATED, gatewayOrderId: null },
+        where: { id: payment.id, status: PaymentStatus.INITIATED, AND: [{ gatewayOrderId: null }] },
         data: { gatewayOrderId },
       });
     } catch (error) {
       await this.prisma.payment.update({
-        where: { id: payment.id, status: PaymentStatus.INITIATED, gatewayOrderId: null },
+        where: { id: payment.id, status: PaymentStatus.INITIATED, AND: [{ gatewayOrderId: null }] },
         data: { status: PaymentStatus.FAILED, failureReason: 'Gateway order initialization failed' },
       }).catch(() => undefined);
       throw error;
