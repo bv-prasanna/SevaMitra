@@ -12,6 +12,7 @@ import { TownVillageService } from '../geography/town-village/town-village.servi
 import { CoverageCheckService } from '../serviceability/check/coverage-check.service';
 import { AvailabilityCheckService } from '../availability/check/availability-check.service';
 import { isTimeBefore } from '../common/util/time-of-day';
+import { RuntimeFlagsService } from '../runtime-flags/runtime-flags.service';
 import { CreateBookingDto } from './dto/create-booking.dto';
 import { CancelBookingDto } from './dto/cancel-booking.dto';
 import { RejectBookingDto } from './dto/reject-booking.dto';
@@ -31,6 +32,7 @@ export class BookingService {
     private readonly townVillageService: TownVillageService,
     private readonly coverageCheckService: CoverageCheckService,
     private readonly availabilityCheckService: AvailabilityCheckService,
+    private readonly runtimeFlags: RuntimeFlagsService,
   ) {}
 
   // ---------------------------------------------------------------------
@@ -54,6 +56,7 @@ export class BookingService {
       throw new NotFoundException('Offering not found or inactive');
     }
     await this.townVillageService.findByIdOrThrow(dto.townVillageId);
+    await this.runtimeFlags.assertBookingAllowed(offering.serviceId, dto.townVillageId);
     const currentProvider = await this.prisma.providerProfile.findUnique({where:{id:offering.providerId}});
     if (!currentProvider || currentProvider.status !== ProviderStatus.ACTIVE ||
         currentProvider.verificationStatus !== VerificationStatus.VERIFIED) {
