@@ -1795,3 +1795,15 @@ model PushDevice {
   @@map("push_devices")
   @@schema("ops")
 }
+
+/** Operational kill switches; absent flags preserve current behavior. */
+model RuntimeFlag {
+  key       String   @id
+  enabled   Boolean
+  reason    String
+  updatedBy String   @map("updated_by")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("runtime_flags")
+  @@schema("ops")
+}
