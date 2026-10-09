@@ -6,6 +6,7 @@ import { GeographyModule } from '../geography/geography.module';
 import { ServiceabilityModule } from '../serviceability/serviceability.module';
 import { AvailabilityModule } from '../availability/availability.module';
 import { BookingService } from './booking.service';
+import { RuntimeFlagsModule } from '../runtime-flags/runtime-flags.module';
 import { CustomerBookingController } from './customer/customer-booking.controller';
 import { ProviderBookingController } from './provider/provider-booking.controller';
 
@@ -17,6 +18,7 @@ import { ProviderBookingController } from './provider/provider-booking.controlle
     GeographyModule,
     ServiceabilityModule,
     AvailabilityModule,
+    RuntimeFlagsModule,
   ],
   controllers: [CustomerBookingController, ProviderBookingController],
   providers: [BookingService],
