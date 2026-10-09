@@ -6,7 +6,7 @@ Updated: 2026-10-10. Target: `develop`. This document is a risk register, **not*
 
 | Requirement | Actual code change | Still required before production |
 |---|---|---|
-| Duplicate booking requests | Optional `clientRequestId` (UUID), DB uniqueness per customer, serialized provider/day slot reservation, serializable retry, payload consistency checks | Add integration tests with real concurrent PostgreSQL sessions; mobile must persist and reuse a stable UUID for an offline retry |
+| Duplicate booking requests | Optional `clientRequestId` (UUID), DB uniqueness per customer, serialized provider/day slot reservation, serializable retry, payload consistency checks | Mobile now persists a retryable booking draft; still needs live device tests, user-scoped draft isolation and mandatory client-key enforcement |
 | Provider self-booking | Reject booking when offering owner is the same logged-in account | Device/phone/payment/household/collusion analysis and case handling remain pending |
 | Agent referral abuse | Reject a same-user referral | Duplicate-account heuristics, risk scores, human review, false-positive appeals and incentive hold needed |
 | Payment amount races | Booking-scoped PostgreSQL advisory lock inside serializable transaction; outstanding amount checked and payment reserved atomically | Real concurrent payment E2E, signature/reconciliation/webhook recovery tests; mandatory idempotency client integration |
@@ -28,7 +28,7 @@ Updated: 2026-10-10. Target: `develop`. This document is a risk register, **not*
 | SLA-based incidents/disputes | P0 | Case model, deadlines, escalation queue, notifications, operator ownership, breach and audit reporting |
 | Re-verification and document expiry | P0 | Category-specific expiry tracking and automated reminders/suspension without deleting financial history |
 | Privacy, financial retention, dispute evidence deletion/anonymization | P0 legal | Approved documented schedule, deletion requests, retention exceptions, access controls, tests |
-| Feature flags and operational console | P1 (P0 emergency override) | DB-backed audited geographic and service toggles, admin approval, safe defaults, rollbacks, client messaging |
+| Feature flags and operational console | P1 (P0 emergency override) | Partial: server-side pilot/maintenance flags, admin API and UI now available. Pending: dedicated permission, two-person approval, staged rollout, flag history/expiry, integration and browser tests |
 | Provider liability/insurance | P0 legal for high-risk services | Terms, exclusions, approved coverage requirement and claims escalation agreed by counsel/insurer |
 | Agent-assisted IVR/SMS/offline alternatives | P1 | Consent, identity verification, duplicate prevention, accessible confirmations and dispute support |
 | Duplicate identities, suspicious bookings, incentive fraud, human appeal | P1 | Risk signals with low false positives, hold incentives and provide supervised override |
@@ -56,3 +56,11 @@ Updated: 2026-10-10. Target: `develop`. This document is a risk register, **not*
 ## Why this is incremental
 
 No percentage-complete claim is made without reproducible tests and runtime evidence. The hardening PR addresses concrete correctness gaps but does not replace complete implementation of the BRD, the mobile offline backlog, QA/UAT, legal review or a deployment readiness gate.
+
+## New pilot controls (partial implementation)
+
+The backend now reads `bookings.enabled`, `pilot.enabled`, `service.<UUID>.enabled` and `geography.<UUID>.enabled` on **new booking creation**. The admin interface at `/admin/runtime-flags` can view/create/update flags; server permission currently reuses `iam.role.manage`, intentionally restricted until a dedicated operations permission is introduced. With `pilot.enabled=true`, unspecified geographies are denied. Existing active bookings and payments are not cancelled by changing flags. Changes are recorded in the existing mutation audit feed, but approvals, full history and guaranteed audit atomicity are still pending.
+
+The mobile customer marketplace now securely saves a booking-request UUID prior to submitting and presents a manual retry of the same draft. This is not a full offline-first sync engine: provider/agent queues, conflict resolution, queued receipts, account-switch isolation and background sync remain pending.
+
+**Notification worker URL:** `/api/v1/notifications/retry-due`, guarded by `notification.send`. Operations must provision the trigger and monitor retries; a missing scheduler means failed deliveries will not be retried automatically.
