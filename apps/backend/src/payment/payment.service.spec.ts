@@ -175,7 +175,7 @@ describe('PaymentService', () => {
       ).rejects.toThrow(ConflictException);
     });
 
-    it('skips the balance check for a booking with no fixed price yet', async () => {
+    it('refuses payment against an unresolved quote with no approved price', async () => {
       bookingService.findAsCustomer.mockResolvedValue({
         ...booking,
         amount: null,
@@ -188,13 +188,13 @@ describe('PaymentService', () => {
       });
       prisma.payment.create.mockResolvedValue({ id: 'payment-1' });
 
-      await service.initiateAsCustomer('user-1', {
+      await expect(service.initiateAsCustomer('user-1', {
         bookingId: 'booking-1',
         method: PaymentMethod.CASH,
         amount: 100000,
-      });
+      })).rejects.toThrow(ConflictException);
 
-      expect(prisma.payment.create).toHaveBeenCalled();
+      expect(prisma.payment.create).not.toHaveBeenCalled();
     });
   });
 
@@ -284,7 +284,7 @@ describe('PaymentService', () => {
       });
     });
 
-    it('marks the payment FAILED when the gateway rejects it', async () => {
+    it('preserves payment state when a forged verification fails', async () => {
       paymentGateway.verifyPayment.mockReturnValue(false);
       prisma.payment.findUnique.mockResolvedValue(initiatedOnlinePayment);
       prisma.payment.update.mockResolvedValue({
@@ -292,15 +292,12 @@ describe('PaymentService', () => {
         status: PaymentStatus.FAILED,
       });
 
-      await service.verifyAsCustomer('user-1', 'payment-1', {
+      await expect(service.verifyAsCustomer('user-1', 'payment-1', {
         gatewayPaymentId: 'pay_1',
         gatewaySignature: 'bad_sig',
-      });
+      })).rejects.toThrow(ConflictException);
 
-      expect(prisma.payment.update).toHaveBeenCalledWith({
-        where: { id: 'payment-1', status: PaymentStatus.INITIATED },
-        data: expect.objectContaining({ status: PaymentStatus.FAILED }),
-      });
+      expect(prisma.payment.update).not.toHaveBeenCalled();
     });
 
     it('rejects verifying a CASH payment', async () => {
