@@ -8,6 +8,7 @@ import type { OfferingService } from '../provider-offering/offering.service';
 import type { TownVillageService } from '../geography/town-village/town-village.service';
 import type { CoverageCheckService } from '../serviceability/check/coverage-check.service';
 import type { AvailabilityCheckService } from '../availability/check/availability-check.service';
+import type { RuntimeFlagsService } from '../runtime-flags/runtime-flags.service';
 
 describe('BookingService', () => {
   let prisma: {
@@ -27,6 +28,7 @@ describe('BookingService', () => {
   let townVillageService: { findByIdOrThrow: jest.Mock };
   let coverageCheckService: { isServiceable: jest.Mock };
   let availabilityCheckService: { getAvailability: jest.Mock };
+  let runtimeFlags: {assertBookingAllowed: jest.Mock};
   let service: BookingService;
 
   const customer = { id: 'customer-1' };
@@ -34,6 +36,7 @@ describe('BookingService', () => {
   const offering = {
     id: 'offering-1',
     providerId: 'provider-1',
+    serviceId: 'service-1',
     isActive: true,
     pricingModel: PricingModel.FIXED,
     amount: 500,
@@ -85,6 +88,7 @@ describe('BookingService', () => {
       }),
     };
 
+    runtimeFlags = { assertBookingAllowed: jest.fn().mockResolvedValue(undefined) };
     service = new BookingService(
       prisma as unknown as PrismaService,
       customerService as unknown as CustomerService,
@@ -93,6 +97,7 @@ describe('BookingService', () => {
       townVillageService as unknown as TownVillageService,
       coverageCheckService as unknown as CoverageCheckService,
       availabilityCheckService as unknown as AvailabilityCheckService,
+      runtimeFlags as unknown as RuntimeFlagsService,
     );
   });
 
@@ -146,6 +151,12 @@ describe('BookingService', () => {
         status:ProviderStatus.PENDING,verificationStatus:VerificationStatus.UNVERIFIED,
       });
       await expect(service.create('user-1',createDto)).rejects.toThrow(ConflictException);
+      expect(prisma.$transaction).not.toHaveBeenCalled();
+    });
+
+    it('blocks bookings when pilot geo or service runtime flags deny the request', async () => {
+      runtimeFlags.assertBookingAllowed.mockRejectedValue(new ConflictException('Pilot disabled'));
+      await expect(service.create('user-1', createDto)).rejects.toThrow(ConflictException);
       expect(prisma.$transaction).not.toHaveBeenCalled();
     });
 
