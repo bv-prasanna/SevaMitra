@@ -135,6 +135,10 @@ describe('PaymentService', () => {
         ...booking,
         status: BookingStatus.CANCELLED,
       });
+      prisma.booking.findUnique.mockResolvedValue({
+        ...booking,
+        status: BookingStatus.CANCELLED,
+      });
 
       await expect(
         service.initiateAsCustomer('user-1', {
@@ -173,6 +177,11 @@ describe('PaymentService', () => {
 
     it('skips the balance check for a booking with no fixed price yet', async () => {
       bookingService.findAsCustomer.mockResolvedValue({
+        ...booking,
+        amount: null,
+        visitFee: null,
+      });
+      prisma.booking.findUnique.mockResolvedValue({
         ...booking,
         amount: null,
         visitFee: null,
