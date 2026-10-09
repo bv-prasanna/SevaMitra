@@ -58,6 +58,8 @@ export async function saveLoginResponse(value:unknown){await saveSession(extract
 export async function signOut():Promise<void>{
  const s=await loadSession();
  await SecureStore.deleteItemAsync(KEY);
+ // Do not carry an offline booking draft into another user's session.
+ await SecureStore.deleteItemAsync("sevamitra.pending-booking.v1");
  if(s&&API_BASE)try{await new ApiClient(API_BASE).logout({refreshToken:s.refreshToken})}catch{/* already signed out locally */}
 }
 /** Navigation is derived from an authenticated server-side IAM/profile check.
