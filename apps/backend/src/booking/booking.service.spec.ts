@@ -149,6 +149,44 @@ describe('BookingService', () => {
       expect(prisma.$transaction).not.toHaveBeenCalled();
     });
 
+    it('rejects a provider booking their own offering', async () => {
+      prisma.providerProfile.findUnique.mockResolvedValue({
+        userId: 'user-1',
+        status: ProviderStatus.ACTIVE,
+        verificationStatus: VerificationStatus.VERIFIED,
+      });
+      await expect(service.create('user-1', createDto)).rejects.toThrow(ConflictException);
+      expect(prisma.booking.create).not.toHaveBeenCalled();
+    });
+
+    it('returns the original booking when an offline request is replayed', async () => {
+      const previous = {
+        id: 'booking-previous', customerId: 'customer-1',
+        offeringId: createDto.offeringId, townVillageId: createDto.townVillageId,
+        scheduledDate: new Date(createDto.scheduledDate),
+        scheduledStartTime: createDto.scheduledStartTime,
+        scheduledEndTime: createDto.scheduledEndTime, notes: null,
+      };
+      prisma.booking.findFirst.mockResolvedValueOnce(previous);
+      const response = await service.create('user-1', {
+        ...createDto, clientRequestId: 'aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa',
+      });
+      expect(response.id).toBe('booking-previous');
+      expect(prisma.booking.create).not.toHaveBeenCalled();
+    });
+
+    it('blocks replay of a client request ID with changed time', async () => {
+      prisma.booking.findFirst.mockResolvedValueOnce({
+        id: 'old', offeringId: createDto.offeringId, townVillageId: createDto.townVillageId,
+        scheduledDate: new Date(createDto.scheduledDate),
+        scheduledStartTime: '08:00', scheduledEndTime: createDto.scheduledEndTime, notes: null,
+      });
+      await expect(service.create('user-1', {
+        ...createDto, clientRequestId: 'aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa',
+      })).rejects.toThrow(ConflictException);
+      expect(prisma.booking.create).not.toHaveBeenCalled();
+    });
+
     it('rejects when the offering is inactive', async () => {
       offeringService.findOneActive.mockResolvedValue({
         ...offering,
