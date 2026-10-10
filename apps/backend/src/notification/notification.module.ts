@@ -4,6 +4,7 @@ import { IamModule } from '../iam/iam.module';
 import { NotificationService } from './notification.service';
 import { NotificationController } from './notification.controller';
 import { AdminNotificationController } from './admin-notification.controller';
+import { NotificationCronController } from './notification-cron.controller';
 import { NOTIFICATION_PROVIDER } from './provider/notification-provider.interface';
 import { ConsoleNotificationProvider } from './provider/console-notification.provider';
 import { LiveNotificationProvider } from './provider/live-notification.provider';
@@ -13,7 +14,7 @@ import { PrismaService } from '../prisma/prisma.service';
 
 @Module({
   imports: [AuthModule, IamModule],
-  controllers: [NotificationController, AdminNotificationController, PushDeviceController],
+  controllers: [NotificationController, AdminNotificationController, PushDeviceController, NotificationCronController],
   providers: [
     NotificationService,
     {
