@@ -153,3 +153,7 @@ threat-model/security review, rate limits, store approvals and signed UAT.
 
 Use separate production DB/bucket/keys/domains; never reuse staging secrets.
 No automatic deployment from a green test alone.
+
+
+## Optional near-zero-cost staging route (Cloud Run + Neon + Pages)
+For a portable alternative to AWS EC2/ECR/SSM, use [LOW_COST_PILOT_RELEASE.md](LOW_COST_PILOT_RELEASE.md). It includes an operator-approved Cloud Run deployment, direct PostgreSQL migration job, minimum-zero instance scaling, and a Cloudflare Worker retry cron using an HMAC-signed internal API. Production acceptance requirements above still apply. The AWS deployment path remains supported.

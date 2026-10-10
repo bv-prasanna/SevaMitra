@@ -52,6 +52,11 @@ jobs:
       - name: Backend dependencies
         working-directory: apps/backend
         run: npm ci
+      - name: Staging deployment shell syntax
+        run: bash -n apps/backend/infra/gcp/deploy-staging.sh
+      - name: Cloudflare notification Cron worker typecheck
+        working-directory: apps/backend
+        run: npx tsc -p infra/cloudflare/notification-cron/tsconfig.json --noEmit
       - name: Validate Prisma schema and all migrations against real PostgreSQL
         working-directory: apps/backend
         env:

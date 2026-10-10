@@ -64,3 +64,9 @@ The backend now reads `bookings.enabled`, `pilot.enabled`, `service.<UUID>.enabl
 The mobile customer marketplace now securely saves a booking-request UUID prior to submitting and presents a manual retry of the same draft. This is not a full offline-first sync engine: provider/agent queues, conflict resolution, queued receipts, account-switch isolation and background sync remain pending.
 
 **Notification worker URL:** `/api/v1/notifications/retry-due`, guarded by `notification.send`. Operations must provision the trigger and monitor retries; a missing scheduler means failed deliveries will not be retried automatically.
+
+## 2026-10-10 near-zero-cost staging follow-up (PR #7)
+- Portable Cloud Run API + Neon/Postgres + Cloudflare Pages/R2 + Expo preview steps are documented in `docs/LOW_COST_PILOT_RELEASE.md`; no cloud account was provisioned or deployed by this code change.
+- Signed Cloudflare Cron Worker and private notification endpoint are implemented and tested; **provision Worker secrets and deploy** before considering retry operational.
+- `PILOT_DISABLE_COLLECTIONS=true` blocks online and cash payment operations at the server for the provider-only staging pilot; the real-payment financial blocker #3 remains open.
+- GCP deployment script requires exact green commit, clean worktree, verified backup, a separate direct-URL migration job, minimum-zero API instances, real OTP, private R2 and an explicit deployment approval. AWS deployment remains available.
