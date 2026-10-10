@@ -29,7 +29,10 @@ gcloud artifacts repositories describe "$REPO" --location="$REGION" --project="$
 for secret in sevamitra-staging-db-direct sevamitra-staging-db-pooler \
   sevamitra-staging-jwt-access sevamitra-staging-jwt-refresh \
   sevamitra-staging-jwt-reset sevamitra-staging-msg91-key \
-  sevamitra-staging-msg91-flow sevamitra-staging-cron-key; do
+  sevamitra-staging-msg91-flow sevamitra-staging-msg91-sms-flow \
+  sevamitra-staging-r2-account sevamitra-staging-r2-bucket \
+  sevamitra-staging-r2-access sevamitra-staging-r2-secret \
+  sevamitra-staging-cron-key; do
   gcloud secrets describe "$secret" --project="$GCP_PROJECT_ID" >/dev/null
 done
 
@@ -52,7 +55,7 @@ gcloud run deploy "$SERVICE" \
   --service-account="$GCP_STAGING_SERVICE_ACCOUNT" --allow-unauthenticated \
   --min-instances=0 --max-instances=2 --concurrency=15 --cpu=1 --memory=1Gi --timeout=60s \
   --set-env-vars="NODE_ENV=production,ENABLE_API_DOCS=false,NOTIFICATION_PROVIDER=live,OTP_PROVIDER=msg91,PAYMENT_PROVIDER=disabled,REFUND_PROVIDER=disabled,PAYOUT_PROVIDER=disabled,JWT_ACCESS_TTL=15m,JWT_REFRESH_TTL=30d,JWT_RESET_TTL=10m,OTP_LENGTH=6,OTP_TTL_SECONDS=300,OTP_MAX_ATTEMPTS=5,OTP_REQUEST_COOLDOWN_SECONDS=60,CORS_ALLOWED_ORIGINS=${STAGING_WEB_ORIGIN}" \
-  --set-secrets="DATABASE_URL=sevamitra-staging-db-pooler:latest,JWT_ACCESS_SECRET=sevamitra-staging-jwt-access:latest,JWT_REFRESH_SECRET=sevamitra-staging-jwt-refresh:latest,JWT_RESET_SECRET=sevamitra-staging-jwt-reset:latest,MSG91_AUTHKEY=sevamitra-staging-msg91-key:latest,MSG91_OTP_FLOW_ID=sevamitra-staging-msg91-flow:latest,NOTIFICATION_CRON_SECRET=sevamitra-staging-cron-key:latest"
+  --set-secrets="DATABASE_URL=sevamitra-staging-db-pooler:latest,JWT_ACCESS_SECRET=sevamitra-staging-jwt-access:latest,JWT_REFRESH_SECRET=sevamitra-staging-jwt-refresh:latest,JWT_RESET_SECRET=sevamitra-staging-jwt-reset:latest,MSG91_AUTHKEY=sevamitra-staging-msg91-key:latest,MSG91_OTP_FLOW_ID=sevamitra-staging-msg91-flow:latest,MSG91_SMS_FLOW_ID=sevamitra-staging-msg91-sms-flow:latest,R2_ACCOUNT_ID=sevamitra-staging-r2-account:latest,R2_PRIVATE_BUCKET=sevamitra-staging-r2-bucket:latest,R2_ACCESS_KEY_ID=sevamitra-staging-r2-access:latest,R2_SECRET_ACCESS_KEY=sevamitra-staging-r2-secret:latest,NOTIFICATION_CRON_SECRET=sevamitra-staging-cron-key:latest"
 
 URL="$(gcloud run services describe "$SERVICE" --region="$REGION" --project="$GCP_PROJECT_ID" --format='value(status.url)')"
 curl --fail --silent --show-error --retry 3 --retry-delay 2 "${URL}/api/health/db" >/dev/null
