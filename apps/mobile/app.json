@@ -1,0 +1,36 @@
+{
+  "expo": {
+    "name": "SevaMitra",
+    "slug": "sevamitra",
+    "scheme": "sevamitra",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.sevamitra.app"
+    },
+    "android": {
+      "package": "com.sevamitra.app",
+      "adaptiveIcon": {
+        "backgroundColor": "#EEF9F3"
+      }
+    },
+    "plugins": [
+      "expo-router",
+      "expo-secure-store",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "SevaMitra uses your location when you choose to record a service or booking event. Location is not collected in the background.",
+          "isIosBackgroundLocationEnabled": false,
+          "isAndroidBackgroundLocationEnabled": false
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}

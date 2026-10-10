@@ -1,0 +1,75 @@
+name: CI
+on:
+  pull_request:
+  push:
+    branches: [main, develop]
+jobs:
+  quality:
+    # PRs originating from develop/main are already checked by push; do not run twice.
+    if: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository || (github.head_ref != 'develop' && github.head_ref != 'main') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: sevamitra_ci
+          POSTGRES_PASSWORD: sevamitra_ci
+          POSTGRES_DB: sevamitra_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U sevamitra_ci -d sevamitra_ci"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.15.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - name: Install web and mobile workspaces
+        run: pnpm install --no-frozen-lockfile
+      - name: Shared client login contract regression tests
+        run: node --experimental-transform-types --test packages/api-client/test/*.test.mjs
+      - name: Frontend mobile role-navigation unit tests
+        run: node --experimental-transform-types --test apps/mobile/test/*.test.mjs
+      - name: Shared package, web and mobile typecheck
+        run: pnpm typecheck
+      - name: Web production build
+        env:
+          NEXT_PUBLIC_API_BASE_URL: http://127.0.0.1:4173
+        run: pnpm --filter @sevamitra/web build
+      - name: Install Chromium for frontend tests
+        run: pnpm --filter @sevamitra/web exec playwright install --with-deps chromium
+      - name: Frontend real-browser E2E tests
+        working-directory: apps/web
+        run: pnpm exec playwright test
+      - name: Backend dependencies
+        working-directory: apps/backend
+        run: npm ci
+      - name: Validate Prisma schema and all migrations against real PostgreSQL
+        working-directory: apps/backend
+        env:
+          DATABASE_URL: postgresql://sevamitra_ci:sevamitra_ci@localhost:5432/sevamitra_ci
+        run: |
+          npx prisma validate
+          npx prisma migrate deploy
+      - name: Generate Prisma Client (schema only, no DB connection)
+        working-directory: apps/backend
+        env:
+          DATABASE_URL: postgresql://sevamitra:sevamitra@localhost:5432/sevamitra
+        run: npx prisma generate
+      - name: Backend production compilation
+        working-directory: apps/backend
+        run: npm run build
+      - name: Backend unit tests and coverage
+        working-directory: apps/backend
+        run: npm run test:cov -- --runInBand
+      - name: Backend HTTP integration smoke
+        working-directory: apps/backend
+        run: npm run test:e2e -- --runInBand
