@@ -19,6 +19,10 @@ command -v gcloud >/dev/null || { echo "Install and sign into gcloud" >&2; exit 
 if [[ "$(git rev-parse HEAD)" != "$RELEASE_SHA" ]]; then
   echo "Checkout the exact reviewed commit before deploying" >&2; exit 1
 fi
+if [[ -n "$(git status --porcelain --untracked-files=all)" ]]; then
+  echo "Refusing to build uncommitted or untracked source; use the exact green commit" >&2
+  exit 1
+fi
 
 REGION="${GCP_REGION:-asia-south1}"
 REPO=sevamitra
