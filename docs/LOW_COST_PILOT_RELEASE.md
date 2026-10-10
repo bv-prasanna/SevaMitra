@@ -36,7 +36,7 @@ The Cloud Run + Neon free tiers are quotas, **not guaranteed zero bills**. Cloud
 - Agent: own referral denied; valid separate provider referral and applicant approval, no admin privilege leakage.
 - Admin: role matrix read/write restrictions, provider review, visibility of runtime flags and disable new bookings for a pilot geography.
 - Ops: backup and restore, negative JWT/device tests, duplicate booking cross-device DB race, privacy / location access, retry scheduler failure and dead-letter review, API outage/recovery, KYC controls, private R2 read.
-- Payment **disabled**, no live refunds/payouts, and no representations of escrow until reconciled webhooks, refunds, payout identity and statutory review are complete.
+- Payment **disabled**: `PILOT_DISABLE_COLLECTIONS=true` blocks both CASH and ONLINE initiation/verification/collection on the server. No live refunds/payouts, and no representations of escrow until reconciled webhooks, refunds, payout identity and statutory review are complete.
 
 ## Post-pilot cloud migration: AWS or Azure
 1. Build/tag the same Docker image and deploy to ECS/Fargate/EC2 or Azure Container Apps, using environment-managed secrets. Keep health endpoints and service DNS constant.

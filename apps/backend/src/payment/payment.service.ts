@@ -4,6 +4,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import {
   Booking,
   BookingStatus,
@@ -34,6 +35,7 @@ export class PaymentService {
     private readonly customerService: CustomerService,
     private readonly providerService: ProviderService,
     @Inject(PAYMENT_GATEWAY) private readonly paymentGateway: PaymentGateway,
+    private readonly config: ConfigService,
   ) {}
 
   // ---------------------------------------------------------------------
@@ -44,6 +46,7 @@ export class PaymentService {
     userId: string,
     dto: CreatePaymentDto,
   ): Promise<Payment> {
+    this.assertCollectionsAllowed();
     const booking = await this.bookingService.findAsCustomer(userId, dto.bookingId);
 
     // Reserve the outstanding amount atomically before contacting the gateway.
@@ -150,6 +153,7 @@ export class PaymentService {
     id: string,
     dto: VerifyPaymentDto,
   ): Promise<Payment> {
+    this.assertCollectionsAllowed();
     const customer = await this.customerService.getActiveProfileOrThrow(userId);
     const payment = await this.getOwnedByCustomerOrThrow(customer.id, id);
 
@@ -214,6 +218,7 @@ export class PaymentService {
     userId: string,
     id: string,
   ): Promise<Payment> {
+    this.assertCollectionsAllowed();
     const provider = await this.providerService.getActiveProfileOrThrow(userId);
     const payment = await this.getOwnedByProviderOrThrow(provider.id, id);
 
@@ -248,6 +253,14 @@ export class PaymentService {
   // ---------------------------------------------------------------------
   // Shared
   // ---------------------------------------------------------------------
+
+  /** Blocks cash AND online collection for a non-financial staging/puja pilot. */
+  private assertCollectionsAllowed(): void {
+    if (this.config.get<string>('PILOT_DISABLE_COLLECTIONS') === 'true') {
+      throw new ConflictException('Payment collection is disabled in this pilot');
+    }
+  }
+
 
   /**
    * Skips the check entirely when the booking has no fixed price yet

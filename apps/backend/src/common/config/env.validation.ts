@@ -97,6 +97,9 @@ class EnvironmentVariables {
   /** Private high-entropy key shared with the scheduled notification worker. */
   @IsOptional() @IsString() NOTIFICATION_CRON_SECRET?: string;
 
+  @IsOptional() @IsIn(['true','false'])
+  PILOT_DISABLE_COLLECTIONS?: string;
+
   @IsOptional() @IsIn(['stub','disabled','razorpay'])
   PAYMENT_PROVIDER?: string;
   @IsOptional() @IsIn(['stub','disabled'])
