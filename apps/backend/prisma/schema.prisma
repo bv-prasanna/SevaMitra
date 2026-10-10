@@ -1080,6 +1080,8 @@ enum BookingParty {
 /// later never retroactively changes an already-made booking.
 model Booking {
   id String @id @default(uuid())
+  /// Client-generated stable request UUID; nullable for legacy clients.
+  clientRequestId String? @map("client_request_id")
 
   customerId String          @map("customer_id")
   customer   CustomerProfile @relation(fields: [customerId], references: [id])
@@ -1122,6 +1124,7 @@ model Booking {
   refund                Refund?
 
   @@index([customerId])
+  @@unique([customerId, clientRequestId])
   @@index([offeringId])
   @@index([townVillageId])
   @@map("bookings")
@@ -1174,6 +1177,8 @@ enum PaymentStatus {
 /// what's owed.
 model Payment {
   id String @id @default(uuid())
+  /// Client-generated stable request UUID; prevents duplicate payment intents.
+  clientRequestId String? @map("client_request_id")
 
   bookingId String  @map("booking_id")
   booking   Booking @relation(fields: [bookingId], references: [id])
@@ -1186,8 +1191,8 @@ model Payment {
 
   /// Set for ONLINE payments only — the Razorpay (or stand-in gateway)
   /// order/payment identifiers and, on failure, why. All null for CASH.
-  gatewayOrderId   String? @map("gateway_order_id")
-  gatewayPaymentId String? @map("gateway_payment_id")
+  gatewayOrderId   String? @unique @map("gateway_order_id")
+  gatewayPaymentId String? @unique @map("gateway_payment_id")
   failureReason    String? @map("failure_reason")
 
   settledAt DateTime? @map("settled_at")
@@ -1196,6 +1201,7 @@ model Payment {
   updatedAt DateTime @updatedAt @map("updated_at")
 
   @@index([bookingId])
+  @@unique([bookingId, clientRequestId])
   @@map("payments")
   @@schema("finance")
 }
@@ -1593,8 +1599,11 @@ enum NotificationChannel {
 /// module's point of view (§1), so a row is only ever created already
 /// resolved to one of these two.
 enum NotificationStatus {
+  PENDING
+  SENDING
   SENT
   FAILED
+  DEAD
 
   @@schema("ops")
 }
@@ -1609,14 +1618,20 @@ model Notification {
   title   String
   body    String
 
-  status        NotificationStatus
-  failureReason String?            @map("failure_reason")
+  status         NotificationStatus
+  failureReason  String?            @map("failure_reason")
+  attemptCount   Int                @default(0) @map("attempt_count")
+  nextAttemptAt  DateTime?          @map("next_attempt_at")
+  leaseUntil     DateTime?          @map("lease_until")
+  lastAttemptAt  DateTime?          @map("last_attempt_at")
+  deliveryKey    String?            @unique @map("delivery_key")
 
   readAt DateTime? @map("read_at")
 
   createdAt DateTime @default(now()) @map("created_at")
 
   @@index([userId])
+  @@index([status, nextAttemptAt])
   @@map("notifications")
   @@schema("ops")
 }
@@ -1778,5 +1793,17 @@ model PushDevice {
   updatedAt DateTime @updatedAt @map("updated_at")
   @@index([userId])
   @@map("push_devices")
+  @@schema("ops")
+}
+
+/** Operational kill switches; absent flags preserve current behavior. */
+model RuntimeFlag {
+  key       String   @id
+  enabled   Boolean
+  reason    String
+  updatedBy String   @map("updated_by")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("runtime_flags")
   @@schema("ops")
 }

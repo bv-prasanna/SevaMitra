@@ -13,11 +13,14 @@ import type { ProviderService } from '../provider/provider.service';
 
 describe('PaymentService', () => {
   let prisma: {
+    $transaction: jest.Mock;
+    booking: { findUnique: jest.Mock };
     payment: {
       create: jest.Mock;
       findMany: jest.Mock;
       findUnique: jest.Mock;
       update: jest.Mock;
+      findFirst: jest.Mock;
     };
   };
   let bookingService: { findAsCustomer: jest.Mock; findAsProvider: jest.Mock };
@@ -40,13 +43,18 @@ describe('PaymentService', () => {
 
   beforeEach(() => {
     prisma = {
+      $transaction: jest.fn(),
+      booking: { findUnique: jest.fn().mockResolvedValue(booking) },
       payment: {
         create: jest.fn(),
         findMany: jest.fn().mockResolvedValue([]),
         findUnique: jest.fn(),
         update: jest.fn(),
+        findFirst: jest.fn().mockResolvedValue(null),
       },
     };
+    prisma.$transaction.mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) =>
+      fn({ payment: prisma.payment, booking: prisma.booking, $queryRaw: jest.fn().mockResolvedValue([]) }));
     bookingService = {
       findAsCustomer: jest.fn().mockResolvedValue(booking),
       findAsProvider: jest.fn().mockResolvedValue(booking),
@@ -76,6 +84,7 @@ describe('PaymentService', () => {
   describe('initiateAsCustomer', () => {
     it('creates an ONLINE payment via the gateway', async () => {
       prisma.payment.create.mockResolvedValue({ id: 'payment-1' });
+      prisma.payment.update.mockResolvedValue({ id: 'payment-1' });
 
       const result = await service.initiateAsCustomer('user-1', {
         bookingId: 'booking-1',
@@ -86,7 +95,7 @@ describe('PaymentService', () => {
       expect(paymentGateway.createOrder).toHaveBeenCalledWith(
         300,
         'INR',
-        'booking-1',
+        'payment-1',
       );
       expect(prisma.payment.create).toHaveBeenCalledWith({
         data: expect.objectContaining({
@@ -94,8 +103,11 @@ describe('PaymentService', () => {
           method: PaymentMethod.ONLINE,
           amount: 300,
           currency: 'INR',
-          gatewayOrderId: 'stub_order_1',
         }),
+      });
+      expect(prisma.payment.update).toHaveBeenCalledWith({
+        where: { id: 'payment-1', status: PaymentStatus.INITIATED, AND: [{ gatewayOrderId: null }] },
+        data: { gatewayOrderId: 'stub_order_1' },
       });
       expect(result).toEqual({ id: 'payment-1' });
     });
@@ -120,6 +132,10 @@ describe('PaymentService', () => {
 
     it('rejects when the booking is CANCELLED', async () => {
       bookingService.findAsCustomer.mockResolvedValue({
+        ...booking,
+        status: BookingStatus.CANCELLED,
+      });
+      prisma.booking.findUnique.mockResolvedValue({
         ...booking,
         status: BookingStatus.CANCELLED,
       });
@@ -159,21 +175,73 @@ describe('PaymentService', () => {
       ).rejects.toThrow(ConflictException);
     });
 
-    it('skips the balance check for a booking with no fixed price yet', async () => {
+    it('refuses payment against an unresolved quote with no approved price', async () => {
       bookingService.findAsCustomer.mockResolvedValue({
+        ...booking,
+        amount: null,
+        visitFee: null,
+      });
+      prisma.booking.findUnique.mockResolvedValue({
         ...booking,
         amount: null,
         visitFee: null,
       });
       prisma.payment.create.mockResolvedValue({ id: 'payment-1' });
 
-      await service.initiateAsCustomer('user-1', {
+      await expect(service.initiateAsCustomer('user-1', {
         bookingId: 'booking-1',
         method: PaymentMethod.CASH,
         amount: 100000,
-      });
+      })).rejects.toThrow(ConflictException);
 
-      expect(prisma.payment.create).toHaveBeenCalled();
+      expect(prisma.payment.create).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('concurrent payment safeguards', () => {
+    const cashDto = {
+      bookingId: 'booking-1', method: PaymentMethod.CASH, amount: 300,
+      clientRequestId: 'aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa',
+    };
+
+    it('reserves before checking balances using the same transaction', async () => {
+      prisma.payment.create.mockResolvedValue({ id: 'pay-1' });
+      await service.initiateAsCustomer('customer-user', cashDto);
+      expect(prisma.$transaction).toHaveBeenCalled();
+      expect(prisma.payment.findMany).toHaveBeenCalledWith({
+        where: { bookingId: 'booking-1', status: { in: [PaymentStatus.INITIATED, PaymentStatus.SUCCEEDED] } },
+      });
+    });
+
+    it('replays the previous response rather than creating another payment', async () => {
+      prisma.payment.findFirst = jest.fn().mockResolvedValue({
+        id: 'existing-1', method: PaymentMethod.CASH, amount: 300,
+        status: PaymentStatus.INITIATED,
+      });
+      const result = await service.initiateAsCustomer('customer-user', cashDto);
+      expect(result.id).toBe('existing-1');
+      expect(prisma.payment.create).not.toHaveBeenCalled();
+    });
+
+    it('blocks reuse of the same key with different amount', async () => {
+      prisma.payment.findFirst = jest.fn().mockResolvedValue({
+        id: 'existing-1', method: PaymentMethod.CASH, amount: 200,
+      });
+      await expect(service.initiateAsCustomer('customer-user', cashDto))
+        .rejects.toThrow(ConflictException);
+      expect(prisma.payment.create).not.toHaveBeenCalled();
+    });
+
+    it('releases the reservation if creating an external order fails', async () => {
+      prisma.payment.create.mockResolvedValue({ id: 'payment-1' });
+      prisma.payment.update.mockResolvedValue({ id: 'payment-1' });
+      paymentGateway.createOrder.mockRejectedValue(new Error('gateway unavailable'));
+      await expect(service.initiateAsCustomer('customer-user', {
+        bookingId: 'booking-1', method: PaymentMethod.ONLINE, amount: 300,
+      })).rejects.toThrow('gateway unavailable');
+      expect(prisma.payment.update).toHaveBeenCalledWith(expect.objectContaining({
+        data: expect.objectContaining({ status: PaymentStatus.FAILED }),
+      }));
     });
   });
 
@@ -216,7 +284,7 @@ describe('PaymentService', () => {
       });
     });
 
-    it('marks the payment FAILED when the gateway rejects it', async () => {
+    it('preserves payment state when a forged verification fails', async () => {
       paymentGateway.verifyPayment.mockReturnValue(false);
       prisma.payment.findUnique.mockResolvedValue(initiatedOnlinePayment);
       prisma.payment.update.mockResolvedValue({
@@ -224,15 +292,12 @@ describe('PaymentService', () => {
         status: PaymentStatus.FAILED,
       });
 
-      await service.verifyAsCustomer('user-1', 'payment-1', {
+      await expect(service.verifyAsCustomer('user-1', 'payment-1', {
         gatewayPaymentId: 'pay_1',
         gatewaySignature: 'bad_sig',
-      });
+      })).rejects.toThrow(ConflictException);
 
-      expect(prisma.payment.update).toHaveBeenCalledWith({
-        where: { id: 'payment-1', status: PaymentStatus.INITIATED },
-        data: expect.objectContaining({ status: PaymentStatus.FAILED }),
-      });
+      expect(prisma.payment.update).not.toHaveBeenCalled();
     });
 
     it('rejects verifying a CASH payment', async () => {

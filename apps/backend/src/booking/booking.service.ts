@@ -12,6 +12,7 @@ import { TownVillageService } from '../geography/town-village/town-village.servi
 import { CoverageCheckService } from '../serviceability/check/coverage-check.service';
 import { AvailabilityCheckService } from '../availability/check/availability-check.service';
 import { isTimeBefore } from '../common/util/time-of-day';
+import { RuntimeFlagsService } from '../runtime-flags/runtime-flags.service';
 import { CreateBookingDto } from './dto/create-booking.dto';
 import { CancelBookingDto } from './dto/cancel-booking.dto';
 import { RejectBookingDto } from './dto/reject-booking.dto';
@@ -31,6 +32,7 @@ export class BookingService {
     private readonly townVillageService: TownVillageService,
     private readonly coverageCheckService: CoverageCheckService,
     private readonly availabilityCheckService: AvailabilityCheckService,
+    private readonly runtimeFlags: RuntimeFlagsService,
   ) {}
 
   // ---------------------------------------------------------------------
@@ -40,15 +42,29 @@ export class BookingService {
   async create(userId: string, dto: CreateBookingDto): Promise<Booking> {
     const customer = await this.customerService.getActiveProfileOrThrow(userId);
 
+    // Return the original booking on client retry, including after an
+    // offline reconnect, rather than inserting a second booking.
+    if (dto.clientRequestId) {
+      const prior = await this.prisma.booking.findFirst({
+        where: {customerId: customer.id, clientRequestId: dto.clientRequestId},
+      });
+      if (prior) return this.assertSameBookingRequest(prior, dto);
+    }
+
     const offering = await this.offeringService.findOneActive(dto.offeringId);
     if (!offering.isActive) {
       throw new NotFoundException('Offering not found or inactive');
     }
     await this.townVillageService.findByIdOrThrow(dto.townVillageId);
+    await this.runtimeFlags.assertBookingAllowed(offering.serviceId, dto.townVillageId);
     const currentProvider = await this.prisma.providerProfile.findUnique({where:{id:offering.providerId}});
     if (!currentProvider || currentProvider.status !== ProviderStatus.ACTIVE ||
         currentProvider.verificationStatus !== VerificationStatus.VERIFIED) {
       throw new ConflictException('Provider is not active and verified');
+    }
+
+    if (currentProvider.userId === userId) {
+      throw new ConflictException('Providers cannot book their own services');
     }
 
     if (!isTimeBefore(dto.scheduledStartTime, dto.scheduledEndTime)) {
@@ -83,10 +99,16 @@ export class BookingService {
     // Provider/day-scoped advisory lock protects against two simultaneous
     // requests passing availability checks before either booking is inserted.
     // The booking conflict query and INSERT share the same transaction.
-    return this.prisma.$transaction(async (tx) => {
+    const reserve = () => this.prisma.$transaction(async (tx) => {
       await tx.$queryRaw`SELECT pg_advisory_xact_lock(
         hashtext(${offering.providerId}), hashtext(${dto.scheduledDate})
       )::text AS locked`;
+      if (dto.clientRequestId) {
+        const prior = await tx.booking.findFirst({
+          where: {customerId: customer.id, clientRequestId: dto.clientRequestId},
+        });
+        if (prior) return this.assertSameBookingRequest(prior, dto);
+      }
       const conflict = await tx.booking.findFirst({
         where: {
           offering: {providerId: offering.providerId},
@@ -111,10 +133,44 @@ export class BookingService {
           visitFee: offering.visitFee,
           currency: offering.currency,
           notes: dto.notes,
+          clientRequestId: dto.clientRequestId,
         },
       });
     },{isolationLevel:Prisma.TransactionIsolationLevel.Serializable});
 
+    // PostgreSQL aborts one contender on a serializable conflict (P2034).
+    // Retry the *whole* transaction, not just the INSERT.
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        return await reserve();
+      } catch (error) {
+        if (error instanceof Prisma.PrismaClientKnownRequestError) {
+          if (error.code === 'P2034' && attempt < 2) continue;
+          if (error.code === 'P2002' && dto.clientRequestId) {
+            const prior = await this.prisma.booking.findFirst({
+              where: {customerId: customer.id, clientRequestId: dto.clientRequestId},
+            });
+            if (prior) return this.assertSameBookingRequest(prior, dto);
+          }
+          if (error.code === 'P2034' || error.code === 'P2002')
+            throw new ConflictException('Booking was changed concurrently; retry');
+        }
+        throw error;
+      }
+    }
+    throw new ConflictException('Booking could not be reserved safely');
+  }
+
+  private assertSameBookingRequest(booking: Booking, dto: CreateBookingDto): Booking {
+    if (booking.offeringId !== dto.offeringId ||
+        booking.townVillageId !== dto.townVillageId ||
+        booking.scheduledDate.toISOString().slice(0, 10) !== dto.scheduledDate.slice(0, 10) ||
+        booking.scheduledStartTime !== dto.scheduledStartTime ||
+        booking.scheduledEndTime !== dto.scheduledEndTime ||
+        (booking.notes ?? null) !== (dto.notes ?? null)) {
+      throw new ConflictException('Idempotency key was already used for a different booking');
+    }
+    return booking;
   }
 
   async listAsCustomer(

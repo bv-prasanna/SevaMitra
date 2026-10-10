@@ -44,44 +44,88 @@ export class PaymentService {
     userId: string,
     dto: CreatePaymentDto,
   ): Promise<Payment> {
-    const booking = await this.bookingService.findAsCustomer(
-      userId,
-      dto.bookingId,
-    );
+    const booking = await this.bookingService.findAsCustomer(userId, dto.bookingId);
 
-    if (NON_PAYABLE_STATUSES.includes(booking.status)) {
-      throw new ConflictException(
-        `Booking cannot accept payment from its current status (${booking.status})`,
-      );
-    }
+    // Reserve the outstanding amount atomically before contacting the gateway.
+    // External HTTP calls must not hold an open database transaction.
+    const reserve = () => this.prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT pg_advisory_xact_lock(
+        hashtext('payment-intent'), hashtext(${booking.id})
+      )::text AS locked`;
 
-    await this.assertWithinOutstandingBalance(booking, dto.amount);
+      if (dto.clientRequestId) {
+        const previous = await tx.payment.findFirst({
+          where: { bookingId: booking.id, clientRequestId: dto.clientRequestId },
+        });
+        if (previous) {
+          if (previous.method !== dto.method || Number(previous.amount) !== dto.amount) {
+            throw new ConflictException('Idempotency key was used for a different payment');
+          }
+          return { payment: previous, existing: true };
+        }
+      }
 
-    if (dto.method === PaymentMethod.ONLINE) {
-      const { gatewayOrderId } = await this.paymentGateway.createOrder(
-        dto.amount,
-        booking.currency,
-        booking.id,
-      );
-      return this.prisma.payment.create({
+      // A cancellation can race with checkout; never rely on an earlier read.
+      const current = await tx.booking.findUnique({ where: { id: booking.id } });
+      if (!current || NON_PAYABLE_STATUSES.includes(current.status)) {
+        throw new ConflictException('Booking is no longer payable');
+      }
+      await this.assertWithinOutstandingBalance(tx, current, dto.amount);
+      const payment = await tx.payment.create({
         data: {
-          bookingId: booking.id,
+          bookingId: current.id,
           method: dto.method,
           amount: dto.amount,
-          currency: booking.currency,
-          gatewayOrderId,
+          currency: current.currency,
+          clientRequestId: dto.clientRequestId,
         },
       });
-    }
+      return { payment, existing: false };
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
 
-    return this.prisma.payment.create({
-      data: {
-        bookingId: booking.id,
-        method: dto.method,
-        amount: dto.amount,
-        currency: booking.currency,
-      },
-    });
+    let result: Awaited<ReturnType<typeof reserve>> | undefined;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        result = await reserve();
+        break;
+      } catch (error) {
+        if (error instanceof Prisma.PrismaClientKnownRequestError &&
+            error.code === 'P2034' && attempt < 2) continue;
+        if (error instanceof Prisma.PrismaClientKnownRequestError &&
+            (error.code === 'P2034' || error.code === 'P2002')) {
+          throw new ConflictException('Concurrent payment request; retry using the same clientRequestId');
+        }
+        throw error;
+      }
+    }
+    if (!result) throw new ConflictException('Could not reserve payment safely');
+    const { payment, existing } = result;
+    if (existing) {
+      if (payment.method === PaymentMethod.ONLINE &&
+          payment.status === PaymentStatus.INITIATED && !payment.gatewayOrderId) {
+        throw new ConflictException('Payment order is being prepared; retry with the same clientRequestId');
+      }
+      return payment;
+    }
+    if (dto.method !== PaymentMethod.ONLINE) return payment;
+
+    // An unconfirmed payment is not proof of collection. If creation fails,
+    // release the reservation and let the caller retry with a fresh key.
+    try {
+      const { gatewayOrderId } = await this.paymentGateway.createOrder(
+        dto.amount, booking.currency, payment.id,
+      );
+      return await this.prisma.payment.update({
+        where: { id: payment.id, status: PaymentStatus.INITIATED, AND: [{ gatewayOrderId: null }] },
+        data: { gatewayOrderId },
+      });
+    } catch (error) {
+      await this.prisma.payment.update({
+        where: { id: payment.id, status: PaymentStatus.INITIATED, AND: [{ gatewayOrderId: null }] },
+        data: { status: PaymentStatus.FAILED, failureReason: 'Gateway order initialization failed' },
+      }).catch(() => undefined);
+      throw error;
+    }
   }
 
   async listAsCustomer(
@@ -126,19 +170,18 @@ export class PaymentService {
       payment.currency,
     );
 
+    // An attacker can submit a forged callback. Invalid signatures must not
+    // change an otherwise valid order to FAILED (payment-confirmation DoS).
+    if (!verified) {
+      throw new ConflictException('Gateway verification failed; payment remains pending reconciliation');
+    }
     return this.prisma.payment.update({
       where: { id: payment.id, status: PaymentStatus.INITIATED },
-      data: verified
-        ? {
-            status: PaymentStatus.SUCCEEDED,
-            gatewayPaymentId: dto.gatewayPaymentId,
-            settledAt: new Date(),
-          }
-        : {
-            status: PaymentStatus.FAILED,
-            gatewayPaymentId: dto.gatewayPaymentId,
-            failureReason: 'Gateway signature verification failed',
-          },
+      data: {
+        status: PaymentStatus.SUCCEEDED,
+        gatewayPaymentId: dto.gatewayPaymentId,
+        settledAt: new Date(),
+      },
     });
   }
 
@@ -213,16 +256,18 @@ export class PaymentService {
    * exists to set a price — see docs/modules/PAYMENT_IMPLEMENTATION.md §1.
    */
   private async assertWithinOutstandingBalance(
+    tx: Prisma.TransactionClient,
     booking: Booking,
     newAmount: number,
   ): Promise<void> {
     const totalDue =
       Number(booking.amount ?? 0) + Number(booking.visitFee ?? 0);
     if (totalDue === 0) {
-      return;
+      // Never charge an arbitrary amount against an unapproved quote.
+      throw new ConflictException('A finalized quote or fixed amount is required before payment');
     }
 
-    const existing = await this.prisma.payment.findMany({
+    const existing = await tx.payment.findMany({
       where: {
         bookingId: booking.id,
         status: { in: [PaymentStatus.INITIATED, PaymentStatus.SUCCEEDED] },

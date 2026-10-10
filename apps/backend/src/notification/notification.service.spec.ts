@@ -11,6 +11,7 @@ describe('NotificationService', () => {
       findMany: jest.Mock;
       findUnique: jest.Mock;
       update: jest.Mock;
+      updateMany: jest.Mock;
     };
   };
   let authService: { getPublicUserByIdOrThrow: jest.Mock };
@@ -35,6 +36,7 @@ describe('NotificationService', () => {
         findMany: jest.fn(),
         findUnique: jest.fn(),
         update: jest.fn(),
+        updateMany: jest.fn().mockResolvedValue({count:1}),
       },
     };
     authService = {
@@ -54,98 +56,90 @@ describe('NotificationService', () => {
     );
   });
 
-  describe('send', () => {
-    it('dispatches SMS via the provider and records SENT', async () => {
-      prisma.notification.create.mockResolvedValue({
-        id: 'notif-1',
-        status: NotificationStatus.SENT,
-      });
+  describe('durable notification delivery', () => {
+    const pending = {
+      id: 'notif-1', userId: 'user-1', channel: NotificationChannel.SMS,
+      title: 'Title', body: 'Body', attemptCount: 0,
+      status: NotificationStatus.PENDING,
+    };
 
-      await service.send('user-1', NotificationChannel.SMS, 'Title', 'Body');
+    beforeEach(() => {
+      prisma.notification.create.mockResolvedValue(pending);
+      prisma.notification.findUnique.mockResolvedValue(pending);
+      prisma.notification.update.mockImplementation(async ({data}: {data: Record<string, unknown>}) =>
+        ({...pending, ...data}));
+    });
 
-      expect(notificationProvider.sendSms).toHaveBeenCalledWith(
-        '+919876543210',
-        'Body',
-      );
+    it('persists PENDING first then records SENT after SMS delivery', async () => {
+      const response = await service.send('user-1', NotificationChannel.SMS, 'Title', 'Body');
       expect(prisma.notification.create).toHaveBeenCalledWith({
         data: expect.objectContaining({
-          userId: 'user-1',
-          channel: NotificationChannel.SMS,
-          status: NotificationStatus.SENT,
-          failureReason: null,
+          userId: 'user-1', channel: NotificationChannel.SMS,
+          status: NotificationStatus.PENDING, nextAttemptAt: expect.any(Date),
         }),
       });
+      expect(notificationProvider.sendSms).toHaveBeenCalledWith('+919876543210','Body');
+      expect(prisma.notification.update).toHaveBeenCalledWith(expect.objectContaining({
+        data: expect.objectContaining({status: NotificationStatus.SENT,attemptCount:1}),
+      }));
+      expect(response.status).toBe(NotificationStatus.SENT);
     });
 
-    it('dispatches EMAIL via the provider using the subject/body pairing', async () => {
-      prisma.notification.create.mockResolvedValue({ id: 'notif-1' });
-
-      await service.send(
-        'user-1',
-        NotificationChannel.EMAIL,
-        'Subject',
-        'Body',
-      );
-
-      expect(notificationProvider.sendEmail).toHaveBeenCalledWith(
-        'user@example.com',
-        'Subject',
-        'Body',
-      );
+    it('records a retriable failure if push delivery fails', async () => {
+      prisma.notification.findUnique.mockResolvedValue({
+        ...pending, channel: NotificationChannel.PUSH,
+      });
+      notificationProvider.sendPush.mockRejectedValue(new Error('gateway unreachable'));
+      const response = await service.send('user-1', NotificationChannel.PUSH, 'Title', 'Body');
+      expect(response.status).toBe(NotificationStatus.FAILED);
+      expect(response.nextAttemptAt).toBeInstanceOf(Date);
+      expect(response.attemptCount).toBe(1);
     });
 
-    it('never calls the gateway for IN_APP', async () => {
-      prisma.notification.create.mockResolvedValue({ id: 'notif-1' });
+    it('dead-letters a permanently undeliverable SMS with no recipient number', async () => {
+      authService.getPublicUserByIdOrThrow.mockResolvedValue({...recipient,phoneNumber:null});
+      const response = await service.send('user-1', NotificationChannel.SMS, 'Title', 'Body');
+      expect(response.status).toBe(NotificationStatus.DEAD);
+      expect(response.nextAttemptAt).toBeNull();
+      expect(notificationProvider.sendSms).not.toHaveBeenCalled();
+    });
 
-      await service.send('user-1', NotificationChannel.IN_APP, 'Title', 'Body');
-
+    it('does not call an external provider for in-app delivery', async () => {
+      prisma.notification.findUnique.mockResolvedValue({
+        ...pending,channel:NotificationChannel.IN_APP,
+      });
+      const response = await service.send('user-1',NotificationChannel.IN_APP,'Title','Body');
+      expect(response.status).toBe(NotificationStatus.SENT);
       expect(notificationProvider.sendSms).not.toHaveBeenCalled();
       expect(notificationProvider.sendWhatsApp).not.toHaveBeenCalled();
-      expect(notificationProvider.sendPush).not.toHaveBeenCalled();
       expect(notificationProvider.sendEmail).not.toHaveBeenCalled();
-      expect(prisma.notification.create).toHaveBeenCalledWith({
-        data: expect.objectContaining({ status: NotificationStatus.SENT }),
-      });
+      expect(notificationProvider.sendPush).not.toHaveBeenCalled();
     });
 
-    it('records FAILED with a reason when the recipient has no phone number for SMS', async () => {
-      authService.getPublicUserByIdOrThrow.mockResolvedValue({
-        ...recipient,
-        phoneNumber: null,
-      });
-      prisma.notification.create.mockResolvedValue({
-        id: 'notif-1',
-        status: NotificationStatus.FAILED,
-      });
-
-      await service.send('user-1', NotificationChannel.SMS, 'Title', 'Body');
-
+    it('does not duplicate delivery when another worker has the database lease', async () => {
+      prisma.notification.updateMany.mockResolvedValue({count:0});
+      const response = await service.send('user-1', NotificationChannel.SMS, 'Title', 'Body');
+      expect(response.status).toBe(NotificationStatus.PENDING);
       expect(notificationProvider.sendSms).not.toHaveBeenCalled();
-      expect(prisma.notification.create).toHaveBeenCalledWith({
-        data: expect.objectContaining({
-          status: NotificationStatus.FAILED,
-          failureReason: 'Recipient has no phone number on file',
-        }),
-      });
     });
 
-    it('records FAILED when the provider itself throws', async () => {
-      notificationProvider.sendPush.mockRejectedValue(
-        new Error('gateway unreachable'),
-      );
-      prisma.notification.create.mockResolvedValue({
-        id: 'notif-1',
-        status: NotificationStatus.FAILED,
-      });
+    it('retries due delivery attempts after a transient failure', async () => {
+      prisma.notification.findMany.mockResolvedValue([pending]);
+      const summary = await service.retryDue();
+      expect(summary).toEqual({examined:1,sent:1,dead:0});
+      expect(prisma.notification.updateMany).toHaveBeenCalledWith(expect.objectContaining({
+        where:expect.objectContaining({id:'notif-1'}),
+      }));
+    });
 
-      await service.send('user-1', NotificationChannel.PUSH, 'Title', 'Body');
-
-      expect(prisma.notification.create).toHaveBeenCalledWith({
-        data: expect.objectContaining({
-          status: NotificationStatus.FAILED,
-          failureReason: 'gateway unreachable',
-        }),
+    it('dead-letters after five failed attempts', async () => {
+      prisma.notification.findUnique.mockResolvedValue({
+        ...pending,attemptCount:4,channel:NotificationChannel.PUSH,
       });
+      notificationProvider.sendPush.mockRejectedValue(new Error('unavailable'));
+      const response = await service.send('user-1',NotificationChannel.PUSH,'Title','Body');
+      expect(response.status).toBe(NotificationStatus.DEAD);
+      expect(response.attemptCount).toBe(5);
     });
   });
 

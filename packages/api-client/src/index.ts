@@ -87,4 +87,4 @@ export type DiscoveredOffering={
  id:string;providerId:string;serviceId:string;providerName:string;
  pricingModel:string;amount:string|null;visitFee:string|null;currency:string;notes:string|null;
 };
-export type BookingCreate={offeringId:string;townVillageId:string;scheduledDate:string;scheduledStartTime:string;scheduledEndTime:string;notes?:string};
+export type BookingCreate={offeringId:string;townVillageId:string;scheduledDate:string;scheduledStartTime:string;scheduledEndTime:string;notes?:string;clientRequestId?:string};

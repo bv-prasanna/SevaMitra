@@ -85,6 +85,13 @@ describe('ApplicationService', () => {
       });
     });
 
+    it('blocks self-referral with the same authenticated user', async () => {
+      agentService.getActiveByCode.mockResolvedValue({id:'agent-1',userId:'user-1'});
+      await expect(service.submit('user-1',{referredByAgentCode:'OWNCODE'}))
+        .rejects.toThrow(ConflictException);
+      expect(prisma.onboardingApplication.create).not.toHaveBeenCalled();
+    });
+
     it('rejects submission when a non-rejected application already exists', async () => {
       prisma.onboardingApplication.findUnique.mockResolvedValue({
         id: 'app-1',

@@ -46,6 +46,9 @@ export class ApplicationService {
       const agent = await this.agentService.getActiveByCode(
         dto.referredByAgentCode,
       );
+      if (agent.userId === userId) {
+        throw new ConflictException('Self-referral is not eligible for agent incentives');
+      }
       referredByAgentId = agent.id;
     }
     const channel = referredByAgentId

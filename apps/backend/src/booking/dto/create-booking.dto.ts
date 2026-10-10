@@ -10,6 +10,15 @@ import {
 import { TIME_OF_DAY_PATTERN } from '../../common/util/time-of-day';
 
 export class CreateBookingDto {
+  @ApiProperty({
+    required: false,
+    format: 'uuid',
+    description: 'Reuse the same UUID when retrying this booking after a timeout or offline reconnect.',
+  })
+  @IsOptional()
+  @IsUUID()
+  clientRequestId?: string;
+
   @ApiProperty({ example: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890' })
   @IsUUID()
   offeringId: string;

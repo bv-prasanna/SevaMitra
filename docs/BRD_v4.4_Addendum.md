@@ -62,3 +62,30 @@ When no provider is eligible, the customer may submit a location and service req
 Pilot must have real OTP, controlled provider verification, functional role journeys, private documents, actual notifications for critical events, no mock payment confirmations, restricted gateway credentials, safe cancellation/refund paths, auditability, manual support and published policies. Full public payment launch additionally requires confirmed gateway webhooks, real payouts, tax applicability sign-off, end-to-end transaction tests and mobile device validation.
 
 Open business decisions: provider-company verification evidence; company/group commission precedence; tax treatment by service and state; supported payment methods; approved cancellation matrix; safety escalation SLAs; document retention and localization.
+
+## 72. Dispute escalation deadlines (PROPOSED — operations approval required)
+Every incident must have a severity, accountable owner, acknowledgement deadline, resolution target, escalation owner and tamper-evident timeline. Suggested pilot defaults, **not** approved contractual SLAs:
+- L1 critical safety: on-call notification immediately; acknowledge within 15 minutes; escalate to safety lead at 30 minutes if unacknowledged. Where danger is imminent, direct users to local emergency services; never imply SevaMitra replaces emergency response.
+- L2 service/safety impact: acknowledge within 2 hours; escalate after 4 hours without action.
+- L3 general complaint: acknowledge within 24 hours; escalate after 48 hours unresolved.
+Timer pauses require named authorized reason and an audit event. Escalation must work across weekends/holidays and trigger notifications. Publish only SLAs that support staff can sustain; legal/operations owners must approve prior to launch.
+
+## 73. Provider document expiry and periodic re-verification (PROPOSED)
+Verification policy is category-specific. For credentials with authoritative expiry dates, queue reminders 30 and 7 days before expiry, then disable affected high-risk category offerings at expiry until approved renewal. For non-expiring identity/business checks, propose annual risk-based review and immediate recheck after material changes, regulatory alert, safety incident or impersonation warning. Human reviewers decide overrides with evidence, least privilege and audit. Avoid collecting new sensitive documents unless legally necessary. Provide provider appeal and status visibility.
+
+## 74. Rural connectivity and assisted-booking fallback (PROPOSED)
+Clients may save encrypted, minimal local booking drafts and non-financial workflow actions. Every accepted write gets a durable client-generated idempotency key, timestamp and server-validated actor and location. Reconnect resolves conflicts using server state rather than blind replay. Display 'pending sync' distinctly from 'booking confirmed' and never retry a card/UPI charge without first checking server/gateway status. For phone/SMS/IVR assisted booking, authenticate customer consent/identity, create server-side idempotent bookings through authorized agent accounts, redact contact details, log assisted actions and send clear confirmation/cancellation instructions. Unsupported areas must return a non-guaranteed demand lead, not a phantom booking.
+
+## 75. Retention, deletion and confidentiality (PROPOSED — legal approval required)
+Create a data-class inventory (identity and phone, location, chat, booking, KYC evidence, payment references, tax ledgers, safety disputes, audit logs and device tokens). Publish purpose, lawful basis, access roles, encryption, retention schedule and deletion/anonymization workflow for each. Apply legally required retention and dispute holds before destruction; do not hard-code one universal retention period. Support data access, correction, erasure where eligible, breach escalation, export and periodic access audits. Do not treat pseudonymization as irreversible anonymization. Counsel must review India's applicable DPDP, tax, consumer-protection and platform obligations before dates are adopted.
+
+## 76. Provider damage, insurance and exclusions (PROPOSED — legal approval required)
+Publish service-specific provider terms identifying responsibility for property damage, bodily injury, professional negligence, prohibited tasks, complaint windows, dispute evidence and claim escalation. Define whether micro-insurance is mandatory for electrical, structural and other high-risk categories only after insurer/legal review; state coverage limits and exclusions conspicuously. Do not promise an insurance payout or platform-funded indemnity unless contracted, funded and legally approved.
+
+## 77. Business continuity, feature flags and audit (PROPOSED)
+A least-privilege operations console should support versioned enable/disable switches per service, category and geography, with emergency maintenance mode, reason, two-person approval for high-risk changes and automatic event/audit trail. All changes take effect without code redeployment; requests must enforce them server-side even if a cached mobile screen shows the offering. Financial events, permissions and manual overrides need append-only evidence and independent storage. Outbox/DLQ queues need ownership, retry ceilings, reconciliation dashboards and dead-letter manual replay with fresh authorization.
+
+## 78. Incentive integrity and fair matching (PROPOSED)
+Block own-service booking and self-referrals by shared user ID as a minimum. Flag additional suspicious device, phone, payment instrument, address, referral and repeated booking patterns for supervised review; do not automatically punish users solely for shared households/devices or weak geo evidence. Maintain reasoned case decisions, appeal and incentive holds. Assignment broadcast and round-robin require collision-proof eligibility/acceptance, expiry, hard capacity and consistent geographic boundary results.
+
+**Business approval gate:** Sections 72–78 are proposed default requirements, not approved operating policy. Operations, legal, finance and safety owners must decide thresholds, coverage, retention and escalation staffing before release.
