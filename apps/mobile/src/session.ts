@@ -6,10 +6,17 @@ export const API_BASE=process.env.EXPO_PUBLIC_API_BASE_URL||"";
 const KEY="sevamitra.mobile.session.v1";
 type Stored=SessionTokenPair&{expiresAt:number};
 let refreshPending:Promise<Stored>|null=null;
+let sessionGeneration=0;
+let storageQueue:Promise<void>=Promise.resolve();
+function queueStorageWrite(write:()=>Promise<void>):Promise<void>{
+ const next=storageQueue.then(write,write);
+ storageQueue=next.catch(()=>{});
+ return next;
+}
 
 export async function saveSession(tokens:SessionTokenPair):Promise<void>{
  const stored:Stored={...tokens,expiresAt:Date.now()+tokens.expiresIn*1000};
- await SecureStore.setItemAsync(KEY,JSON.stringify(stored));
+ await queueStorageWrite(()=>SecureStore.setItemAsync(KEY,JSON.stringify(stored)));
 }
 async function loadSession():Promise<Stored|null>{
  const raw=await SecureStore.getItemAsync(KEY);
@@ -22,12 +29,22 @@ async function loadSession():Promise<Stored|null>{
 }
 async function refreshSession(session:Stored):Promise<Stored>{
  if(!refreshPending){
+  const generation=sessionGeneration;
   refreshPending=(async()=>{
    try{
     const tokens=extractTokensFromRefresh(await new ApiClient(API_BASE).refresh({refreshToken:session.refreshToken}));
-    await saveSession(tokens);
+    await queueStorageWrite(async()=>{
+      if(generation!==sessionGeneration)throw new Error("Session changed during refresh");
+      await SecureStore.setItemAsync(KEY,JSON.stringify({...tokens,expiresAt:Date.now()+tokens.expiresIn*1000}));
+    });
+    if(generation!==sessionGeneration)throw new Error("Session changed during refresh");
     return {...tokens,expiresAt:Date.now()+tokens.expiresIn*1000};
-   }catch(e){await SecureStore.deleteItemAsync(KEY);throw e}
+   }catch(e){
+     if(generation===sessionGeneration)await queueStorageWrite(async()=>{
+       if(generation===sessionGeneration)await SecureStore.deleteItemAsync(KEY);
+     });
+     throw e;
+   }
   })().finally(()=>{refreshPending=null});
  }
  return refreshPending;
@@ -54,12 +71,19 @@ export async function requestWithSession<T=unknown>(method:"GET"|"POST"|"PATCH"|
  try{return await execute(session.accessToken)}
  catch(e){if((e as {status?:number}).status!==401)throw e;const renewed=await refreshSession(session);return execute(renewed.accessToken)}
 }
-export async function saveLoginResponse(value:unknown){await saveSession(extractOtpLoginTokens(value))}
+export async function saveLoginResponse(value:unknown){
+ const tokens=extractOtpLoginTokens(value);
+ sessionGeneration++;
+ await saveSession(tokens);
+}
 export async function signOut():Promise<void>{
+ sessionGeneration++;
  const s=await loadSession();
- await SecureStore.deleteItemAsync(KEY);
- // Do not carry an offline booking draft into another user's session.
- await SecureStore.deleteItemAsync("sevamitra.pending-booking.v1");
+ await queueStorageWrite(async()=>{
+   await SecureStore.deleteItemAsync(KEY);
+   // Do not carry an offline booking draft into another user's session.
+   await SecureStore.deleteItemAsync("sevamitra.pending-booking.v1");
+ });
  if(s&&API_BASE)try{await new ApiClient(API_BASE).logout({refreshToken:s.refreshToken})}catch{/* already signed out locally */}
 }
 /** Navigation is derived from an authenticated server-side IAM/profile check.
