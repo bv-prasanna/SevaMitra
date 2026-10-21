@@ -1,4 +1,5 @@
 import { ConflictException, NotFoundException } from '@nestjs/common';
+import type { ConfigService } from '@nestjs/config';
 import {
   BookingStatus,
   PaymentMethod,
@@ -27,6 +28,7 @@ describe('PaymentService', () => {
   let customerService: { getActiveProfileOrThrow: jest.Mock };
   let providerService: { getActiveProfileOrThrow: jest.Mock };
   let paymentGateway: { createOrder: jest.Mock; verifyPayment: jest.Mock };
+  let config: {get: jest.Mock};
   let service: PaymentService;
 
   const customer = { id: 'customer-1' };
@@ -72,13 +74,44 @@ describe('PaymentService', () => {
       verifyPayment: jest.fn().mockReturnValue(true),
     };
 
+    config = {get: jest.fn().mockReturnValue(undefined)};
     service = new PaymentService(
       prisma as unknown as PrismaService,
       bookingService as unknown as BookingService,
       customerService as unknown as CustomerService,
       providerService as unknown as ProviderService,
       paymentGateway,
+      config as unknown as ConfigService,
     );
+  });
+
+  describe('payment-disabled pilot', () => {
+    beforeEach(() => config.get.mockReturnValue('true'));
+
+    it('does not create online or cash payment intents', async () => {
+      for (const method of [PaymentMethod.CASH, PaymentMethod.ONLINE]) {
+        await expect(service.initiateAsCustomer('user-1', {
+          bookingId: booking.id, method, amount: 100,
+        })).rejects.toThrow('Payment collection is disabled in this pilot');
+      }
+      expect(bookingService.findAsCustomer).not.toHaveBeenCalled();
+      expect(prisma.$transaction).not.toHaveBeenCalled();
+      expect(paymentGateway.createOrder).not.toHaveBeenCalled();
+    });
+
+    it('does not confirm old online intents', async () => {
+      await expect(service.verifyAsCustomer('user-1', 'payment-1', {
+        gatewayPaymentId: 'pay_1', gatewaySignature: 'sig_1',
+      })).rejects.toThrow(ConflictException);
+      expect(paymentGateway.verifyPayment).not.toHaveBeenCalled();
+      expect(prisma.payment.update).not.toHaveBeenCalled();
+    });
+
+    it('does not mark previous cash intents collected', async () => {
+      await expect(service.markCashCollectedAsProvider('user-1', 'payment-1'))
+        .rejects.toThrow(ConflictException);
+      expect(prisma.payment.update).not.toHaveBeenCalled();
+    });
   });
 
   describe('initiateAsCustomer', () => {
