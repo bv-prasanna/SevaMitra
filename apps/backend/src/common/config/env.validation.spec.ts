@@ -69,6 +69,18 @@ describe('validateEnv production safety', () => {
     expect(() => validateEnv({ ...validProd, MSG91_OTP_FLOW_ID: undefined }))
       .toThrow('A configured real OTP provider is mandatory');
   });
+  it('accepts only tightly restricted staging demo OTP', () => {
+    const demo = { ...validProd, NODE_ENV: 'staging', OTP_PROVIDER: 'console',
+      NOTIFICATION_PROVIDER: 'console', OTP_FIXED_CODE: '654321',
+      DEMO_OTP_ALLOWED_PHONES: '+919876543210',
+      PILOT_DISABLE_COLLECTIONS: 'true',
+      PAYMENT_PROVIDER: 'disabled', REFUND_PROVIDER: 'disabled', PAYOUT_PROVIDER: 'disabled' };
+    expect(validateEnv(demo).NODE_ENV).toBe('staging');
+    expect(() => validateEnv({...demo,NODE_ENV:'production'})).toThrow();
+    expect(() => validateEnv({...demo,DEMO_OTP_ALLOWED_PHONES:''})).toThrow();
+    expect(() => validateEnv({...demo,DEMO_OTP_ALLOWED_PHONES:'+919876543210,+919876543210'})).toThrow();
+    expect(() => validateEnv({...demo,PILOT_DISABLE_COLLECTIONS:'false'})).toThrow();
+  });
   it('rejects wildcard CORS in production', () => {
     expect(() => validateEnv({...validProd,CORS_ALLOWED_ORIGINS:'*'})).toThrow();
   });

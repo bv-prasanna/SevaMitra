@@ -74,6 +74,9 @@ class EnvironmentVariables {
   @Matches(/^\d+$/, { message: 'OTP_FIXED_CODE must contain only digits' })
   OTP_FIXED_CODE?: string;
 
+  @IsOptional() @IsString()
+  DEMO_OTP_ALLOWED_PHONES?: string;
+
   @IsOptional()
   @IsString()
   GOOGLE_CLIENT_ID?: string;
@@ -139,12 +142,24 @@ export function validateEnv(config: Record<string, unknown>) {
          !validated.RAZORPAY_WEBHOOK_SECRET)) {
       throw new Error('Razorpay credentials and webhook secret are required');
     }
-    if (validated.OTP_FIXED_CODE) throw new Error('OTP_FIXED_CODE is forbidden in staging/production');
-    if (validated.OTP_PROVIDER !== 'msg91' || !validated.MSG91_AUTHKEY || !validated.MSG91_OTP_FLOW_ID) {
-      throw new Error('A configured real OTP provider is mandatory in staging/production');
-    }
-    if (validated.NOTIFICATION_PROVIDER !== 'live') {
-      throw new Error('Console notification delivery is forbidden in staging/production');
+    const demoPhones = (validated.DEMO_OTP_ALLOWED_PHONES ?? '').split(',').map(p => p.trim()).filter(Boolean);
+    const demo = validated.OTP_PROVIDER === 'console' && validated.NOTIFICATION_PROVIDER === 'console'
+      && !!validated.OTP_FIXED_CODE && demoPhones.length > 0;
+    if (demo) {
+      if (validated.NODE_ENV !== 'staging' || validated.PILOT_DISABLE_COLLECTIONS !== 'true' ||
+          validated.OTP_FIXED_CODE?.length !== Number(validated.OTP_LENGTH) ||
+          !demoPhones.every(p => /^\+91[6-9]\d{9}$/.test(p)) ||
+          demoPhones.length > 10 || new Set(demoPhones).size !== demoPhones.length) {
+        throw new Error('Restricted demo OTP requires staging, payments disabled, valid unique E.164 demo phones (max 10)');
+      }
+    } else {
+      if (validated.OTP_FIXED_CODE || demoPhones.length) throw new Error('OTP_FIXED_CODE is forbidden outside restricted demo staging');
+      if (validated.OTP_PROVIDER !== 'msg91' || !validated.MSG91_AUTHKEY || !validated.MSG91_OTP_FLOW_ID) {
+        throw new Error('A configured real OTP provider is mandatory in staging/production');
+      }
+      if (validated.NOTIFICATION_PROVIDER !== 'live') {
+        throw new Error('Console notification delivery is forbidden in staging/production');
+      }
     }
   }
   return validated;

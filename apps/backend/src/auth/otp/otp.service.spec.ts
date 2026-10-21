@@ -130,6 +130,19 @@ describe('OtpService', () => {
       ).toThrow('OTP_FIXED_CODE must be 6 digits');
     });
 
+    it('restricts staging fixed OTP to approved phones and login only', async () => {
+      const demo = new OtpService(prisma as unknown as PrismaService,
+        buildConfig({ NODE_ENV:'staging', PILOT_DISABLE_COLLECTIONS:'true',
+          OTP_PROVIDER:'console', NOTIFICATION_PROVIDER:'console',
+          DEMO_OTP_ALLOWED_PHONES:'+919876543210', OTP_FIXED_CODE:'654321' }), otpSender);
+      await expect(demo.requestOtp('+919876543211',OtpPurpose.LOGIN)).rejects.toThrow('restricted');
+      await expect(demo.requestOtp('+919876543210',OtpPurpose.PASSWORD_RESET)).rejects.toThrow('restricted');
+      await expect(demo.verifyOtp('+919876543211','654321',OtpPurpose.LOGIN)).rejects.toThrow('restricted');
+      expect(prisma.otpChallenge.create).not.toHaveBeenCalled();
+      prisma.otpChallenge.findFirst.mockResolvedValue(null);
+      await demo.requestOtp('+919876543210',OtpPurpose.LOGIN);
+      expect(otpSender.sendOtp).toHaveBeenCalledWith('+919876543210','654321');
+    });
     it('rejects a new request within the cooldown window', async () => {
       prisma.otpChallenge.findFirst.mockResolvedValue({
         createdAt: new Date(),
