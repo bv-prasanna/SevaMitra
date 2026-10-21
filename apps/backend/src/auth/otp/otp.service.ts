@@ -55,7 +55,7 @@ export class OtpService {
         );
       }
       if (this.config.get<string>('NOTIFICATION_PROVIDER') === 'console' &&
-          (this.config.get<string>('NODE_ENV') === 'development' || (demoConfigured && this.demoPhones?.size))) {
+          (!['staging','production'].includes(this.config.get<string>('NODE_ENV') ?? 'development') || (demoConfigured && this.demoPhones?.size))) {
         this.fixedCode = fixedCode;
       }
     }
