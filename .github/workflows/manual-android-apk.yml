@@ -1,0 +1,48 @@
+name: Build SevaMitra Android APK (manual)
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: sevamitra-android-preview-build
+  cancel-in-progress: false
+jobs:
+  android-apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check Expo token and project ID exist
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          EXPO_PROJECT_ID: ${{ vars.EXPO_PROJECT_ID }}
+        run: |
+          if [ -z "$EXPO_TOKEN" ] || [ -z "$EXPO_PROJECT_ID" ]; then
+            echo "::error::Configure GitHub secret EXPO_TOKEN and variable EXPO_PROJECT_ID first."
+            exit 1
+          fi
+      - uses: actions/checkout@v4
+        with:
+          ref: develop
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: pnpm/action-setup@v4
+        with:
+          version: '10.15.0'
+      - name: Install mobile workspace
+        run: pnpm install --no-frozen-lockfile
+      - name: Mobile typecheck
+        run: pnpm --filter @sevamitra/mobile typecheck
+      - name: Install EAS CLI
+        run: npm install --global eas-cli
+      - name: Queue internal Android APK build on EAS Free
+        working-directory: apps/mobile
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          EXPO_PROJECT_ID: ${{ vars.EXPO_PROJECT_ID }}
+          EXPO_PUBLIC_API_BASE_URL: https://sevamitra-api.onrender.com
+          EAS_NO_VCS: '1'
+        run: |
+          eas whoami
+          eas init --id "$EXPO_PROJECT_ID" --non-interactive
+          eas build --platform android --profile preview --non-interactive --no-wait
