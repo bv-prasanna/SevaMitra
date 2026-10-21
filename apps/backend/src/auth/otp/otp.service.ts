@@ -22,6 +22,7 @@ export class OtpService {
   private readonly maxAttempts: number;
   private readonly cooldownSeconds: number;
   private readonly fixedCode?: string;
+  private readonly demoPhones: Set<string> | null;
 
   constructor(
     private readonly prisma: PrismaService,
@@ -38,6 +39,14 @@ export class OtpService {
     // A fixed OTP is a local-testing convenience. It is only honoured while
     // OTPs go to the console stub — once a real SMS provider is configured
     // it is ignored, so it can never weaken real logins.
+    const demoConfigured = this.config.get<string>('NODE_ENV') === 'staging' &&
+      this.config.get<string>('PILOT_DISABLE_COLLECTIONS') === 'true' &&
+      this.config.get<string>('OTP_PROVIDER') === 'console' &&
+      this.config.get<string>('NOTIFICATION_PROVIDER') === 'console';
+    const demoPhones = this.config.get<string>('DEMO_OTP_ALLOWED_PHONES');
+    this.demoPhones = demoConfigured && demoPhones
+      ? new Set(demoPhones.split(',').map(p => p.trim()).filter(Boolean))
+      : null;
     const fixedCode = this.config.get<string>('OTP_FIXED_CODE');
     if (fixedCode) {
       if (fixedCode.length !== this.otpLength) {
@@ -45,7 +54,8 @@ export class OtpService {
           `OTP_FIXED_CODE must be ${this.otpLength} digits (OTP_LENGTH)`,
         );
       }
-      if (this.config.get<string>('NOTIFICATION_PROVIDER') === 'console') {
+      if (this.config.get<string>('NOTIFICATION_PROVIDER') === 'console' &&
+          (this.config.get<string>('NODE_ENV') === 'development' || (demoConfigured && this.demoPhones?.size))) {
         this.fixedCode = fixedCode;
       }
     }
@@ -57,6 +67,7 @@ export class OtpService {
     channel: OtpChannel = OtpChannel.SMS,
     userId?: string,
   ): Promise<{ expiresInSeconds: number }> {
+    this.assertDemoAccess(phoneNumber, purpose);
     const lastChallenge = await this.prisma.otpChallenge.findFirst({
       where: { phoneNumber, purpose },
       orderBy: { createdAt: 'desc' },
@@ -99,6 +110,7 @@ export class OtpService {
     otp: string,
     purpose: OtpPurpose,
   ): Promise<void> {
+    this.assertDemoAccess(phoneNumber, purpose);
     const challenge = await this.prisma.otpChallenge.findFirst({
       where: {
         phoneNumber,
@@ -133,6 +145,12 @@ export class OtpService {
       where: { id: challenge.id },
       data: { consumedAt: new Date() },
     });
+  }
+
+  private assertDemoAccess(phoneNumber: string, purpose: OtpPurpose): void {
+    if (this.demoPhones && (purpose !== OtpPurpose.LOGIN || !this.demoPhones.has(phoneNumber))) {
+      throw new BadRequestException('Test authentication is restricted to approved demo accounts');
+    }
   }
 
   private generateOtp(): string {
