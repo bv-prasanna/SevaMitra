@@ -148,7 +148,7 @@ export function validateEnv(config: Record<string, unknown>) {
     if (demo) {
       if (validated.NODE_ENV !== 'staging' || validated.PILOT_DISABLE_COLLECTIONS !== 'true' ||
           validated.OTP_FIXED_CODE?.length !== Number(validated.OTP_LENGTH) ||
-          !demoPhones.every(p => /^\\+91[6-9]\\d{9}$/.test(p)) ||
+          !demoPhones.every(p => /^\+91[6-9]\d{9}$/.test(p)) ||
           demoPhones.length > 10 || new Set(demoPhones).size !== demoPhones.length) {
         throw new Error('Restricted demo OTP requires staging, payments disabled, valid unique E.164 demo phones (max 10)');
       }
