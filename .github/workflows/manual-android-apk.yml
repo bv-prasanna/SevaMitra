@@ -44,4 +44,5 @@ jobs:
           EAS_NO_VCS: '1'
         run: |
           eas whoami
+          eas init --id "$EXPO_PROJECT_ID" --non-interactive
           eas build --platform android --profile preview --non-interactive --no-wait
