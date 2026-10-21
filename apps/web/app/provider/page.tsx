@@ -1,5 +1,5 @@
 "use client";
-import{useEffect,useState}from"react";import{ApiClient}from"@sevamitra/api-client";import Link from"next/link";
+import{useEffect,useState}from"react";import{ApiClient}from"@sevamitra/api-client";import Link from"next/link";import AuthAction from"../auth-action";
 type Profile={id:string;fullName:string;status:string;verificationStatus:string};
 type Booking={id:string;status:string;scheduledDate:string;scheduledStartTime:string;scheduledEndTime:string;amount?:string|null;currency:string};
 type App={id:string;status:string;reviewNote?:string|null;documents?:{id:string;type:string;createdAt:string}[]};
@@ -38,7 +38,7 @@ export default function Provider(){
   setBusy(true);try{await api.post(`/bookings/provider/me/${b.id}/${kind}`,kind==="reject"?{reason:reason.trim()}:{});setReason("");await load()}catch(e){setMsg(e instanceof Error?e.message:"Booking update failed")}finally{setBusy(false)}
  }
  return <main><header className="nav"><Link className="brand" href="/"><span className="mark">✦</span><div><b>Seva<span>Mitra</span></b><small>Provider workspace</small></div></Link><div style={{display:"flex",gap:15}}><Link href="/provider/manage">Manage services & coverage</Link><Link href="/workspaces">Workspaces</Link></div></header>
- <section className="workspace"><div className="workspaceTop"><div><div className="pill">Provider</div><h1>{profile?.fullName||"Provider registration"}</h1><p>{profile?`Account: ${profile.status} · Verification: ${profile.verificationStatus}`:msg}</p></div><Link href="/login" className="primary">Sign in</Link></div>
+ <section className="workspace"><div className="workspaceTop"><div><div className="pill">Provider</div><h1>{profile?.fullName||"Provider registration"}</h1><p>{profile?`Account: ${profile.status} · Verification: ${profile.verificationStatus}`:msg}</p></div><AuthAction/></div>
  {!!msg&&<p role="alert">{msg}</p>}
  {!profile&&<article><label>Your full name</label><input maxLength={150} value={name} onChange={e=>setName(e.target.value)}/><button disabled={busy||name.trim().length<2} onClick={()=>void create()}>Create provider profile</button></article>}
  {profile&&<><article><h2>Verification</h2><p>Application: {onboard?.status||"Not submitted"}</p>{onboard?.reviewNote&&<p>{onboard.reviewNote}</p>}{(!onboard||onboard.status==="REJECTED")&&<><label>Agent referral code (optional)</label><input maxLength={20} placeholder="Referral code" value={referralCode} onChange={e=>setReferralCode(e.target.value.toUpperCase())}/><button disabled={busy} onClick={()=>void submit()}>Submit application for review</button></>}
