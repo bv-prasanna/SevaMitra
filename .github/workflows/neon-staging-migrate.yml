@@ -1,0 +1,54 @@
+name: Manual Neon staging migrations
+run-name: Neon staging schema check (${{ github.ref_name }})
+on:
+  workflow_dispatch:
+    inputs:
+      confirm_staging:
+        description: "Enter MIGRATE_STAGING to acknowledge this modifies the configured staging database"
+        required: true
+        type: string
+permissions:
+  contents: read
+concurrency:
+  group: sevamitra-neon-staging-migrations
+  cancel-in-progress: false
+jobs:
+  migrate:
+    if: ${{ inputs.confirm_staging == 'MIGRATE_STAGING' && github.ref == 'refs/heads/develop' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: sevamitra-staging
+    defaults:
+      run:
+        working-directory: apps/backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: apps/backend/package-lock.json
+      - name: Install exact backend dependencies
+        run: npm ci
+      - name: Check required connection is present
+        env:
+          NEON_DIRECT_DATABASE_URL: ${{ secrets.NEON_DIRECT_DATABASE_URL }}
+        run: |
+          if [ -z "$NEON_DIRECT_DATABASE_URL" ]; then
+            echo "::error::Configure NEON_DIRECT_DATABASE_URL in the sevamitra-staging environment secrets."
+            exit 1
+          fi
+      - name: Validate schema and check migration status
+        env:
+          DATABASE_URL: ${{ secrets.NEON_DIRECT_DATABASE_URL }}
+        run: |
+          npx prisma validate
+          npx prisma migrate status || true
+      - name: Apply committed migrations (no db push, no seed)
+        env:
+          DATABASE_URL: ${{ secrets.NEON_DIRECT_DATABASE_URL }}
+        run: npx prisma migrate deploy
+      - name: Verify migration status
+        env:
+          DATABASE_URL: ${{ secrets.NEON_DIRECT_DATABASE_URL }}
+        run: npx prisma migrate status
