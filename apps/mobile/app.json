@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "SevaMitra",
-    "slug": "sevamitra",
+    "slug": "seva-mitra",
     "scheme": "sevamitra",
     "version": "0.1.0",
     "orientation": "portrait",
@@ -31,6 +31,12 @@
     ],
     "experiments": {
       "typedRoutes": true
+    },
+    "owner": "bv-prasannas-team",
+    "extra": {
+      "eas": {
+        "projectId": "02b7f7f9-a12a-48a3-a58a-9947eae70f57"
+      }
     }
   }
 }
