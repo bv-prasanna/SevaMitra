@@ -12,12 +12,17 @@ export class ConsoleOtpSender implements OtpSender {
   private readonly logger = new Logger(ConsoleOtpSender.name);
 
   sendOtp(phoneNumber: string, otp: string): Promise<void> {
-    if (['production', 'staging'].includes(process.env.NODE_ENV ?? '')) {
+    const restrictedDemo = process.env.NODE_ENV === 'staging' &&
+      process.env.PILOT_DISABLE_COLLECTIONS === 'true' &&
+      process.env.OTP_PROVIDER === 'console' &&
+      process.env.NOTIFICATION_PROVIDER === 'console' &&
+      !!process.env.OTP_FIXED_CODE &&
+      (process.env.DEMO_OTP_ALLOWED_PHONES ?? '').split(',').includes(phoneNumber);
+    if (['production', 'staging'].includes(process.env.NODE_ENV ?? '') && !restrictedDemo) {
       throw new ServiceUnavailableException('Console OTP disabled outside development');
     }
-    this.logger.warn(
-      `[STUB] OTP for ${phoneNumber}: ${otp} — no real notification provider configured`,
-    );
+    // A fixed code must never appear in shared staging logs.
+    if (!restrictedDemo) this.logger.warn('[STUB] Development OTP sent to console (redacted)');
     return Promise.resolve();
   }
 }
