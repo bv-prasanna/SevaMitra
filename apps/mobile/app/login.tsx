@@ -1,5 +1,5 @@
 import React,{useState}from"react";
-import{SafeAreaView,View,Text,TextInput,Pressable,StyleSheet,Platform}from"react-native";
+import{SafeAreaView,View,Text,TextInput,Pressable,StyleSheet,Platform,KeyboardAvoidingView,ScrollView}from"react-native";
 import{router}from"expo-router";
 import{ApiClient}from"@sevamitra/api-client";
 import{API_BASE,saveLoginResponse,myWorkspaces}from"../src/session";
@@ -25,7 +25,7 @@ export default function Login(){
    }
   }catch(e){setMsg(e instanceof Error?e.message:"Login failed. Please retry.")}finally{setBusy(false)}
  }
- return <SafeAreaView style={s.safe}><View style={s.card}>
+ return <SafeAreaView style={s.safe}><KeyboardAvoidingView style={{flex:1}} behavior={Platform.OS==="ios"?"padding":undefined}><ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={s.page}><View style={s.card}>
   <Text style={s.logo}>Seva<Text style={s.orange}>Mitra</Text></Text>
   <Text style={s.title}>Welcome / ಸ್ವಾಗತ</Text><Text style={s.body}>Sign in using your mobile number and one-time password.</Text>
   <TextInput style={s.input} keyboardType="phone-pad" autoComplete="tel" maxLength={10} editable={!sent&&!busy} value={mobile} onChangeText={x=>setMobile(x.replace(/\D/g,"").slice(0,10))} placeholder="10-digit mobile number"/>
@@ -34,6 +34,6 @@ export default function Login(){
   <Pressable accessibilityRole="button" disabled={busy||!valid||(sent&&otp.length!==6)} style={[s.btn,(busy||!valid||(sent&&otp.length!==6))&&s.disabled]} onPress={go}><Text style={s.white}>{busy?"Please wait…":sent?"Verify & continue":"Send OTP"}</Text></Pressable>
   {!!msg&&<Text accessibilityRole="alert" style={s.msg}>{msg}</Text>}
   <Pressable onPress={()=>router.back()}><Text style={s.link}>← Back</Text></Pressable>
- </View></SafeAreaView>
+ </View></ScrollView></KeyboardAvoidingView></SafeAreaView>
 }
-const s=StyleSheet.create({safe:{flex:1,backgroundColor:"#effaf4",justifyContent:"center",padding:20},card:{backgroundColor:"#fff",padding:24,borderRadius:24},logo:{fontSize:28,fontWeight:"900",color:"#087A4B"},orange:{color:"#FF6B18"},title:{fontSize:28,fontWeight:"900",marginTop:24,color:"#0B2039"},body:{color:"#64748B",marginVertical:8},input:{borderWidth:1,borderColor:"#DCE6E0",borderRadius:12,padding:14,marginTop:12,fontSize:16},btn:{backgroundColor:"#087A4B",padding:15,borderRadius:12,alignItems:"center",marginTop:16},disabled:{opacity:.5},white:{color:"#fff",fontWeight:"800"},msg:{marginTop:12,color:"#475569"},link:{marginTop:20,color:"#087A4B",fontWeight:"700"}});
+const s=StyleSheet.create({safe:{flex:1,backgroundColor:"#effaf4"},page:{flexGrow:1,justifyContent:"center",padding:20},card:{backgroundColor:"#fff",padding:24,borderRadius:24},logo:{fontSize:28,fontWeight:"900",color:"#087A4B"},orange:{color:"#F47721"},title:{fontSize:28,fontWeight:"900",marginTop:24,color:"#0B2039"},body:{color:"#64748B",marginVertical:8},input:{borderWidth:1,borderColor:"#DCE6E0",borderRadius:12,padding:14,marginTop:12,fontSize:16},btn:{backgroundColor:"#087A4B",padding:15,borderRadius:12,alignItems:"center",marginTop:16},disabled:{opacity:.5},white:{color:"#fff",fontWeight:"800"},msg:{marginTop:12,color:"#475569"},link:{marginTop:20,color:"#087A4B",fontWeight:"700"}});
