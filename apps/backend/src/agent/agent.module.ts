@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { IamModule } from '../iam/iam.module';
 import { AgentController } from './agent.controller';
+import { AdminOperationsController } from './admin-operations.controller';
 import { AgentAdminController } from './agent-admin.controller';
 import { AgentService } from './agent.service';
 import { AgentCompanyController } from './company/agent-company.controller';
@@ -8,7 +9,7 @@ import { AgentCompanyService } from './company/agent-company.service';
 
 @Module({
   imports: [IamModule],
-  controllers: [AgentController, AgentAdminController, AgentCompanyController],
+  controllers: [AgentController, AgentAdminController, AdminOperationsController, AgentCompanyController],
   providers: [AgentService, AgentCompanyService],
   exports: [AgentService, AgentCompanyService],
 })
