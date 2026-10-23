@@ -63,5 +63,5 @@ const s=StyleSheet.create({
  notice:{color:"#A14C1D",marginVertical:10},status:{fontSize:12,color:"#5C7263",marginTop:9},
  section:{fontSize:16,fontWeight:"800",color:"#1E5237"},enrol:{marginTop:22},
  secondary:{backgroundColor:"#EAF5ED",marginTop:9,padding:14,borderRadius:12},
- footer:{flexDirection:"row",justifyContent:"space-between",marginTop:28,gap:10},
+ footer:{flexDirection:"row",flexWrap:"wrap",alignItems:"center",marginTop:28,gap:14},
 });
