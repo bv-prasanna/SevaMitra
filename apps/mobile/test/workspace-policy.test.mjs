@@ -25,3 +25,24 @@ test('FE/mobile: do not show redundant enrollment after role is already held',()
 test('FE/mobile: unknown/null access cannot grant role enrollment',()=>{
  assert.equal(canOfferRoleEnrollment(null,'provider'),false);
 });
+
+test('FE/mobile: deny enrollment when backend disallows registration',()=>{
+ assert.equal(canOfferRoleEnrollment({...base,canJoinProvider:false},'provider'),false);
+ assert.equal(canOfferRoleEnrollment({...base,canJoinAgent:false},'agent'),false);
+});
+test('FE/mobile: no repeated enrollment for existing agent',()=>{
+ assert.equal(canOfferRoleEnrollment({...base,agent:true},'agent'),false);
+});
+test('FE/mobile: do not infer admin privilege from provider/agent statuses',()=>{
+ const access={...base,provider:true,agent:true,providerStatus:'ACTIVE',agentStatus:'APPROVED',admin:false};
+ assert.deepEqual(visibleWorkspaceRoles(access),['customer','provider','agent']);
+});
+test('FE/mobile: each role flag independently gates its own workspace',()=>{
+ for(const role of ['customer','provider','agent','admin']){
+  const access={...base,customer:false,provider:false,agent:false,admin:false,[role]:true};
+  assert.deepEqual(visibleWorkspaceRoles(access),[role]);
+ }
+});
+test('FE/mobile: no enrollment for a null session regardless of selected role',()=>{
+ for(const role of ['agent','provider'])assert.equal(canOfferRoleEnrollment(null,role),false);
+});
