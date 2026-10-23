@@ -15,6 +15,7 @@ describe('AgentService', () => {
   let prisma: {
     agentProfile: {
       findUnique: jest.Mock;
+      findMany: jest.Mock;
       create: jest.Mock;
       update: jest.Mock;
     };
@@ -26,6 +27,7 @@ describe('AgentService', () => {
     prisma = {
       agentProfile: {
         findUnique: jest.fn(),
+        findMany: jest.fn(),
         create: jest.fn(),
         update: jest.fn(),
       },
@@ -195,4 +197,41 @@ describe('AgentService', () => {
       await expect(service.getActiveByCode('A1B2C3D4')).resolves.toBe(agent);
     });
   });
+  describe('admin review', () => {
+    it('lists only non-deleted agents with a bounded review queue', async () => {
+      prisma.agentProfile.findMany.mockResolvedValue([]);
+      await expect(service.listForReview()).resolves.toEqual([]);
+      expect(prisma.agentProfile.findMany).toHaveBeenCalledWith(expect.objectContaining({
+        where: { status: { not: AgentStatus.DELETED } }, take: 100,
+      }));
+    });
+    it('approves a pending agent', async () => {
+      prisma.agentProfile.findUnique.mockResolvedValue({id:'a1',status:AgentStatus.PENDING});
+      prisma.agentProfile.update.mockResolvedValue({id:'a1',status:AgentStatus.ACTIVE});
+      await service.decideStatus('a1','APPROVE');
+      expect(prisma.agentProfile.update).toHaveBeenCalledWith({
+        where:{id:'a1',status:AgentStatus.PENDING},data:{status:AgentStatus.ACTIVE},
+      });
+    });
+    it('refuses duplicate approval or deleted records', async () => {
+      prisma.agentProfile.findUnique.mockResolvedValue({id:'a1',status:AgentStatus.ACTIVE});
+      await expect(service.decideStatus('a1','APPROVE')).rejects.toThrow();
+      prisma.agentProfile.findUnique.mockResolvedValue({id:'a1',status:AgentStatus.DELETED});
+      await expect(service.decideStatus('a1','APPROVE')).rejects.toThrow(NotFoundException);
+      expect(prisma.agentProfile.update).not.toHaveBeenCalled();
+    });
+    it('suspends an active agent, but not a pending agent', async () => {
+      prisma.agentProfile.findUnique.mockResolvedValue({id:'a1',status:AgentStatus.ACTIVE});
+      prisma.agentProfile.update.mockResolvedValue({id:'a1',status:AgentStatus.SUSPENDED});
+      await service.decideStatus('a1','SUSPEND');
+      expect(prisma.agentProfile.update).toHaveBeenCalledWith({
+        where:{id:'a1',status:AgentStatus.ACTIVE},data:{status:AgentStatus.SUSPENDED},
+      });
+      prisma.agentProfile.update.mockClear();
+      prisma.agentProfile.findUnique.mockResolvedValue({id:'a2',status:AgentStatus.PENDING});
+      await expect(service.decideStatus('a2','SUSPEND')).rejects.toThrow();
+      expect(prisma.agentProfile.update).not.toHaveBeenCalled();
+    });
+  });
+
 });

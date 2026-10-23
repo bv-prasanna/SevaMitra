@@ -1,6 +1,7 @@
 import { randomBytes } from 'crypto';
 import {
   ConflictException,
+  BadRequestException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -66,6 +67,28 @@ export class AgentService {
         preferredLanguage: dto.preferredLanguage,
         notificationOptIn: dto.notificationOptIn,
       },
+    });
+  }
+
+  async listForReview(): Promise<AgentProfile[]> {
+    return this.prisma.agentProfile.findMany({
+      where: { status: { not: AgentStatus.DELETED } },
+      orderBy: { createdAt: 'desc' },
+      take: 100,
+    });
+  }
+
+  async decideStatus(id: string, decision: 'APPROVE' | 'SUSPEND'): Promise<AgentProfile> {
+    const profile = await this.prisma.agentProfile.findUnique({ where: { id } });
+    if (!profile || profile.status === AgentStatus.DELETED)
+      throw new NotFoundException('Agent profile not found');
+    if (decision === 'APPROVE' && profile.status !== AgentStatus.PENDING)
+      throw new BadRequestException('Only pending agents can be approved');
+    if (decision === 'SUSPEND' && profile.status !== AgentStatus.ACTIVE)
+      throw new BadRequestException('Only active agents can be suspended');
+    return this.prisma.agentProfile.update({
+      where: { id, status: profile.status },
+      data: { status: decision === 'APPROVE' ? AgentStatus.ACTIVE : AgentStatus.SUSPENDED },
     });
   }
 
