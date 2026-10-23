@@ -1,6 +1,7 @@
 "use client";
 import {useCallback,useEffect,useState} from "react";
 import Link from "next/link";
+import {ResponsiveContainer,BarChart,Bar,XAxis,YAxis,Tooltip,CartesianGrid} from "recharts";
 import {ApiClient} from "@sevamitra/api-client";
 type Summary={agentsPending:number;agentsActive:number;providersPending:number;providersApproved:number;bookingsTotal:number;bookingsRequested:number;bookingsCompleted:number;serviceCategories:number;servicesActive:number;generatedAt:string};
 const questions=[
@@ -33,6 +34,10 @@ export default function Operations(){
  <div className="workspaceTop"><div><div className="pill">Administration</div><h1>Operations, analytics & help</h1><p>Live counts from the staging database; this is not a financial report.</p></div><button onClick={()=>void load()}>Refresh</button></div>
  {!!message&&<p role="status">{message}</p>}
  {summary&&<><p>Updated: {new Date(summary.generatedAt).toLocaleString()}</p><button onClick={download}>Export summary (CSV)</button><div className="adminModules">{metrics.map(([label,value])=><article key={label}><h3>{value}</h3><p>{label}</p></article>)}</div></>}
+ {summary&&<section className="analyticsCharts" aria-label="Operational charts">
+ <article className="analyticsPanel"><h2>Booking breakdown</h2><p>Current totals (not a historical trend)</p><div className="chartBody"><ResponsiveContainer width="100%" height="100%"><BarChart data={[{name:"Requested",count:summary.bookingsRequested},{name:"Completed",count:summary.bookingsCompleted},{name:"Other statuses",count:Math.max(0,summary.bookingsTotal-summary.bookingsRequested-summary.bookingsCompleted)}]}><CartesianGrid strokeDasharray="3 3"/><XAxis dataKey="name"/><YAxis allowDecimals={false}/><Tooltip/><Bar dataKey="count" name="Bookings" fill="#087A4B" radius={[7,7,0,0]}/></BarChart></ResponsiveContainer></div></article>
+ <article className="analyticsPanel"><h2>Marketplace operations</h2><p>Current operational counts</p><div className="chartBody"><ResponsiveContainer width="100%" height="100%"><BarChart data={[{name:"Pending agents",count:summary.agentsPending},{name:"Active agents",count:summary.agentsActive},{name:"Provider reviews",count:summary.providersPending},{name:"Services",count:summary.servicesActive}]} margin={{bottom:28}}><CartesianGrid strokeDasharray="3 3"/><XAxis dataKey="name" angle={-25} textAnchor="end" interval={0} height={68}/><YAxis allowDecimals={false}/><Tooltip/><Bar dataKey="count" fill="#F47721" radius={[7,7,0,0]}/></BarChart></ResponsiveContainer></div></article>
+ </section>}
  <h2>Operational shortcuts</h2><div className="adminModules"><article><Link href="/admin/agents">Review agents →</Link></article><article><Link href="/admin">Provider applications →</Link></article><article><Link href="/admin/catalogue">Service catalogue →</Link></article><article><Link href="/admin/roles">Permissions →</Link></article></div>
  <h2>Support assistant (free FAQ)</h2><p>Rule-based help only. No external AI provider, chat storage or ticket submission. Never enter OTPs, private documents or passwords.</p>
  <div style={{maxWidth:700}}><label htmlFor="help-question">Ask about approvals, services or bookings</label><input id="help-question" maxLength={300} value={question} onChange={e=>setQuestion(e.target.value)} placeholder="How do I approve an agent?" onKeyDown={e=>{if(e.key==="Enter")ask()}}/><button disabled={!question.trim()} onClick={ask}>Ask assistant</button>{answer&&<p role="status">{answer}</p>}</div>
