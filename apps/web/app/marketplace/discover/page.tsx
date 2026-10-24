@@ -46,7 +46,7 @@ export default function Discover(){
      for(const t of ts.filter(x=>x.isActive)){
       const townsList=await api.get<GeoArea[]>(`/geography/taluks/${t.id}/towns`);
       const matches=townsList.filter(x=>x.isActive&&x.pincode===pin);
-      if(matches.length){
+      if(matches.length && matches[0]){
        setStates(statesList);setState(st.id);setDistricts(ds);setDistrict(d.id);setTaluks(ts);setTaluk(t.id);setTowns(townsList);setTown(matches[0].id);
        setResults([]);setSelected("");setLocationNote(`Detected PIN ${pin}. You can change the area below.`);
        found=true;break;
