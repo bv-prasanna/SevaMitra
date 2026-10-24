@@ -40,4 +40,4 @@ jobs:
         run: |
           test -n "$DATABASE_URL" || { echo "::error::Missing staging Neon database URL"; exit 1; }
           npx prisma generate
-          npx tsx prisma/seed-pilot.ts
+          npx ts-node -r tsconfig-paths/register prisma/seed-pilot.ts
