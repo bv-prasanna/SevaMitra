@@ -1,0 +1,47 @@
+name: Manual staging Super Admin bootstrap
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: Enter BOOTSTRAP_STAGING_ADMIN
+        required: true
+        type: string
+permissions:
+  contents: read
+concurrency:
+  group: sevamitra-neon-staging-migrations
+  cancel-in-progress: false
+jobs:
+  bootstrap:
+    if: ${{ inputs.confirm == 'BOOTSTRAP_STAGING_ADMIN' && github.ref == 'refs/heads/develop' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: sevamitra-staging
+    defaults:
+      run:
+        working-directory: apps/backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: apps/backend/package-lock.json
+      - run: npm ci
+      - name: Verify required secrets
+        env:
+          DATABASE_URL: ${{ secrets.NEON_DIRECT_DATABASE_URL }}
+          IAM_BOOTSTRAP_ADMIN_PHONE: ${{ secrets.IAM_BOOTSTRAP_ADMIN_PHONE }}
+        run: |
+          test -n "$DATABASE_URL" || { echo '::error::Missing Neon staging secret'; exit 1; }
+          if ! [[ "$IAM_BOOTSTRAP_ADMIN_PHONE" =~ ^\+91[6-9][0-9]{9}$ ]]; then
+            echo '::error::Missing/invalid staging admin phone secret'
+            exit 1
+          fi
+      - name: Seed IAM and assign existing admin
+        env:
+          DATABASE_URL: ${{ secrets.NEON_DIRECT_DATABASE_URL }}
+          IAM_BOOTSTRAP_ADMIN_PHONE: ${{ secrets.IAM_BOOTSTRAP_ADMIN_PHONE }}
+        run: |
+          npx prisma generate
+          npm run db:seed
