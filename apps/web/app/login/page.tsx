@@ -19,7 +19,7 @@ export default function Login(){
    window.location.assign("/workspaces");
   }catch(e){setMsg(e instanceof Error?e.message:"OTP verification failed");}finally{setBusy(false)}
  }
- return <main className="authPage"><section className="authCard"><Link href="/" className="back">← SevaMitra</Link><div className="pill">Trusted local services</div><h1>Welcome to SevaMitra</h1><p>Sign in with your phone number. ನಿಮ್ಮ ಮೊಬೈಲ್ ಸಂಖ್ಯೆಯಿಂದ ಲಾಗಿನ್ ಮಾಡಿ.</p>
+ return <main className="authPage"><section className="authCard"><Link href="/" className="back">← SevaMitra</Link><div className="pill">One App. Many Services.</div><h1>Welcome to SevaMitra</h1><p>Trusted local services. Sign in with your phone number. ನಿಮ್ಮ ಮೊಬೈಲ್ ಸಂಖ್ಯೆಯಿಂದ ಲಾಗಿನ್ ಮಾಡಿ.</p>
   {!base&&<div className="formMsg">Configure NEXT_PUBLIC_API_BASE_URL in apps/web/.env.local.</div>}
   <label>Mobile number</label><input autoComplete="tel" value={mobile} disabled={sent} onChange={e=>setMobile(e.target.value.replace(/\D/g,"").slice(0,10))} placeholder="10-digit mobile number"/>
   {sent&&<><label>OTP</label><input autoComplete="one-time-code" inputMode="numeric" value={otp} onChange={e=>setOtp(e.target.value.replace(/\D/g,"").slice(0,6))} placeholder="6-digit OTP"/><button type="button" onClick={()=>{setSent(false);setOtp("");setMsg("")}}>Change number / resend</button></>}
