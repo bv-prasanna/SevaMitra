@@ -16,5 +16,6 @@ export default function AccountBar(){
  },[]);
  useEffect(()=>{void check()},[pathname,check]);
  function logout(){localStorage.removeItem("sevamitra_token");setAccess(null);setSigned(false);window.location.assign("/login")}
+ if(pathname==="/"||pathname==="/login")return null;
  return <div className="accountBar"><Link href="/" className="accountBrand"><img src="/sevamitra-logo.png" alt="SevaMitra — One App. Many Services."/></Link><nav aria-label="Account navigation"><Link href="/marketplace">Services</Link>{signed?<><Link href="/workspaces">My workspaces</Link>{access?.admin&&<Link href="/admin">Admin</Link>}<Link href="/workspaces" title="Your workspace and account">Profile</Link><button onClick={logout}>Logout</button></>:<Link href="/login">Login / Register</Link>}</nav></div>
 }
