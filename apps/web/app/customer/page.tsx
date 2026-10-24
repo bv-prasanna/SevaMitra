@@ -1,4 +1,5 @@
 "use client";
+import HelpChat from "../components/HelpChat";
 import{useEffect,useState}from"react";import{ApiClient}from"@sevamitra/api-client";import Link from"next/link";
 type Profile={fullName:string};
 type Booking={id:string;status:string;scheduledDate:string;scheduledStartTime:string;scheduledEndTime:string;amount?:string|null;currency:string};
@@ -11,5 +12,5 @@ export default function Customer(){
  async function cancel(id:string){if(!confirm("Cancel booking? Cancellation or refund terms may apply."))return;setBusy(true);try{await api.post(`/bookings/me/${id}/cancel`,{reason:"Cancelled by customer"});await load()}catch(e){setMsg(e instanceof Error?e.message:"Cancellation failed")}finally{setBusy(false)}}
  return <main><header className="nav"><Link href="/" className="brand"><span className="mark">✦</span><div><b>Seva<span>Mitra</span></b><small>Customer workspace</small></div></Link><Link href="/workspaces">Workspaces</Link></header><section className="workspace"><div className="workspaceTop"><div><div className="pill">Customer</div><h1>{profile?`Welcome, ${profile.fullName}`:"Complete your profile"}</h1><p>Find, track and manage your service bookings.</p></div><Link href="/marketplace" className="primary">Explore services</Link></div>
  {!!msg&&<p role="alert">{msg}</p>}{!profile?<article><label>Full name</label><input maxLength={150} value={name} onChange={e=>setName(e.target.value)}/><button disabled={busy||name.trim().length<2} onClick={()=>void create()}>Create customer profile</button></article>:<><h2>My bookings ({items.length})</h2>{items.length===0&&<p>No bookings yet.</p>}<div className="adminModules">{items.map(b=><article key={b.id}><h3>{b.status}</h3><p>{String(b.scheduledDate).slice(0,10)} · {b.scheduledStartTime}–{b.scheduledEndTime}</p><p>{b.currency} {b.amount??"Price on request"}</p><small>{b.id}</small>{(b.status==="REQUESTED"||b.status==="ACCEPTED")&&<button disabled={busy} onClick={()=>void cancel(b.id)}>Cancel booking</button>}</article>)}</div></>}
- </section></main>
+ </section><HelpChat audience="customer"/></main>
 }
