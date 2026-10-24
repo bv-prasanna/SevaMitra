@@ -3,6 +3,7 @@ import{useEffect,useState}from"react";import{ApiClient,extractOtpLoginTokens}fro
 const base=process.env.NEXT_PUBLIC_API_BASE_URL||"";const api=new ApiClient(base);
 export default function Login(){
  const[mobile,setMobile]=useState(""),[otp,setOtp]=useState(""),[sent,setSent]=useState(false),[msg,setMsg]=useState(""),[busy,setBusy]=useState(false);
+ useEffect(()=>{let active=true;const token=localStorage.getItem("sevamitra_token");if(!token||!base)return;const auth=new ApiClient(base,()=>token);void auth.get("/auth/workspaces").then(()=>{if(active)window.location.replace("/workspaces")}).catch(e=>{if(active&&(e as {status?:number}).status===401)localStorage.removeItem("sevamitra_token")});return()=>{active=false}},[]);
  const valid=/^[6-9]\d{9}$/.test(mobile);
  async function go(){
   if(!base){setMsg("API URL missing: configure NEXT_PUBLIC_API_BASE_URL.");return}
