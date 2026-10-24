@@ -1,0 +1,43 @@
+name: Seed SevaMitra staging demo catalogue (manual)
+on:
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: "Type SEED_STAGING_ONLY"
+        required: true
+        type: string
+permissions:
+  contents: read
+concurrency:
+  group: sevamitra-neon-staging-migrations
+  cancel-in-progress: false
+jobs:
+  seed-staging:
+    if: ${{ inputs.confirmation == 'SEED_STAGING_ONLY' }}
+    runs-on: ubuntu-latest
+    environment: sevamitra-staging
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: apps/backend
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: develop
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: apps/backend/package-lock.json
+      - name: Verify expected seed source exists
+        run: test -f prisma/seed-pilot.ts
+      - run: npm ci
+      - name: Populate staging-only demo geography and services
+        env:
+          DATABASE_URL: ${{ secrets.NEON_DIRECT_DATABASE_URL }}
+          NODE_ENV: staging
+          ALLOW_PILOT_SEED: 'YES'
+        run: |
+          test -n "$DATABASE_URL" || { echo "::error::Missing staging Neon database URL"; exit 1; }
+          npx prisma generate
+          npx tsx prisma/seed-pilot.ts
