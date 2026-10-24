@@ -2,6 +2,7 @@
 import { Search, MapPin, ShieldCheck, Star, ArrowRight, Sparkles, Wrench, Zap, Droplets, HeartPulse, GraduationCap, MoreHorizontal, CheckCircle2, Users, BadgeCheck, Smartphone, Languages } from "lucide-react";
 import { useState } from "react";
 import {messages} from "@sevamitra/i18n";
+import HomeAccountActions from "./components/HomeAccountActions";
 
 const categories=[
   {name:"Home Cleaning",icon:Sparkles,tone:"green"},
@@ -18,7 +19,7 @@ export default function Home(){
   <header className="siteHeader">
    <a className="brandLogo" href="/"><img className="officialLogo" src="/sevamitra-logo.png" alt="SevaMitra — One App. Many Services."/></a>
    <nav className="mainNav"><a href="/marketplace">{t.nav.services}</a><a href="#customers">{kn?"ಗ್ರಾಹಕರಿಗೆ":"For Customers"}</a><a href="#providers">{t.nav.providers}</a><a href="#agents">{t.nav.agents}</a><a href="#about">{t.nav.about}</a></nav>
-   <div className="headerActions"><button className="locationBtn"><MapPin size={16}/>{kn?"ಸ್ಥಳ ಆಯ್ಕೆ":"Select location"}</button><button className="languageBtn" onClick={()=>setKn(!kn)}><Languages size={16}/>{kn?"English":"ಕನ್ನಡ"}</button><a className="loginLink" href="/login">{t.nav.login}</a><a className="signupBtn" href="/login">{t.nav.signup}</a></div>
+   <div className="headerActions"><button className="locationBtn"><MapPin size={16}/>{kn?"ಸ್ಥಳ ಆಯ್ಕೆ":"Select location"}</button><button className="languageBtn" onClick={()=>setKn(!kn)}><Languages size={16}/>{kn?"English":"ಕನ್ನಡ"}</button><HomeAccountActions/></div>
   </header>
 
   <section className="premiumHero">
