@@ -1,5 +1,5 @@
 "use client";
-import{useState}from"react";import{ApiClient,extractOtpLoginTokens}from"@sevamitra/api-client";import Link from"next/link";
+import{useEffect,useState}from"react";import{ApiClient,extractOtpLoginTokens}from"@sevamitra/api-client";import Link from"next/link";
 const base=process.env.NEXT_PUBLIC_API_BASE_URL||"";const api=new ApiClient(base);
 export default function Login(){
  const[mobile,setMobile]=useState(""),[otp,setOtp]=useState(""),[sent,setSent]=useState(false),[msg,setMsg]=useState(""),[busy,setBusy]=useState(false);
