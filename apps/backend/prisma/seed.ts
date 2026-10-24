@@ -44,6 +44,47 @@ async function main() {
     });
     console.log(`Ensured system role "${SUPER_ADMIN_ROLE}"`);
 
+    // Day-to-day approvals belong to delegated operational roles, not SUPER_ADMIN.
+    // These roles have no IAM assignment/manage privileges.
+    const operationalRoles = [
+      {
+        name: 'ONBOARDING_REVIEWER',
+        description: 'Review provider and agent applications only',
+        permissions: ['provider.onboarding.review', 'agent.review'],
+      },
+      {
+        name: 'OPERATIONS_MANAGER',
+        description: 'Daily marketplace operations, catalogue, serviceability and reporting',
+        permissions: [
+          'provider.onboarding.review',
+          'agent.review',
+          'catalogue.manage',
+          'geography.manage',
+          'serviceability.review',
+          'provider.organization.manage',
+          'audit.view',
+        ],
+      },
+    ];
+    for (const definition of operationalRoles) {
+      const role = await prisma.role.upsert({
+        where: { name: definition.name },
+        update: { description: definition.description },
+        create: { name: definition.name, description: definition.description, isSystem: false },
+      });
+      const permissions = await prisma.permission.findMany({
+        where: { key: { in: definition.permissions } },
+      });
+      if (permissions.length !== definition.permissions.length) {
+        throw new Error('Missing operational permissions. Seed permission catalog first.');
+      }
+      await prisma.rolePermission.createMany({
+        data: permissions.map((permission) => ({ roleId: role.id, permissionId: permission.id })),
+        skipDuplicates: true,
+      });
+      console.log(`Ensured operational role "${definition.name}" with ${permissions.length} permissions`);
+    }
+
     const bootstrapPhone = process.env.IAM_BOOTSTRAP_ADMIN_PHONE;
     const bootstrapEmail = process.env.IAM_BOOTSTRAP_ADMIN_EMAIL;
     if (bootstrapPhone || bootstrapEmail) {
