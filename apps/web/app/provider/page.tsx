@@ -1,4 +1,5 @@
 "use client";
+import HelpChat from "../components/HelpChat";
 import{useEffect,useState}from"react";import{ApiClient}from"@sevamitra/api-client";import Link from"next/link";
 type Profile={id:string;fullName:string;status:string;verificationStatus:string};
 type Booking={id:string;status:string;scheduledDate:string;scheduledStartTime:string;scheduledEndTime:string;amount?:string|null;currency:string};
@@ -53,5 +54,5 @@ export default function Provider(){
  {b.status==="REQUESTED"&&<><label>Reason if rejecting</label><input value={reason} onChange={e=>setReason(e.target.value)} maxLength={500}/><div style={{display:"flex",gap:10}}><button disabled={busy} onClick={()=>void action(b,"accept")}>Accept</button><button disabled={busy} onClick={()=>void action(b,"reject")}>Reject</button></div></>}
  {b.status==="ACCEPTED"&&<button disabled={busy} onClick={()=>void action(b,"complete")}>Mark completed</button>}
  </article>)}</div></>}
- </section></main>
+ </section><HelpChat audience="provider"/></main>
 }

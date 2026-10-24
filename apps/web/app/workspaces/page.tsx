@@ -26,7 +26,7 @@ export default function Workspaces(){
   localStorage.removeItem("sevamitra_token");
   window.location.assign("/login");
  }
- return <main><header className="nav"><Link href="/" className="brand"><span className="mark">✦</span><div><b>Seva<span>Mitra</span></b><small>Workspaces</small></div></Link></header>
+ return <main><header className="nav"><Link href="/workspaces" className="brand"><span className="mark">✦</span><div><b>Seva<span>Mitra</span></b><small>Workspaces</small></div></Link></header>
  <section className="workspace"><h1>Choose your workspace</h1><p>The menu is filtered by your account roles. Every protected action is also checked independently by the backend.</p>
  {message&&<p role="status">{message}</p>}
  <div className="adminModules">{access&&menu.filter(x=>access[x.key]).map(x=><article key={x.href}><h2>{x.name}</h2><p>{x.desc}</p><Link href={x.href}>Open →</Link></article>)}</div>
