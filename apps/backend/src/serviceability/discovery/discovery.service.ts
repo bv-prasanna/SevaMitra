@@ -7,6 +7,16 @@ import {CoverageCheckService} from '../check/coverage-check.service';
 export class DiscoveryService {
  constructor(private readonly prisma:PrismaService,private readonly coverage:CoverageCheckService){}
 
+ async findAvailableServices(townVillageId:string){
+  const ids=await this.coverage.listServiceableProviderIds(townVillageId);
+  if(ids.length===0)return [];
+  const offerings=await this.prisma.providerOffering.findMany({
+   where:{isActive:true,providerId:{in:ids},provider:{status:ProviderStatus.ACTIVE,verificationStatus:VerificationStatus.VERIFIED},service:{isActive:true,category:{isActive:true}}},
+   select:{service:{select:{id:true,name:true,description:true,categoryId:true}}},
+   distinct:['serviceId'],take:500,
+  });
+  return offerings.map(x=>x.service);
+ }
  async findServiceableOfferings(serviceId:string,townVillageId:string){
   const ids=await this.coverage.listServiceableProviderIds(townVillageId);
   if(ids.length===0)return [];
