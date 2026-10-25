@@ -13,7 +13,7 @@ concurrency:
   cancel-in-progress: false
 jobs:
   bootstrap:
-    if: ${{ inputs.confirm == 'BOOTSTRAP_STAGING_ADMIN' && github.ref == 'refs/heads/develop' }}
+    if: ${{ inputs.confirm == 'BOOTSTRAP_STAGING_ADMIN' && github.ref == 'refs/heads/main' }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     environment: sevamitra-staging
@@ -22,6 +22,8 @@ jobs:
         working-directory: apps/backend
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: develop
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
@@ -42,6 +44,7 @@ jobs:
         env:
           DATABASE_URL: ${{ secrets.NEON_DIRECT_DATABASE_URL }}
           IAM_BOOTSTRAP_ADMIN_PHONE: ${{ secrets.IAM_BOOTSTRAP_ADMIN_PHONE }}
+          NODE_ENV: staging
         run: |
           npx prisma generate
           npm run db:seed
