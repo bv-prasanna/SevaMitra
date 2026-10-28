@@ -24,15 +24,22 @@ export type PendingBookingDraft = {
     clientRequestId: string;
   };
   savedAt: number;
+  ownerUserId: string;
 };
 
 export function isPendingBookingDraft(value: unknown): value is PendingBookingDraft {
   const x = value as Partial<PendingBookingDraft> | null;
   const p = x?.payload;
-  return typeof x?.savedAt === 'number' && !!p &&
+  return typeof x?.savedAt === 'number' &&
+    typeof x?.ownerUserId === 'string' && x.ownerUserId.length > 0 && !!p &&
     typeof p.clientRequestId === 'string' &&
     /^[a-f\d]{8}-[a-f\d]{4}-4[a-f\d]{3}-[89ab][a-f\d]{3}-[a-f\d]{12}$/i.test(p.clientRequestId) &&
     typeof p.offeringId === 'string' && typeof p.townVillageId === 'string' &&
     typeof p.scheduledDate === 'string' &&
     typeof p.scheduledStartTime === 'string' && typeof p.scheduledEndTime === 'string';
+}
+
+/** Never replay a stored booking in a different authenticated account. */
+export function canReplayBookingDraft(value:unknown,userId:string|null):value is PendingBookingDraft{
+ return !!userId && isPendingBookingDraft(value) && value.ownerUserId===userId;
 }
