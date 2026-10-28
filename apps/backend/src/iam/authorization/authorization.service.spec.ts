@@ -40,8 +40,6 @@ describe('AuthorizationService', () => {
       expect(prisma.userRoleAssignment.findMany).toHaveBeenCalledWith({
         where: { userId: 'user-1', revokedAt: null, scopeType: ScopeType.PLATFORM },
         include: {
-          scopeType: ScopeType.PLATFORM,
-
           role: {
             include: { rolePermissions: { include: { permission: true } } },
           },
