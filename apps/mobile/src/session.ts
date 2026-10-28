@@ -1,10 +1,12 @@
 import * as SecureStore from "expo-secure-store";
 import {eventLocationHeaders} from "./event-location";
+import {canReplayBookingDraft} from "./booking-pending";
 import {ApiClient,extractOtpLoginTokens,type SessionTokenPair} from "@sevamitra/api-client";
 
 export const API_BASE=process.env.EXPO_PUBLIC_API_BASE_URL||"";
 const KEY="sevamitra.mobile.session.v1";
-type Stored=SessionTokenPair&{expiresAt:number};
+const PENDING_BOOKING_KEY="sevamitra.pending-booking.v1";
+type Stored=SessionTokenPair&{expiresAt:number;userId:string};
 let refreshPending:Promise<Stored>|null=null;
 let sessionGeneration=0;
 let storageQueue:Promise<void>=Promise.resolve();
@@ -14,16 +16,26 @@ function queueStorageWrite(write:()=>Promise<void>):Promise<void>{
  return next;
 }
 
-export async function saveSession(tokens:SessionTokenPair):Promise<void>{
- const stored:Stored={...tokens,expiresAt:Date.now()+tokens.expiresIn*1000};
- await queueStorageWrite(()=>SecureStore.setItemAsync(KEY,JSON.stringify(stored)));
+export async function saveSession(tokens:SessionTokenPair,userId:string):Promise<void>{
+ if(!userId)throw new Error("Authenticated user ID missing");
+ const stored:Stored={...tokens,userId,expiresAt:Date.now()+tokens.expiresIn*1000};
+ // Switches to another account must remove any pending retry owned by someone else.
+ await queueStorageWrite(async()=>{
+  const raw=await SecureStore.getItemAsync(PENDING_BOOKING_KEY);
+  if(raw){
+   let owned=false;
+   try{owned=canReplayBookingDraft(JSON.parse(raw),userId)}catch{/* stale draft */}
+   if(!owned)await SecureStore.deleteItemAsync(PENDING_BOOKING_KEY);
+  }
+  await SecureStore.setItemAsync(KEY,JSON.stringify(stored));
+ });
 }
 async function loadSession():Promise<Stored|null>{
  const raw=await SecureStore.getItemAsync(KEY);
  if(!raw)return null;
  try {
   const x=JSON.parse(raw) as Stored;
-  if(typeof x.accessToken!=="string"||!x.accessToken||typeof x.refreshToken!=="string"||!x.refreshToken||typeof x.expiresAt!=="number")throw new Error("corrupt");
+  if(typeof x.accessToken!=="string"||!x.accessToken||typeof x.refreshToken!=="string"||!x.refreshToken||typeof x.expiresAt!=="number"||typeof x.userId!=="string"||!x.userId)throw new Error("corrupt");
   return x;
  }catch{await SecureStore.deleteItemAsync(KEY);return null}
 }
@@ -35,10 +47,10 @@ async function refreshSession(session:Stored):Promise<Stored>{
     const tokens=extractTokensFromRefresh(await new ApiClient(API_BASE).refresh({refreshToken:session.refreshToken}));
     await queueStorageWrite(async()=>{
       if(generation!==sessionGeneration)throw new Error("Session changed during refresh");
-      await SecureStore.setItemAsync(KEY,JSON.stringify({...tokens,expiresAt:Date.now()+tokens.expiresIn*1000}));
+      await SecureStore.setItemAsync(KEY,JSON.stringify({...tokens,userId:session.userId,expiresAt:Date.now()+tokens.expiresIn*1000}));
     });
     if(generation!==sessionGeneration)throw new Error("Session changed during refresh");
-    return {...tokens,expiresAt:Date.now()+tokens.expiresIn*1000};
+    return {...tokens,userId:session.userId,expiresAt:Date.now()+tokens.expiresIn*1000};
    }catch(e){
      if(generation===sessionGeneration)await queueStorageWrite(async()=>{
        if(generation===sessionGeneration)await SecureStore.deleteItemAsync(KEY);
@@ -73,8 +85,14 @@ export async function requestWithSession<T=unknown>(method:"GET"|"POST"|"PATCH"|
 }
 export async function saveLoginResponse(value:unknown){
  const tokens=extractOtpLoginTokens(value);
+ const userId=(value as {user?:{id?:unknown}}|null)?.user?.id;
+ if(typeof userId!=="string"||!userId)throw new Error("Invalid login identity");
  sessionGeneration++;
- await saveSession(tokens);
+ await saveSession(tokens,userId);
+}
+/** Offline-safe identity binding for user-scoped pending drafts. */
+export async function sessionUserId():Promise<string|null>{
+ return (await loadSession())?.userId??null;
 }
 export async function signOut():Promise<void>{
  sessionGeneration++;
@@ -82,7 +100,7 @@ export async function signOut():Promise<void>{
  await queueStorageWrite(async()=>{
    await SecureStore.deleteItemAsync(KEY);
    // Do not carry an offline booking draft into another user's session.
-   await SecureStore.deleteItemAsync("sevamitra.pending-booking.v1");
+   await SecureStore.deleteItemAsync(PENDING_BOOKING_KEY);
  });
  if(s&&API_BASE)try{await new ApiClient(API_BASE).logout({refreshToken:s.refreshToken})}catch{/* already signed out locally */}
 }
