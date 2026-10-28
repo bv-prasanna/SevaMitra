@@ -1,0 +1,90 @@
+
+export type BrowserEventCoordinate={latitude:number;longitude:number;accuracy:number|null;timestamp:number};
+export function formatEventLocationHeaders(coordinate:BrowserEventCoordinate|null,now=Date.now()):Record<string,string>{
+ if(!coordinate)return{};
+ const{latitude,longitude,accuracy,timestamp}=coordinate;
+ if(accuracy===null||!Number.isFinite(latitude)||!Number.isFinite(longitude)||
+    !Number.isFinite(accuracy)||!Number.isFinite(timestamp)||latitude < -90||latitude > 90||
+    longitude < -180||longitude > 180||accuracy<0||accuracy>5000||
+    Math.abs(now-timestamp)>300000)return{};
+ return{
+  'X-Event-Latitude':String(latitude),
+  'X-Event-Longitude':String(longitude),
+  'X-Event-Accuracy-Meters':String(accuracy),
+  'X-Event-Captured-At':new Date(timestamp).toISOString(),
+ };
+}
+/** Does not trigger the browser location prompt. Location is included only if
+ * a user has already granted foreground geolocation access.
+ */
+export async function permittedBrowserEventLocation():Promise<Record<string,string>>{
+ if(typeof navigator==='undefined'||!navigator.permissions?.query||!navigator.geolocation)return{};
+ try{
+  const permission=await navigator.permissions.query({name:'geolocation'});
+  if(permission.state!=='granted')return{};
+  const position=await new Promise<GeolocationPosition|null>(resolve=>{
+   navigator.geolocation.getCurrentPosition(
+    pos=>resolve(pos),
+    ()=>resolve(null),
+    {enableHighAccuracy:false,timeout:3000,maximumAge:60_000},
+   );
+  });
+  return formatEventLocationHeaders(position?{
+   latitude:position.coords.latitude,longitude:position.coords.longitude,
+   accuracy:position.coords.accuracy,timestamp:position.timestamp,
+  }:null);
+ }catch{return{}}
+}
+
+export type ApiError={code:string;message:string;details?:unknown;correlationId?:string};
+export type Query=Record<string,string|number|boolean|undefined|null>; export type RequestOptions={query?:Query;idempotencyKey?:string;headers?:Record<string,string>};
+const qs=(q?:Query)=>{if(!q)return"";const p=new URLSearchParams();Object.entries(q).forEach(([k,v])=>{if(v!=null)p.set(k,String(v))});const s=p.toString();return s?`?${s}`:""};
+export class ApiClient{
+ constructor(private baseUrl:string,private getToken?:()=>string|undefined){}
+ private async request<T>(method:string,path:string,body?:unknown,o:RequestOptions={}):Promise<T>{const token=this.getToken?.();const geo=token&&method!=="GET"?await permittedBrowserEventLocation():{};const res=await fetch(this.baseUrl.replace(/\/$/,"")+"/api/v1"+path+qs(o.query),{method,headers:{"Content-Type":"application/json",...geo,...(token?{Authorization:`Bearer ${token}`}:{}),...(o.idempotencyKey?{"Idempotency-Key":o.idempotencyKey}:{}),...o.headers},...(body===undefined?{}:{body:JSON.stringify(body)})});if(!res.ok){const raw=await res.json().catch(()=>({error:{code:"HTTP_ERROR",message:res.statusText}}));const detail=raw?.error??raw;const e=new Error(typeof detail?.message==="string"?detail.message:`Request failed (HTTP ${res.status})`) as Error & ApiError & {status:number};e.code=typeof detail?.code==="string"?detail.code:"HTTP_ERROR";e.status=res.status;e.details=detail?.details;e.correlationId=detail?.correlationId;throw e}return res.status===204?undefined as T:res.json() as Promise<T>}
+ get<T=unknown>(p:string,o?:RequestOptions){return this.request<T>("GET",p,undefined,o)} post<T=unknown>(p:string,b?:unknown,o?:RequestOptions){return this.request<T>("POST",p,b,o)} put<T=unknown>(p:string,b?:unknown,o?:RequestOptions){return this.request<T>("PUT",p,b,o)} patch<T=unknown>(p:string,b?:unknown,o?:RequestOptions){return this.request<T>("PATCH",p,b,o)} delete<T=unknown>(p:string,o?:RequestOptions){return this.request<T>("DELETE",p,undefined,o)}
+ // Auth
+ requestOtp(b:unknown){return this.post("/auth/otp/request",b)} verifyOtp(b:unknown){return this.post("/auth/otp/verify",b)} passwordLogin(b:unknown){return this.post("/auth/login",b)} socialLogin(b:unknown){return this.post("/auth/social",b)} refresh(b:unknown){return this.post("/auth/refresh",b)} logout(b?:unknown){return this.post("/auth/logout",b)} me(){return this.get("/auth/me")} authMethods(){return this.get("/auth/methods")}
+ // IAM / users
+ permissions(q?:Query){return this.get("/iam/permissions",{query:q})} roles(q?:Query){return this.get("/iam/roles",{query:q})} createRole(b:unknown){return this.post("/iam/roles",b)} role(id:string){return this.get(`/iam/roles/${id}`)} updateRole(id:string,b:unknown){return this.patch(`/iam/roles/${id}`,b)} assignRolePermissions(id:string,b:unknown){return this.post(`/roles/${id}/permissions`,b)} removeRolePermission(id:string,pid:string){return this.delete(`/roles/${id}/permissions/${pid}`)} roleAssignments(q?:Query){return this.get("/iam/assignments",{query:q})} assignRole(b:unknown){return this.post("/iam/assignments",b)} removeRoleAssignment(id:string){return this.delete(`/iam/assignments/${id}`)} scopes(){return this.get("/scopes")} user(id:string){return this.get(`/users/${id}`)} updateUser(id:string,b:unknown){return this.patch(`/users/${id}`,b)} deactivateUser(id:string,b?:unknown){return this.post(`/users/${id}/deactivate`,b)} reactivateUser(id:string,b?:unknown){return this.post(`/users/${id}/reactivate`,b)} userRoles(id:string){return this.get(`/iam/users/${id}/assignments`)} customerMe(){return this.get("/customers/me")} updateCustomerMe(b:unknown){return this.patch("/customers/me",b)} providerMe(){return this.get("/providers/me")} updateProviderMe(b:unknown){return this.patch("/providers/me",b)}
+ // Catalogue
+ serviceCategories(q?:Query){return this.get("/catalogue/categories",{query:q})} createServiceCategory(b:unknown){return this.post("/catalogue/categories",b)} updateServiceCategory(id:string,b:unknown){return this.patch(`/catalogue/categories/${id}`,b)} services(q?:Query){return this.get("/catalogue/services",{query:q})} createService(b:unknown){return this.post("/catalogue/services",b)} service(id:string){return this.get(`/catalogue/services/${id}`)} updateService(id:string,b:unknown){return this.patch(`/catalogue/services/${id}`,b)} publishService(id:string,b?:unknown){return this.post(`/services/${id}/publish`,b)} deactivateService(id:string,b?:unknown){return this.post(`/services/${id}/deactivate`,b)} serviceAttributes(id:string){return this.get(`/services/${id}/attributes`)} configureServiceAttributes(id:string,b:unknown){return this.post(`/services/${id}/attributes`,b)}
+ // Providers
+ providers(q?:Query){return this.get("/providers",{query:q})} provider(id:string){return this.get(`/providers/${id}`)} updateProvider(id:string,b:unknown){return this.patch(`/providers/${id}`,b)} offerings(id:string){return this.get(`/providers/${id}/offerings`)} addOffering(id:string,b:unknown){return this.post(`/providers/${id}/offerings`,b)} updateOffering(id:string,oid:string,b:unknown){return this.patch(`/providers/${id}/offerings/${oid}`,b)} removeOffering(id:string,oid:string){return this.delete(`/providers/${id}/offerings/${oid}`)} pricing(id:string){return this.get(`/providers/${id}/pricing`)} setPricing(id:string,b:unknown){return this.post(`/providers/${id}/pricing`,b)} availability(id:string){return this.get(`/providers/${id}/availability`)} setAvailability(id:string,b:unknown){return this.put(`/providers/${id}/availability`,b)} coverage(id:string){return this.get(`/providers/${id}/coverage`)} setCoverage(id:string,b:unknown){return this.put(`/providers/${id}/coverage`,b)} providerEarnings(id:string){return this.get(`/providers/${id}/earnings`)}
+ // Provider company/group
+ companyProviders(id:string,q?:Query){return this.get(`/provider-companies/${id}/providers`,{query:q})} addCompanyProvider(id:string,b:unknown){return this.post(`/provider-companies/${id}/providers`,b)} updateCompany(id:string,b:unknown){return this.patch(`/provider-companies/${id}`,b)} companyGroups(id:string){return this.get(`/provider-companies/${id}/groups`)} createCompanyGroup(id:string,b:unknown){return this.post(`/provider-companies/${id}/groups`,b)} updateProviderGroup(id:string,b:unknown){return this.patch(`/provider-groups/${id}`,b)} groupProviders(id:string){return this.get(`/provider-groups/${id}/providers`)} addGroupProvider(id:string,b:unknown){return this.post(`/provider-groups/${id}/providers`,b)} companySettlements(id:string,q?:Query){return this.get(`/provider-companies/${id}/settlements`,{query:q})}
+ // Agent/onboarding
+ agentMe(){return this.get("/agents/me")} createOnboarding(b:unknown){return this.post("/providers/onboarding",b)} bulkOnboarding(b:unknown){return this.post("/providers/onboarding/bulk",b)} onboardings(q?:Query){return this.get("/providers/onboarding",{query:q})} onboarding(id:string){return this.get(`/providers/onboarding/${id}`)} updateOnboarding(id:string,b:unknown){return this.patch(`/providers/onboarding/${id}`,b)} submitOnboarding(id:string,b?:unknown){return this.post(`/providers/onboarding/${id}/submit`,b)} approveOnboarding(id:string,b?:unknown){return this.post(`/providers/onboarding/${id}/approve`,b)} rejectOnboarding(id:string,b?:unknown){return this.post(`/providers/onboarding/${id}/reject`,b)} onboardingBatch(id:string){return this.get(`/onboarding-batches/${id}`)} agentAttribution(id:string){return this.get(`/agents/${id}/attribution`)} agentIncentives(id:string){return this.get(`/agents/${id}/incentives`)}
+ // Geography/discovery
+ geographies(q?:Query){return this.get("/geographies",{query:q})} postalArea(pin:string){return this.get(`/postal-areas/${pin}`)} serviceAreas(q?:Query){return this.get("/service-areas",{query:q})} createServiceArea(b:unknown){return this.post("/service-areas",b)} updateServiceArea(id:string,b:unknown){return this.patch(`/service-areas/${id}`,b)} serviceability(q:Query){return this.get("/serviceability/check",{query:q})} nearbyProviders(q:Query){return this.get("/providers/nearby",{query:q})} searchProviders(q:Query){return this.get("/providers/search",{query:q})}
+ // Booking
+ createServiceRequest(b:unknown,o?:RequestOptions){return this.post("/service-requests",b,o)} serviceRequest(id:string){return this.get(`/service-requests/${id}`)} requestQuote(id:string,b?:unknown,o?:RequestOptions){return this.post(`/service-requests/${id}/quote`,b,o)} createBooking(b:unknown,o?:RequestOptions){return this.post("/bookings/me",b,o)} bookings(q?:Query){return this.get("/bookings/me",{query:q})} booking(id:string){return this.get(`/bookings/me/${id}`)} confirmBooking(id:string,b?:unknown,o?:RequestOptions){return this.post(`/bookings/${id}/confirm`,b,o)} cancelBooking(id:string,b?:unknown,o?:RequestOptions){return this.post(`/bookings/me/${id}/cancel`,b,o)} assignBooking(id:string,b:unknown,o?:RequestOptions){return this.post(`/bookings/${id}/assign`,b,o)} acceptBooking(id:string,b?:unknown,o?:RequestOptions){return this.post(`/bookings/${id}/accept`,b,o)} rejectBooking(id:string,b?:unknown,o?:RequestOptions){return this.post(`/bookings/${id}/reject`,b,o)} startBooking(id:string,b?:unknown,o?:RequestOptions){return this.post(`/bookings/${id}/start`,b,o)} completeBooking(id:string,b?:unknown,o?:RequestOptions){return this.post(`/bookings/${id}/complete`,b,o)} bookingHistory(id:string){return this.get(`/bookings/${id}/history`)}
+ // Finance
+ createPaymentIntent(b:unknown,o?:RequestOptions){return this.post("/payments/intents",b,o)} payment(id:string){return this.get(`/payments/${id}`)} confirmPayment(id:string,b?:unknown,o?:RequestOptions){return this.post(`/payments/${id}/confirm`,b,o)} refundBooking(id:string,b:unknown,o?:RequestOptions){return this.post(`/bookings/${id}/refund`,b,o)} bookingFinancialSummary(id:string){return this.get(`/bookings/${id}/financial-summary`)} myEarnings(){return this.get("/providers/me/earnings")} mySettlements(q?:Query){return this.get("/providers/me/settlements",{query:q})} settlements(q?:Query){return this.get("/settlements",{query:q})} processSettlement(id:string,b?:unknown,o?:RequestOptions){return this.post(`/settlements/${id}/process`,b,o)} ledgerEntries(q?:Query){return this.get("/ledger/entries",{query:q})} ledgerAdjustment(b:unknown,o?:RequestOptions){return this.post("/ledger/adjustments",b,o)}
+ // Commission/rewards
+ commissionRules(q?:Query){return this.get("/commission-rules",{query:q})} createCommissionRule(b:unknown){return this.post("/commission-rules",b)} updateCommissionRule(id:string,b:unknown){return this.patch(`/commission-rules/${id}`,b)} activateCommissionRule(id:string,b?:unknown){return this.post(`/commission-rules/${id}/activate`,b)} deactivateCommissionRule(id:string,b?:unknown){return this.post(`/commission-rules/${id}/deactivate`,b)} bookingCommission(id:string){return this.get(`/bookings/${id}/commission`)} providerCommissionSummary(id:string,q?:Query){return this.get(`/providers/${id}/commission-summary`,{query:q})} promotions(q?:Query){return this.get("/promotions",{query:q})} createPromotion(b:unknown){return this.post("/promotions",b)} updatePromotion(id:string,b:unknown){return this.patch(`/promotions/${id}`,b)} createCoupon(b:unknown){return this.post("/coupons",b)} validateCoupon(b:unknown){return this.post("/coupons/validate",b)} applyCoupon(id:string,b:unknown,o?:RequestOptions){return this.post(`/bookings/${id}/apply-coupon`,b,o)} cashbackWallet(q?:Query){return this.get("/cashback/wallet",{query:q})} loyaltyWallet(q?:Query){return this.get("/loyalty/wallet",{query:q})} referrals(){return this.get("/referrals")} applyReferral(b:unknown,o?:RequestOptions){return this.post("/referrals/apply",b,o)}
+ // Trust/support
+ reviewBooking(id:string,b:unknown){return this.post(`/bookings/${id}/review`,b)} providerReviews(id:string,q?:Query){return this.get(`/providers/${id}/reviews`,{query:q})} createVerificationCase(b:unknown){return this.post("/verification-cases",b)} verificationCase(id:string){return this.get(`/verification-cases/${id}`)} createSupportCase(b:unknown){return this.post("/support-cases",b)} supportCase(id:string){return this.get(`/support-cases/${id}`)} createDispute(b:unknown){return this.post("/disputes",b)} dispute(id:string){return this.get(`/disputes/${id}`)} reportSafetyIncident(b:unknown){return this.post("/safety-incidents",b)} safetyIncident(id:string){return this.get(`/safety-incidents/${id}`)}
+ // Config/notifications/reports/audit
+ publicConfig(){return this.get("/config/public")} contextConfig(){return this.get("/config/context")} config(key:string){return this.get(`/config/${encodeURIComponent(key)}`)} updateConfig(key:string,b:unknown){return this.put(`/config/${encodeURIComponent(key)}`,b)} themes(){return this.get("/themes")} createTheme(b:unknown){return this.post("/themes",b)} updateTheme(id:string,b:unknown){return this.put(`/themes/${id}`,b)} activateTheme(id:string,b?:unknown){return this.post(`/themes/${id}/activate`,b)} localization(lang:string){return this.get(`/localization/${encodeURIComponent(lang)}`)} notificationPreferences(){return this.get("/notification-preferences")} updateNotificationPreferences(b:unknown){return this.put("/notification-preferences",b)} notifications(q?:Query){return this.get("/notifications/me",{query:q})} readNotification(id:string){return this.patch(`/notifications/me/${id}/read`,{})} readAllNotifications(){return this.post("/notifications/read-all")} report(name:"overview"|"bookings"|"providers"|"agents"|"revenue"|"settlements"|"promotions"|"serviceability"|"incidents",q?:Query){return this.get(`/reports/${name}`,{query:q})} auditEvents(q?:Query){return this.get("/audit/events",{query:q})} auditEvent(id:string){return this.get(`/audit/events/${id}`)} entityAudit(type:string,id:string){return this.get(`/audit/entities/${encodeURIComponent(type)}/${id}`)}
+}
+
+/** The NestJS OTP LOGIN endpoint returns {kind:"tokens",tokens:{...},user}. */
+export type SessionTokenPair={accessToken:string;refreshToken:string;expiresIn:number;deviceId?:string};
+export function extractOtpLoginTokens(input:unknown):SessionTokenPair{
+ if(!input||typeof input!=="object")throw new Error("Invalid login response");
+ const r=input as {kind?:unknown;tokens?:unknown};
+ if(r.kind!=="tokens"||!r.tokens||typeof r.tokens!=="object")throw new Error("Login did not return a token pair");
+ const t=r.tokens as Partial<SessionTokenPair>;
+ if(typeof t.accessToken!=="string"||!t.accessToken||typeof t.refreshToken!=="string"||!t.refreshToken||typeof t.expiresIn!=="number"||!Number.isFinite(t.expiresIn)||t.expiresIn<=0)throw new Error("Invalid token pair received");
+ if(t.deviceId!==undefined && (typeof t.deviceId!=='string'||!t.deviceId))throw new Error('Invalid device binding');
+ return {accessToken:t.accessToken,refreshToken:t.refreshToken,expiresIn:t.expiresIn,...(t.deviceId?{deviceId:t.deviceId}:{})};
+}
+
+export type ActiveService={id:string;name:string;description:string|null;categoryId:string;isActive:boolean};
+export type GeoArea={id:string;name:string;isActive:boolean;pincode?:string;talukId?:string;districtId?:string};
+export type DiscoveredOffering={
+ id:string;providerId:string;serviceId:string;providerName:string;
+ pricingModel:string;amount:string|null;visitFee:string|null;currency:string;notes:string|null;
+};
+export type BookingCreate={offeringId:string;townVillageId:string;scheduledDate:string;scheduledStartTime:string;scheduledEndTime:string;notes?:string;clientRequestId?:string};
