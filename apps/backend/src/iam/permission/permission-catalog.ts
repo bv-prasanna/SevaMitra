@@ -59,6 +59,10 @@ export const PERMISSION_CATALOG: readonly PermissionCatalogEntry[] = [
     description: 'Review statutory tax classification and post auditable tax entries',
   },
   {
+    key: 'incident.manage',
+    description: 'Assign, manage and escalate operational incidents; access case details',
+  },
+  {
     key: 'agent.review',
     description: 'Review and approve or suspend agent applications',
   },

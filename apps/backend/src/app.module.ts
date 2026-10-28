@@ -4,6 +4,7 @@ import { APP_FILTER, APP_GUARD } from '@nestjs/core';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { validateEnv } from './common/config/env.validation';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
+import { IncidentModule } from './incident/incident.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { HealthModule } from './health/health.module';
 import { AuthModule } from './auth/auth.module';
@@ -60,6 +61,7 @@ import { RuntimeFlagsModule } from './runtime-flags/runtime-flags.module';
     SettlementModule,
     RefundModule,
     RuntimeFlagsModule,
+    IncidentModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: ThrottlerGuard },

@@ -53,6 +53,11 @@ async function main() {
         permissions: ['provider.onboarding.review', 'agent.review'],
       },
       {
+        name: 'INCIDENT_MANAGER',
+        description: 'Review, assign, resolve and escalate support incidents',
+        permissions: ['incident.manage'],
+      },
+      {
         name: 'OPERATIONS_MANAGER',
         description: 'Daily marketplace operations, catalogue, serviceability and reporting',
         permissions: [
@@ -63,6 +68,7 @@ async function main() {
           'serviceability.review',
           'provider.organization.manage',
           'audit.view',
+          'incident.manage',
         ],
       },
     ];
