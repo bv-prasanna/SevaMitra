@@ -8,7 +8,7 @@ export class OpenIncidentDto {
 }
 export class ChangeIncidentStatusDto {
  @IsIn([IncidentStatus.IN_PROGRESS,IncidentStatus.RESOLVED,IncidentStatus.CLOSED])
- status:IncidentStatus.IN_PROGRESS|IncidentStatus.RESOLVED|IncidentStatus.CLOSED;
+ status:IncidentStatus;
  @IsString() @IsNotEmpty() @MaxLength(1000) note:string;
 }
 export class EscalateIncidentDto {
