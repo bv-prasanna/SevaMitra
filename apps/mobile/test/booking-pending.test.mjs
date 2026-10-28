@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {newBookingRequestId,isPendingBookingDraft} from '../src/booking-pending.ts';
+import {newBookingRequestId,isPendingBookingDraft,canReplayBookingDraft} from '../src/booking-pending.ts';
 
 test('new booking retry IDs are UUID v4 shaped and differ', () => {
  const a = newBookingRequestId();
@@ -10,7 +10,7 @@ test('new booking retry IDs are UUID v4 shaped and differ', () => {
 });
 
 test('only properly formed booking drafts may be replayed', () => {
- const draft={savedAt:Date.now(),payload:{
+ const draft={savedAt:Date.now(),ownerUserId:'user-a',payload:{
   offeringId:'offering-1',townVillageId:'town-1',scheduledDate:'2026-10-20',
   scheduledStartTime:'09:00',scheduledEndTime:'10:00',
   clientRequestId:newBookingRequestId(),
@@ -21,8 +21,16 @@ test('only properly formed booking drafts may be replayed', () => {
 });
 
 test('reject malformed or incomplete pending booking state',()=>{
- const valid={savedAt:Date.now(),payload:{offeringId:'offering-1',townVillageId:'town-1',scheduledDate:'2026-10-20',scheduledStartTime:'09:00',scheduledEndTime:'10:00',clientRequestId:newBookingRequestId()}};
- for(const bad of [undefined,null,false,0,'',{},[],{payload:valid.payload},{...valid,savedAt:'now'},{...valid,payload:null},{...valid,payload:{...valid.payload,offeringId:42}},{...valid,payload:{...valid.payload,townVillageId:null}},{...valid,payload:{...valid.payload,scheduledDate:42}},{...valid,payload:{...valid.payload,scheduledStartTime:null}},{...valid,payload:{...valid.payload,scheduledEndTime:null}},{...valid,payload:{...valid.payload,clientRequestId:'not-a-uuid'}}]){
+ const valid={savedAt:Date.now(),ownerUserId:'user-a',payload:{offeringId:'offering-1',townVillageId:'town-1',scheduledDate:'2026-10-20',scheduledStartTime:'09:00',scheduledEndTime:'10:00',clientRequestId:newBookingRequestId()}};
+ for(const bad of [undefined,null,false,0,'',{},[],{payload:valid.payload}, {...valid,ownerUserId:''},{...valid,ownerUserId:null},{...valid,savedAt:'now'},{...valid,payload:null},{...valid,payload:{...valid.payload,offeringId:42}},{...valid,payload:{...valid.payload,townVillageId:null}},{...valid,payload:{...valid.payload,scheduledDate:42}},{...valid,payload:{...valid.payload,scheduledStartTime:null}},{...valid,payload:{...valid.payload,scheduledEndTime:null}},{...valid,payload:{...valid.payload,clientRequestId:'not-a-uuid'}}]){
   assert.equal(isPendingBookingDraft(bad),false,JSON.stringify(bad));
  }
+});
+
+test('never replays a booking draft under a different account',()=>{
+ const valid={savedAt:Date.now(),ownerUserId:'user-a',payload:{offeringId:'off-1',townVillageId:'town-1',scheduledDate:'2026-10-29',scheduledStartTime:'10:00',scheduledEndTime:'11:00',clientRequestId:newBookingRequestId()}};
+ assert.equal(canReplayBookingDraft(valid,'user-a'),true);
+ assert.equal(canReplayBookingDraft(valid,'user-b'),false);
+ assert.equal(canReplayBookingDraft(valid,null),false);
+ assert.equal(canReplayBookingDraft({...valid,ownerUserId:undefined},'user-a'),false);
 });
