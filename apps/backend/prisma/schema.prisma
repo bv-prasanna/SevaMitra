@@ -79,6 +79,9 @@ model User {
   auditLogs     AuditLog[]
   notifications Notification[]
   pushDevices PushDevice[]
+  reportedIncidents IncidentCase[] @relation("IncidentReporter")
+  assignedIncidents IncidentCase[] @relation("IncidentAssignee")
+  incidentActions IncidentCaseActivity[] @relation("IncidentActor")
 
   @@map("users")
   @@schema("auth")
@@ -1805,5 +1808,59 @@ model RuntimeFlag {
   updatedAt DateTime @updatedAt @map("updated_at")
 
   @@map("runtime_flags")
+  @@schema("ops")
+}
+
+/** Operations case management; deadlines are set only by business-approved policy. */
+enum IncidentStatus {
+  OPEN
+  ACKNOWLEDGED
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+  @@schema("ops")
+}
+enum IncidentSeverity {
+  P0
+  P1
+  P2
+  P3
+  @@schema("ops")
+}
+model IncidentCase {
+  id String @id @default(uuid())
+  reporterId String @map("reporter_id")
+  reporter User @relation("IncidentReporter",fields:[reporterId],references:[id],onDelete:Restrict)
+  assignedToId String? @map("assigned_to_id")
+  assignedTo User? @relation("IncidentAssignee",fields:[assignedToId],references:[id],onDelete:SetNull)
+  category String
+  title String
+  description String
+  severity IncidentSeverity @default(P2)
+  status IncidentStatus @default(OPEN)
+  level Int @default(1)
+  acknowledgeDueAt DateTime? @map("acknowledge_due_at")
+  resolveDueAt DateTime? @map("resolve_due_at")
+  closedAt DateTime? @map("closed_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  activities IncidentCaseActivity[]
+  @@index([status,createdAt])
+  @@index([reporterId,createdAt])
+  @@index([assignedToId,status])
+  @@map("incident_cases")
+  @@schema("ops")
+}
+model IncidentCaseActivity {
+  id String @id @default(uuid())
+  incidentId String @map("incident_id")
+  incident IncidentCase @relation(fields:[incidentId],references:[id],onDelete:Restrict)
+  actorId String @map("actor_id")
+  actor User @relation("IncidentActor",fields:[actorId],references:[id],onDelete:Restrict)
+  action String
+  note String?
+  createdAt DateTime @default(now()) @map("created_at")
+  @@index([incidentId,createdAt])
+  @@map("incident_case_activity")
   @@schema("ops")
 }
