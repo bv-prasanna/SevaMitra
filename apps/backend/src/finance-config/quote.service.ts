@@ -10,7 +10,7 @@ export class FinanceQuoteService{
   const [offering,town]=await Promise.all([
    this.prisma.providerOffering.findUnique({where:{id:q.offeringId},
     include:{service:{select:{id:true,categoryId:true,isActive:true}},provider:{select:{status:true,verificationStatus:true,deletedAt:true}}}}),
-   this.prisma.townVillage.findUnique({where:{id:q.townVillageId},include:{taluk:{include:{district:true}}}}),
+   this.prisma.townVillage.findUnique({where:{id:q.townVillageId},include:{taluk:{include:{district:{include:{state:true}}}}}}),
   ]);
   if(!offering||!offering.isActive||!offering.service.isActive||
    offering.provider.status!==ProviderStatus.ACTIVE||offering.provider.verificationStatus!==VerificationStatus.VERIFIED||
@@ -37,6 +37,16 @@ export class FinanceQuoteService{
   // No clock-based rule is silently applied without an actual service slot.
   const price=matches[0]??null;
   const taxes=matchingRules(taxRules,ctx).filter((r,i,a)=>a.findIndex(x=>x.component===r.component)===i);
+  if(taxes.length>0){
+   const issuer=await this.prisma.billingIssuer.findFirst({where:{providerId:offering.providerId,verified:true}});
+   const pos=town.taluk.district.state.gstStateCode;
+   if(!issuer?.gstin||!pos)
+    throw new BadRequestException('Finance must verify supplier GSTIN and destination GST state code before enabling tax rules');
+   const comps=new Set(taxes.map(x=>x.component));
+   const sameState=issuer.stateCode===pos;
+   if(sameState&&comps.has('IGST') || !sameState&&(comps.has('CGST')||comps.has('SGST')))
+    throw new BadRequestException('GST component configuration conflicts with supplier/place-of-supply states');
+  }
   if(offering.amount===null){
    return {offeringId:offering.id,townVillageId:town.id,currency:offering.currency,
     fixed:false,pricingModel:offering.pricingModel,disclosure:'A provider quote is required; no payable amount is confirmed.',
