@@ -35,7 +35,7 @@ CONSTRAINT "booking_price_snapshots_pkey" PRIMARY KEY ("id")
 );
 CREATE TABLE "finance"."billing_issuers" (
 "id" TEXT NOT NULL,"provider_id" TEXT,"legal_name" TEXT NOT NULL,"address" TEXT NOT NULL,
-"state_code" TEXT NOT NULL,"gstin" TEXT,"sac_code" TEXT,"verified" BOOLEAN NOT NULL DEFAULT false,
+"state_code" TEXT NOT NULL,"gstin" TEXT,"sac_code" TEXT,"authorized_signatory" TEXT,"verified" BOOLEAN NOT NULL DEFAULT false,
 "updated_by" TEXT NOT NULL,"updated_at" TIMESTAMP(3) NOT NULL,
 CONSTRAINT "billing_issuers_pkey" PRIMARY KEY ("id")
 );
