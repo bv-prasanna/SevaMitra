@@ -8,6 +8,12 @@ type ScopeInput=Pick<RuleScopeDto,'geoScope'|'geoId'|'targetScope'|'targetId'|'v
 @Injectable()
 export class FinanceRulesService {
  constructor(private readonly prisma:PrismaService){}
+ async updateGstStateCode(stateId:string,gstStateCode:string){
+  const current=await this.prisma.state.findUnique({where:{id:stateId}});
+  if(!current)throw new NotFoundException('State not found');
+  if(!/^\\d{2}$/.test(gstStateCode))throw new BadRequestException('Invalid GST state code');
+  return this.prisma.state.update({where:{id:stateId},data:{gstStateCode}});
+ }
  private async validateScope(x:ScopeInput){
   if(x.geoScope===FinanceGeoScope.ALL ? !!x.geoId : !x.geoId)
    throw new BadRequestException('Geography scope ID must be set exactly when a geography level is selected');
