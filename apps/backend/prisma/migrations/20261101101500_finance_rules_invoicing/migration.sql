@@ -1,3 +1,5 @@
+ALTER TABLE "marketplace"."geo_states" ADD COLUMN "gst_state_code" TEXT;
+ALTER TABLE "marketplace"."geo_states" ADD CONSTRAINT "geo_states_gst_state_code_ck" CHECK ("gst_state_code" IS NULL OR "gst_state_code" ~ '^[0-9]{2}$');
 
 CREATE TYPE "finance"."FinanceGeoScope" AS ENUM ('ALL','STATE','DISTRICT','TALUK','TOWN');
 CREATE TYPE "finance"."FinanceTargetScope" AS ENUM ('ALL','CATEGORY','SERVICE','VARIANT','OFFERING');
