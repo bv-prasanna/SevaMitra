@@ -1973,6 +1973,7 @@ model BookingPriceSnapshot {
 }
 model BillingIssuer {
   id String @id @default(uuid())
+  issuerCode String @unique @map("issuer_code")
   providerId String? @unique @map("provider_id")
   legalName String @map("legal_name")
   address String
