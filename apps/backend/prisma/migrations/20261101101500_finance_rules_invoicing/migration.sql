@@ -34,7 +34,7 @@ CREATE TABLE "finance"."booking_price_snapshots" (
 CONSTRAINT "booking_price_snapshots_pkey" PRIMARY KEY ("id")
 );
 CREATE TABLE "finance"."billing_issuers" (
-"id" TEXT NOT NULL,"provider_id" TEXT,"legal_name" TEXT NOT NULL,"address" TEXT NOT NULL,
+"id" TEXT NOT NULL,"issuer_code" TEXT NOT NULL,"provider_id" TEXT,"legal_name" TEXT NOT NULL,"address" TEXT NOT NULL,
 "state_code" TEXT NOT NULL,"gstin" TEXT,"sac_code" TEXT,"authorized_signatory" TEXT,"verified" BOOLEAN NOT NULL DEFAULT false,
 "updated_by" TEXT NOT NULL,"updated_at" TIMESTAMP(3) NOT NULL,
 CONSTRAINT "billing_issuers_pkey" PRIMARY KEY ("id")
@@ -54,6 +54,7 @@ CREATE INDEX "pricing_rules_enabled_priority_idx" ON "finance"."pricing_rules"("
 CREATE INDEX "pricing_rules_geo_scope_geo_id_idx" ON "finance"."pricing_rules"("geo_scope","geo_id");
 CREATE INDEX "pricing_rules_target_scope_target_id_idx" ON "finance"."pricing_rules"("target_scope","target_id");
 CREATE UNIQUE INDEX "booking_price_snapshots_booking_id_key" ON "finance"."booking_price_snapshots"("booking_id");
+CREATE UNIQUE INDEX "billing_issuers_issuer_code_key" ON "finance"."billing_issuers"("issuer_code");
 CREATE UNIQUE INDEX "billing_issuers_provider_id_key" ON "finance"."billing_issuers"("provider_id");
 CREATE UNIQUE INDEX "billing_invoices_booking_id_key" ON "finance"."billing_invoices"("booking_id");
 CREATE UNIQUE INDEX "billing_invoices_invoice_number_key" ON "finance"."billing_invoices"("invoice_number");
