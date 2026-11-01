@@ -1122,6 +1122,8 @@ model Booking {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
+  priceSnapshot        BookingPriceSnapshot?
+  billingInvoice        BillingInvoice?
   payments             Payment[]
   commissionCalculation CommissionCalculation?
   refund                Refund?
@@ -1863,4 +1865,109 @@ model IncidentCaseActivity {
   @@index([incidentId,createdAt])
   @@map("incident_case_activity")
   @@schema("ops")
+}
+
+/** No legal tax rate is prepopulated. A finance reviewer configures each component. */
+enum FinanceGeoScope { ALL STATE DISTRICT TALUK TOWN @@schema("finance") }
+enum FinanceTargetScope { ALL CATEGORY SERVICE VARIANT OFFERING @@schema("finance") }
+enum FinanceTaxComponent { CGST SGST IGST CESS @@schema("finance") }
+enum FinancePriceAdjustment { PERCENT_UP PERCENT_DOWN AMOUNT_UP AMOUNT_DOWN @@schema("finance") }
+enum BillingInvoiceStatus { PRO_FORMA ISSUED VOID @@schema("finance") }
+
+model FinanceTaxRule {
+  id String @id @default(uuid())
+  name String
+  geoScope FinanceGeoScope @default(ALL) @map("geo_scope")
+  geoId String? @map("geo_id")
+  targetScope FinanceTargetScope @default(ALL) @map("target_scope")
+  targetId String? @map("target_id")
+  component FinanceTaxComponent
+  rateBps Int @map("rate_bps")
+  priority Int @default(0)
+  enabled Boolean @default(false)
+  validFrom DateTime? @map("valid_from")
+  validTo DateTime? @map("valid_to")
+  createdBy String @map("created_by")
+  updatedBy String @map("updated_by")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  @@index([enabled,component])
+  @@index([geoScope,geoId])
+  @@index([targetScope,targetId])
+  @@map("tax_rules")
+  @@schema("finance")
+}
+model FinancePriceRule {
+  id String @id @default(uuid())
+  name String
+  geoScope FinanceGeoScope @default(ALL) @map("geo_scope")
+  geoId String? @map("geo_id")
+  targetScope FinanceTargetScope @default(ALL) @map("target_scope")
+  targetId String? @map("target_id")
+  adjustment FinancePriceAdjustment
+  value Decimal @db.Decimal(12,2)
+  priority Int @default(0)
+  enabled Boolean @default(false)
+  validFrom DateTime? @map("valid_from")
+  validTo DateTime? @map("valid_to")
+  createdBy String @map("created_by")
+  updatedBy String @map("updated_by")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  @@index([enabled,priority])
+  @@index([geoScope,geoId])
+  @@index([targetScope,targetId])
+  @@map("pricing_rules")
+  @@schema("finance")
+}
+model BookingPriceSnapshot {
+  id String @id @default(uuid())
+  bookingId String @unique @map("booking_id")
+  booking Booking @relation(fields:[bookingId],references:[id],onDelete:Restrict)
+  originalAmount Decimal @db.Decimal(12,2) @map("original_amount")
+  serviceAmount Decimal @db.Decimal(12,2) @map("service_amount")
+  visitFee Decimal @db.Decimal(12,2) @map("visit_fee")
+  taxableAmount Decimal @db.Decimal(12,2) @map("taxable_amount")
+  taxTotal Decimal @db.Decimal(12,2) @map("tax_total")
+  totalAmount Decimal @db.Decimal(12,2) @map("total_amount")
+  currency String @default("INR")
+  priceRuleId String? @map("price_rule_id")
+  taxBreakdown Json @map("tax_breakdown")
+  createdAt DateTime @default(now()) @map("created_at")
+  @@map("booking_price_snapshots")
+  @@schema("finance")
+}
+model BillingIssuer {
+  id String @id @default(uuid())
+  providerId String? @unique @map("provider_id")
+  legalName String @map("legal_name")
+  address String
+  stateCode String @map("state_code")
+  gstin String?
+  sacCode String? @map("sac_code")
+  verified Boolean @default(false)
+  updatedBy String @map("updated_by")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  @@map("billing_issuers")
+  @@schema("finance")
+}
+model BillingInvoice {
+  id String @id @default(uuid())
+  bookingId String @unique @map("booking_id")
+  booking Booking @relation(fields:[bookingId],references:[id],onDelete:Restrict)
+  invoiceNumber String? @unique @map("invoice_number")
+  status BillingInvoiceStatus @default(PRO_FORMA)
+  snapshot Json
+  issuedBy String? @map("issued_by")
+  issuedAt DateTime? @map("issued_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  @@index([status,createdAt])
+  @@map("billing_invoices")
+  @@schema("finance")
+}
+model BillingInvoiceSequence {
+  key String @id
+  nextValue Int @default(1) @map("next_value")
+  @@map("invoice_sequences")
+  @@schema("finance")
 }
