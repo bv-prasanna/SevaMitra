@@ -5,10 +5,12 @@ import {ApiClient,type GeoArea,type ActiveService,type DiscoveredOffering,type B
 
 const base=process.env.NEXT_PUBLIC_API_BASE_URL||"";
 type BookingResponse={id:string;status:string};
+type PriceQuote={offeringId:string;townVillageId:string;total:string|null;originalAmount?:string;serviceAmount?:string;visitFee?:string;taxTotal?:string;adjustment?:string;taxes:{component:string;amount:string;rateBps:number}[];disclosure:string};
 const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export default function Discover(){
  const[locating,setLocating]=useState(false),[locationNote,setLocationNote]=useState(""),[serviceId,setServiceId]=useState(""),[name,setName]=useState(""),[states,setStates]=useState<GeoArea[]>([]),[districts,setDistricts]=useState<GeoArea[]>([]),[taluks,setTaluks]=useState<GeoArea[]>([]),[towns,setTowns]=useState<GeoArea[]>([]),[state,setState]=useState(""),[district,setDistrict]=useState(""),[taluk,setTaluk]=useState(""),[town,setTown]=useState("");
  const[strategy,setStrategy]=useState<"RANKED"|"ROUND_ROBIN"|"BROADCAST">("RANKED"),[results,setResults]=useState<DiscoveredOffering[]>([]),[message,setMessage]=useState("Select your service area to find verified providers."),[busy,setBusy]=useState(false),[selected,setSelected]=useState(""),[date,setDate]=useState(""),[start,setStart]=useState(""),[end,setEnd]=useState(""),[notes,setNotes]=useState(""),[confirmed,setConfirmed]=useState<BookingResponse|null>(null);
+ const[quote,setQuote]=useState<PriceQuote|null>(null);
  const api=new ApiClient(base,()=>typeof window!=="undefined"?localStorage.getItem("sevamitra_token")||undefined:undefined);
  const showError=(e:unknown)=>{if((e as {status?:number}).status===401)return "Please sign in before finding local providers.";return e instanceof Error?e.message:"Unable to load data";};
  useEffect(()=>{
@@ -73,14 +75,29 @@ export default function Discover(){
   }catch(e){setMessage(showError(e))}finally{setBusy(false)}
  // eslint-disable-next-line react-hooks/exhaustive-deps
  },[town,serviceId]);
+ async function previewPrice(){
+  if(!selected||!town||!date||!start||!end){setMessage("Select provider, date and time first.");return}
+  setBusy(true);setQuote(null);
+  try{
+   const params=new URLSearchParams({offeringId:selected,townVillageId:town,scheduledDate:date,scheduledStartTime:start});
+   const fresh=await api.get<PriceQuote>("/pricing/quote?"+params.toString());
+   setQuote(fresh);setMessage("Review the price and tax breakdown before confirming.");
+  }catch(e){setMessage(showError(e))}finally{setBusy(false)}
+ }
  async function book(){
   if(!selected||!town||!date||!start||!end){setMessage("Choose a provider, date and start/end times.");return}
   if(start>=end){setMessage("End time must be after start time.");return}
   if(date<new Date().toLocaleDateString("en-CA")){setMessage("Choose a future date.");return}
-  if(!window.confirm("Request this booking? The provider must accept it before service is confirmed."))return;
+  if(!quote||quote.offeringId!==selected||quote.townVillageId!==town){
+   setMessage("Preview the latest price before confirming.");return;
+  }
+  if(!window.confirm("Request booking for "+(quote.total?"INR "+quote.total:"a provider quote")+
+   "? The provider must accept it. "+quote.disclosure))return;
   setBusy(true);setMessage("");
   try{
-   const payload:BookingCreate={offeringId:selected,townVillageId:town,scheduledDate:date,scheduledStartTime:start,scheduledEndTime:end,...(notes.trim()?{notes:notes.trim()}: {})};
+   const payload:BookingCreate&{confirmedTotal?:string}={offeringId:selected,townVillageId:town,scheduledDate:date,
+    scheduledStartTime:start,scheduledEndTime:end,...(notes.trim()?{notes:notes.trim()}: {}),
+    ...(quote.total?{confirmedTotal:quote.total}:{})};
    const booking=await api.post<BookingResponse>("/bookings/me",payload);
    setConfirmed(booking);setMessage("Booking request created. Track it in your customer workspace.");
   }catch(e){setMessage(showError(e))}finally{setBusy(false)}
@@ -103,11 +120,18 @@ export default function Discover(){
  <div className="adminModules" style={{marginTop:22}}>{results.map(o=><article key={o.id}><h3>{o.providerName}</h3><p>{o.pricingModel} · {o.amount===null?"Price on quote":`${o.currency} ${o.amount}`}</p>{o.visitFee&&<p>Visit fee: {o.currency} {o.visitFee}</p>}{o.notes&&<p>{o.notes}</p>}
  <button disabled={busy} onClick={()=>{setSelected(o.id);setConfirmed(null)}}>{selected===o.id?"Selected ✓":"Choose provider"}</button></article>)}</div>
  {selected&&!confirmed&&<article style={{padding:22,marginTop:20,border:"1px solid #DDE5DE",borderRadius:12}}><h2>Request a booking</h2><p>Date and time are validated against the provider's availability on the server.</p><div style={{display:"flex",gap:12,flexWrap:"wrap"}}>
-  <label>Service date <input type="date" value={date} onChange={e=>setDate(e.target.value)}/></label>
-  <label>Start time <input type="time" value={start} onChange={e=>setStart(e.target.value)}/></label>
-  <label>End time <input type="time" value={end} onChange={e=>setEnd(e.target.value)}/></label></div>
+  <label>Service date <input type="date" value={date} onChange={e=>{setDate(e.target.value);setQuote(null)}}/></label>
+  <label>Start time <input type="time" value={start} onChange={e=>{setStart(e.target.value);setQuote(null)}}/></label>
+  <label>End time <input type="time" value={end} onChange={e=>{setEnd(e.target.value);setQuote(null)}}/></label></div>
   <label>Notes (optional) <input maxLength={1000} value={notes} onChange={e=>setNotes(e.target.value)}/></label>
-  <button disabled={busy||!date||!start||!end} className="primary" onClick={()=>void book()}>Request booking</button>
+  <button disabled={busy||!date||!start||!end} onClick={()=>void previewPrice()}>Preview final price & taxes</button>
+  {quote&&<div className="card" role="status" style={{padding:16,marginBlock:12}}>
+   <h3>{quote.total?"Payable estimate: INR "+quote.total:"Provider quote required"}</h3>
+   {quote.serviceAmount&&<p>Service: INR {quote.serviceAmount} · Visit fee: INR {quote.visitFee} · Taxes: INR {quote.taxTotal}</p>}
+   {quote.taxes.map((t,i)=><p key={i}>{t.component} ({(t.rateBps/100).toFixed(2)}%): INR {t.amount}</p>)}
+   <p>{quote.disclosure}</p>
+  </div>}
+  <button disabled={busy||!quote} className="primary" onClick={()=>void book()}>Confirm booking request</button>
  </article>}
  </section></main>;
 }
