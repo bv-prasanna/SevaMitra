@@ -62,6 +62,7 @@ export class FinanceRulesService {
  async createPrice(actorId:string,dto:CreatePriceRuleDto){
   await this.validateScope(dto);
   this.assertValue(dto.adjustment,dto.value);
+  this.checkSchedule(dto);
   return this.prisma.financePriceRule.create({data:{
    ...this.normalized(dto),value:new Prisma.Decimal(dto.value),createdBy:actorId,updatedBy:actorId,
   }});
@@ -74,6 +75,7 @@ export class FinanceRulesService {
    validTo:dto.validTo===undefined?prev.validTo?.toISOString()??null:dto.validTo};
   await this.validateScope(merged);
   this.assertValue(merged.adjustment,Number(merged.value));
+  this.checkSchedule(merged);
   const {createdAt,updatedAt,createdBy,id:_id,...data}=merged;
   return this.prisma.financePriceRule.update({where:{id},data:{...this.normalized(data),
    value:new Prisma.Decimal(data.value),updatedBy:actorId}});
@@ -82,6 +84,13 @@ export class FinanceRulesService {
   const prev=await this.prisma.financePriceRule.findUnique({where:{id}});
   if(!prev)throw new NotFoundException('Pricing rule not found');
   return this.prisma.financePriceRule.update({where:{id},data:{enabled:false,updatedBy:actorId}});
+ }
+ private checkSchedule(x:{startTime?:string|null;endTime?:string|null;weekdays?:number[]}){
+  if(!!x.startTime!==!!x.endTime)throw new BadRequestException('Both startTime and endTime are required');
+  if(x.startTime&&x.endTime&&x.startTime>=x.endTime)
+   throw new BadRequestException('Pricing time window must end after it begins');
+  if(x.weekdays&&new Set(x.weekdays).size!==x.weekdays.length)
+   throw new BadRequestException('Duplicate days of week');
  }
  private assertValue(mode:string,value:number){
   if(!Number.isFinite(value)||value<0)throw new BadRequestException('Invalid price adjustment');
