@@ -1,6 +1,7 @@
 import {IsBoolean,IsNotEmpty,IsOptional,IsString,IsUUID,Matches,MaxLength} from 'class-validator';
 export class UpsertIssuerDto {
  @IsOptional() @IsUUID('4') providerId?:string;
+ @Matches(/^[A-Z0-9]{2,4}$/) issuerCode:string;
  @IsString() @IsNotEmpty() @MaxLength(160) legalName:string;
  @IsString() @IsNotEmpty() @MaxLength(500) address:string;
  @Matches(/^\\d{2}$/) stateCode:string;
