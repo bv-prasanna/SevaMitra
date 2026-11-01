@@ -26,3 +26,7 @@ export class CreatePriceRuleDto extends RuleScopeDto{
  @IsNumber({maxDecimalPlaces:2}) @Min(0) @Max(1000000) value:number;
 }
 export class UpdatePriceRuleDto extends PartialType(CreatePriceRuleDto){}
+
+export class UpdateGstStateCodeDto{
+ @Matches(/^\\d{2}$/) gstStateCode:string;
+}
