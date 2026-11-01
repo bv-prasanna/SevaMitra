@@ -1,5 +1,5 @@
 import {FinanceGeoScope,FinanceTargetScope,FinancePriceAdjustment,FinanceTaxComponent} from '@prisma/client';
-import {IsBoolean,IsEnum,IsInt,IsNumber,IsOptional,IsString,Max,MaxLength,Min,IsISO8601} from 'class-validator';
+import {IsBoolean,IsEnum,IsInt,IsNumber,IsOptional,IsString,Max,MaxLength,Min,IsISO8601,Matches,IsArray} from 'class-validator';
 import {PartialType} from '@nestjs/swagger';
 
 export class RuleScopeDto {
@@ -20,6 +20,9 @@ export class CreateTaxRuleDto extends RuleScopeDto{
 export class UpdateTaxRuleDto extends PartialType(CreateTaxRuleDto){}
 export class CreatePriceRuleDto extends RuleScopeDto{
  @IsEnum(FinancePriceAdjustment) adjustment:FinancePriceAdjustment;
+ @IsOptional() @Matches(/^([01]\\d|2[0-3]):[0-5]\\d$/) startTime?:string|null;
+ @IsOptional() @Matches(/^([01]\\d|2[0-3]):[0-5]\\d$/) endTime?:string|null;
+ @IsOptional() @IsArray() @IsInt({each:true}) @Min(0,{each:true}) @Max(6,{each:true}) weekdays?:number[];
  @IsNumber({maxDecimalPlaces:2}) @Min(0) @Max(1000000) value:number;
 }
 export class UpdatePriceRuleDto extends PartialType(CreatePriceRuleDto){}
