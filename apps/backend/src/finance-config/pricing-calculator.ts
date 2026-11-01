@@ -36,7 +36,7 @@ export function calculateAmounts(args:{
   const percent=pricing.adjustment===FinancePriceAdjustment.PERCENT_UP||pricing.adjustment===FinancePriceAdjustment.PERCENT_DOWN;
   if(percent&&pricing.value>100)throw new BadRequestException('Percentage exceeds 100');
   const delta=percent?Math.round(baseCents*pricing.value/100):Math.round(pricing.value*100);
-  diff=[FinancePriceAdjustment.PERCENT_DOWN,FinancePriceAdjustment.AMOUNT_DOWN].includes(pricing.adjustment)?-delta:delta;
+  diff=(pricing.adjustment===FinancePriceAdjustment.PERCENT_DOWN||pricing.adjustment===FinancePriceAdjustment.AMOUNT_DOWN)?-delta:delta;
   diff=Math.max(-baseCents,diff);
  }
  const serviceCents=baseCents+diff;
