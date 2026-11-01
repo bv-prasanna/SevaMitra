@@ -6,6 +6,7 @@ export class UpsertIssuerDto {
  @Matches(/^\\d{2}$/) stateCode:string;
  @IsOptional() @Matches(/^[0-9A-Z]{15}$/) gstin?:string;
  @IsOptional() @IsString() @MaxLength(12) sacCode?:string;
+ @IsOptional() @IsString() @MaxLength(150) authorizedSignatory?:string;
  @IsBoolean() verified:boolean;
 }
 export class IssueInvoiceDto{
