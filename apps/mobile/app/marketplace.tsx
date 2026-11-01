@@ -8,6 +8,7 @@ import{ApiClient,type ActiveService,type GeoArea,type DiscoveredOffering,type Bo
 import{API_BASE,requestWithSession,sessionUserId}from"../src/session";
 
 type BookingResult={id:string;status:string};
+type PriceQuote={offeringId:string;townVillageId:string;total:string|null;serviceAmount?:string;visitFee?:string;taxTotal?:string;taxes:{component:string;rateBps:number;amount:string}[];disclosure:string};
 type AreaField="state"|"district"|"taluk"|"town";
 export default function Marketplace(){
  const[services,setServices]=useState<ActiveService[]>([]),[serviceId,setServiceId]=useState(""),[search,setSearch]=useState("");
@@ -16,6 +17,7 @@ export default function Marketplace(){
  const[offerings,setOfferings]=useState<DiscoveredOffering[]>([]),[selected,setSelected]=useState(""),[date,setDate]=useState(""),[start,setStart]=useState(""),[end,setEnd]=useState(""),[notes,setNotes]=useState("");
  const[busy,setBusy]=useState(false),[message,setMessage]=useState("Loading services…"),[booking,setBooking]=useState<BookingResult|null>(null);
  const[pendingDraft,setPendingDraft]=useState<PendingBookingDraft|null>(null);
+ const[quote,setQuote]=useState<PriceQuote|null>(null);
  useEffect(()=>{void (async()=>{
   const raw=await SecureStore.getItemAsync(PENDING_BOOKING_KEY);
   if(!raw)return;
@@ -40,12 +42,12 @@ export default function Marketplace(){
  },[]);
  const error=(e:unknown)=>{setMessage(err(e));if((e as {status?:number}).status===401)Alert.alert("Sign in required","Please log in to continue.",[{text:"Later"},{text:"Login",onPress:()=>router.push("/login")}])};
  async function chooseService(id:string){
-  setServiceId(id);setOfferings([]);setSelected("");setBooking(null);setStates([]);setDistricts([]);setTaluks([]);setTowns([]);setState("");setDistrict("");setTaluk("");setTown("");
+  setQuote(null);setServiceId(id);setOfferings([]);setSelected("");setBooking(null);setStates([]);setDistricts([]);setTaluks([]);setTowns([]);setState("");setDistrict("");setTaluk("");setTown("");
   if(!id)return;
   try{const a=await requestWithSession<GeoArea[]>("GET","/geography/states");setStates(a.filter(x=>x.isActive));setMessage("Choose your state, district, taluk and village.");}catch(e){error(e)}
  }
  async function chooseArea(field:AreaField,id:string){
-  setOfferings([]);setSelected("");setBooking(null);
+  setQuote(null);setOfferings([]);setSelected("");setBooking(null);
   if(field==="state"){setState(id);setDistrict("");setTaluk("");setTown("");setDistricts([]);setTaluks([]);setTowns([])}
   if(field==="district"){setDistrict(id);setTaluk("");setTown("");setTaluks([]);setTowns([])}
   if(field==="taluk"){setTaluk(id);setTown("");setTowns([])}
@@ -65,6 +67,16 @@ export default function Marketplace(){
   try{
    const result=await requestWithSession<DiscoveredOffering[]>("GET",`/discovery/offerings?serviceId=${encodeURIComponent(serviceId)}&townVillageId=${encodeURIComponent(town)}`);
    setOfferings(result);setMessage(result.length?"Choose a provider and request a time slot.":"No active verified provider is currently available in this area.");
+  }catch(e){error(e)}finally{setBusy(false)}
+ }
+ async function previewPrice(){
+  if(!selected||!town||!date||!start||!end){setMessage("Select provider, date and time first.");return}
+  setBusy(true);setQuote(null);
+  try{
+   const params=new URLSearchParams({offeringId: selected,townVillageId:town,
+    scheduledDate:date,scheduledStartTime:start});
+   const fresh=await requestWithSession<PriceQuote>("GET","/pricing/quote?"+params.toString());
+   setQuote(fresh);setMessage("Review the final price before submitting.");
   }catch(e){error(e)}finally{setBusy(false)}
  }
  async function sendDraft(draft:PendingBookingDraft){
@@ -89,12 +101,14 @@ export default function Marketplace(){
   if(!selected||!town||!date||!start||!end){setMessage("Complete booking date and time.");return}
   if(!/^\d{4}-\d{2}-\d{2}$/.test(date)||!/^([01]\d|2[0-3]):[0-5]\d$/.test(start)||!/^([01]\d|2[0-3]):[0-5]\d$/.test(end)||start>=end){setMessage("Use YYYY-MM-DD and HH:mm times, with end after start.");return}
   if(pendingDraft){setMessage("Resolve or discard the earlier booking request first.");return}
+  if(!quote||quote.offeringId!==selected||quote.townVillageId!==town){setMessage("Preview the latest total first.");return}
   const userId=await sessionUserId();
   if(!userId){setMessage("Sign in before requesting a booking.");return}
-  const payload:BookingCreate={
+  const payload:BookingCreate&{confirmedTotal?:string}={
    offeringId:selected,townVillageId:town,scheduledDate:date,
    scheduledStartTime:start,scheduledEndTime:end,
    ...(notes.trim()?{notes:notes.trim()}:{}),clientRequestId:newBookingRequestId(),
+   ...(quote.total?{confirmedTotal:quote.total}:{}),
   };
   const draft:PendingBookingDraft={payload:payload as PendingBookingDraft["payload"],savedAt:Date.now(),ownerUserId:userId};
   try{await SecureStore.setItemAsync(PENDING_BOOKING_KEY,JSON.stringify(draft))}
@@ -131,10 +145,15 @@ export default function Marketplace(){
    <Pressable disabled={busy} style={[s.btn,busy&&s.disabled]} onPress={()=>void sendDraft(pendingDraft)}><Text style={s.white}>Retry pending request</Text></Pressable>
    <Pressable disabled={busy} onPress={()=>Alert.alert("Discard saved request?","Check My bookings first. A previous request might have succeeded.",[{text:"Keep",style:"cancel"},{text:"Discard",style:"destructive",onPress:()=>void discardDraft()}])}><Text style={s.link}>Discard saved request</Text></Pressable>
   </View>}
-  {offerings.map(o=><Pressable key={o.id} style={[s.card,o.id===selected&&s.selected]} onPress={()=>{setSelected(o.id);setBooking(null)}}><Text style={s.head}>{o.providerName}</Text><Text>{o.amount===null?"Price on quote":o.currency+" "+o.amount} · {o.pricingModel}</Text>{o.visitFee!==null&&<Text style={s.muted}>Visit fee: {o.currency} {o.visitFee}</Text>}{o.notes&&<Text style={s.muted}>{o.notes}</Text>}<Text style={s.link}>{o.id===selected?"✓ Selected":"Choose provider →"}</Text></Pressable>)}
+  {offerings.map(o=><Pressable key={o.id} style={[s.card,o.id===selected&&s.selected]} onPress={()=>{setSelected(o.id);setQuote(null);setBooking(null)}}><Text style={s.head}>{o.providerName}</Text><Text>{o.amount===null?"Price on quote":o.currency+" "+o.amount} · {o.pricingModel}</Text>{o.visitFee!==null&&<Text style={s.muted}>Visit fee: {o.currency} {o.visitFee}</Text>}{o.notes&&<Text style={s.muted}>{o.notes}</Text>}<Text style={s.link}>{o.id===selected?"✓ Selected":"Choose provider →"}</Text></Pressable>)}
   {!!selected&&!booking&&<View style={s.card}><Text style={s.head}>Request booking</Text><Text style={s.muted}>Enter local service date (YYYY-MM-DD) and time (HH:mm). Availability is validated on the server.</Text>
-   <TextInput style={s.input} value={date} placeholder="2026-10-20" maxLength={10} onChangeText={setDate}/><TextInput style={s.input} value={start} placeholder="Start 09:00" maxLength={5} onChangeText={setStart}/><TextInput style={s.input} value={end} placeholder="End 10:00" maxLength={5} onChangeText={setEnd}/><TextInput style={s.input} value={notes} placeholder="Special instructions (optional)" maxLength={1000} onChangeText={setNotes}/>
-   <Pressable disabled={busy||!date||!start||!end} style={[s.btn,busy&&s.disabled]} onPress={()=>Alert.alert("Request booking?","Provider acceptance is required. Any payment will be handled separately.",[{text:"Cancel",style:"cancel"},{text:"Request booking",onPress:()=>void submit()}])}><Text style={s.white}>Submit booking request</Text></Pressable>
+   <TextInput style={s.input} value={date} placeholder="2026-10-20" maxLength={10} onChangeText={x=>{setDate(x);setQuote(null)}}/><TextInput style={s.input} value={start} placeholder="Start 09:00" maxLength={5} onChangeText={x=>{setStart(x);setQuote(null)}}/><TextInput style={s.input} value={end} placeholder="End 10:00" maxLength={5} onChangeText={x=>{setEnd(x);setQuote(null)}}/><TextInput style={s.input} value={notes} placeholder="Special instructions (optional)" maxLength={1000} onChangeText={setNotes}/>
+   <Pressable disabled={busy||!date||!start||!end} style={[s.btn,busy&&s.disabled]} onPress={()=>void previewPrice()}><Text style={s.white}>Preview price & taxes</Text></Pressable>
+   {!!quote&&<View style={s.card}><Text style={s.head}>{quote.total?"Total estimate: INR "+quote.total:"Provider quotation required"}</Text>
+    {!!quote.serviceAmount&&<Text>Service: INR {quote.serviceAmount} · Visit: INR {quote.visitFee} · Tax: INR {quote.taxTotal}</Text>}
+    {quote.taxes.map((t,i)=><Text key={i}>{t.component} ({(t.rateBps/100).toFixed(2)}%): INR {t.amount}</Text>)}
+    <Text style={s.muted}>{quote.disclosure}</Text></View>}
+   <Pressable disabled={busy||!quote} style={[s.btn,(busy||!quote)&&s.disabled]} onPress={()=>Alert.alert("Confirm booking price",quote?.total?"Total estimate INR "+quote.total+". Provider acceptance required.":"Provider quote required. No payment is collected.",[{text:"Cancel",style:"cancel"},{text:"Confirm booking",onPress:()=>void submit()}])}><Text style={s.white}>Confirm booking request</Text></Pressable>
   </View>}
   {!!booking&&<View style={s.card}><Text style={s.head}>Booking request submitted ✓</Text><Text selectable>{booking.id}</Text><Text>Status: {booking.status}</Text><Pressable onPress={()=>router.push("/customer")}><Text style={s.link}>Track booking →</Text></Pressable></View>}
  </ScrollView></SafeAreaView>

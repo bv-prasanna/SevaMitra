@@ -1,3 +1,4 @@
+import { FinanceConfigModule } from '../finance-config/finance-config.module';
 import { Module } from '@nestjs/common';
 import { CustomerModule } from '../customer/customer.module';
 import { ProviderModule } from '../provider/provider.module';
@@ -19,6 +20,7 @@ import { ProviderBookingController } from './provider/provider-booking.controlle
     ServiceabilityModule,
     AvailabilityModule,
     RuntimeFlagsModule,
+    FinanceConfigModule,
   ],
   controllers: [CustomerBookingController, ProviderBookingController],
   providers: [BookingService],

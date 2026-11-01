@@ -12,6 +12,7 @@ import { TownVillageService } from '../geography/town-village/town-village.servi
 import { CoverageCheckService } from '../serviceability/check/coverage-check.service';
 import { AvailabilityCheckService } from '../availability/check/availability-check.service';
 import { isTimeBefore } from '../common/util/time-of-day';
+import { FinanceQuoteService } from '../finance-config/quote.service';
 import { RuntimeFlagsService } from '../runtime-flags/runtime-flags.service';
 import { CreateBookingDto } from './dto/create-booking.dto';
 import { CancelBookingDto } from './dto/cancel-booking.dto';
@@ -33,6 +34,7 @@ export class BookingService {
     private readonly coverageCheckService: CoverageCheckService,
     private readonly availabilityCheckService: AvailabilityCheckService,
     private readonly runtimeFlags: RuntimeFlagsService,
+    private readonly quoteService: FinanceQuoteService,
   ) {}
 
   // ---------------------------------------------------------------------
@@ -96,6 +98,19 @@ export class BookingService {
       );
     }
 
+    // A rule-driven price may be accepted only after the customer has seen the
+    // current quote. Older clients fail closed rather than receiving a hidden markup.
+    const quote = await this.quoteService.quote({
+      offeringId: dto.offeringId, townVillageId: dto.townVillageId,
+      scheduledDate: dto.scheduledDate, scheduledStartTime: dto.scheduledStartTime,
+    });
+    if (quote.total != null) {
+      if (dto.confirmedTotal !== undefined && dto.confirmedTotal !== quote.total)
+        throw new ConflictException('Price changed. Refresh and acknowledge the latest quote');
+      if ((quote.priceRuleId || quote.taxes.length > 0) && dto.confirmedTotal !== quote.total)
+        throw new ConflictException('Confirm the full price breakdown before booking');
+    }
+
     // Provider/day-scoped advisory lock protects against two simultaneous
     // requests passing availability checks before either booking is inserted.
     // The booking conflict query and INSERT share the same transaction.
@@ -120,7 +135,7 @@ export class BookingService {
         select: {id: true},
       });
       if (conflict) throw new ConflictException('Provider is already booked in the requested time window');
-      return tx.booking.create({
+      const newBooking = await tx.booking.create({
         data: {
           customerId: customer.id,
           offeringId: offering.id,
@@ -129,13 +144,25 @@ export class BookingService {
           scheduledStartTime: dto.scheduledStartTime,
           scheduledEndTime: dto.scheduledEndTime,
           pricingModel: offering.pricingModel,
-          amount: offering.amount,
-          visitFee: offering.visitFee,
+          amount: quote.total != null ? Number(quote.serviceAmount) : offering.amount,
+          visitFee: quote.total != null ? Number(quote.visitFee) : offering.visitFee,
           currency: offering.currency,
           notes: dto.notes,
           clientRequestId: dto.clientRequestId,
         },
       });
+      if (quote.total != null) {
+        await tx.bookingPriceSnapshot.create({data:{
+          bookingId:newBooking.id,originalAmount:quote.originalAmount,
+          serviceAmount:quote.serviceAmount,visitFee:quote.visitFee,
+          taxableAmount:quote.taxableAmount,taxTotal:quote.taxTotal,totalAmount:quote.total,
+          currency:quote.currency,priceRuleId:quote.priceRuleId,
+          taxBreakdown:quote.taxes.map(x=>({
+            component:x.component,rateBps:x.rateBps,ruleId:x.ruleId,amountCents:Math.round(Number(x.amount)*100),
+          })),
+        }});
+      }
+      return newBooking;
     },{isolationLevel:Prisma.TransactionIsolationLevel.Serializable});
 
     // PostgreSQL aborts one contender on a serializable conflict (P2034).

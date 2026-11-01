@@ -54,4 +54,9 @@ export class CreateBookingDto {
   @IsString()
   @MaxLength(1000)
   notes?: string;
+
+  @ApiProperty({required:false,example:'590.00',description:'Explicitly acknowledged final preview total, required when any tax or dynamic rule applies.'})
+  @IsOptional()
+  @Matches(/^\d{1,9}\.\d{2}$/)
+  confirmedTotal?: string;
 }

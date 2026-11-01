@@ -8,6 +8,7 @@ import type { OfferingService } from '../provider-offering/offering.service';
 import type { TownVillageService } from '../geography/town-village/town-village.service';
 import type { CoverageCheckService } from '../serviceability/check/coverage-check.service';
 import type { AvailabilityCheckService } from '../availability/check/availability-check.service';
+import type { FinanceQuoteService } from '../finance-config/quote.service';
 import type { RuntimeFlagsService } from '../runtime-flags/runtime-flags.service';
 
 describe('BookingService', () => {
@@ -20,6 +21,7 @@ describe('BookingService', () => {
       findFirst: jest.Mock;
     };
     providerProfile: { findUnique: jest.Mock };
+    bookingPriceSnapshot:{create:jest.Mock};
     $transaction: jest.Mock;
   };
   let customerService: { getActiveProfileOrThrow: jest.Mock };
@@ -29,6 +31,7 @@ describe('BookingService', () => {
   let coverageCheckService: { isServiceable: jest.Mock };
   let availabilityCheckService: { getAvailability: jest.Mock };
   let runtimeFlags: {assertBookingAllowed: jest.Mock};
+  let quoteService:{quote:jest.Mock};
   let service: BookingService;
 
   const customer = { id: 'customer-1' };
@@ -61,13 +64,14 @@ describe('BookingService', () => {
         update: jest.fn(),
         findFirst: jest.fn().mockResolvedValue(null),
       },
+      bookingPriceSnapshot:{create:jest.fn().mockResolvedValue({id:'snapshot-1'})},
       providerProfile: {findUnique: jest.fn().mockResolvedValue({
         status:ProviderStatus.ACTIVE,verificationStatus:VerificationStatus.VERIFIED,
       })},
       $transaction: jest.fn(),
     };
     prisma.$transaction.mockImplementation(async (fn:(tx:unknown)=>Promise<unknown>)=>
-      fn({booking:prisma.booking,$queryRaw:jest.fn().mockResolvedValue([])}));
+      fn({booking:prisma.booking,bookingPriceSnapshot:prisma.bookingPriceSnapshot,$queryRaw:jest.fn().mockResolvedValue([])}));
     customerService = {
       getActiveProfileOrThrow: jest.fn().mockResolvedValue(customer),
     };
@@ -89,6 +93,7 @@ describe('BookingService', () => {
     };
 
     runtimeFlags = { assertBookingAllowed: jest.fn().mockResolvedValue(undefined) };
+    quoteService = {quote:jest.fn().mockResolvedValue({total:'500.00',originalAmount:'500.00',serviceAmount:'500.00',visitFee:'0.00',taxableAmount:'500.00',taxTotal:'0.00',priceRuleId:null,currency:'INR',taxes:[]})};
     service = new BookingService(
       prisma as unknown as PrismaService,
       customerService as unknown as CustomerService,
@@ -98,10 +103,29 @@ describe('BookingService', () => {
       coverageCheckService as unknown as CoverageCheckService,
       availabilityCheckService as unknown as AvailabilityCheckService,
       runtimeFlags as unknown as RuntimeFlagsService,
+      quoteService as unknown as FinanceQuoteService,
     );
   });
 
   describe('create', () => {
+    it('does not silently apply an admin surcharge without customer acknowledgement',async()=>{
+      quoteService.quote.mockResolvedValue({total:'550.00',originalAmount:'500.00',serviceAmount:'550.00',visitFee:'0.00',taxableAmount:'550.00',taxTotal:'0.00',priceRuleId:'rule-1',currency:'INR',taxes:[]});
+      await expect(service.create('user-1',createDto)).rejects.toThrow(ConflictException);
+      expect(prisma.booking.create).not.toHaveBeenCalled();
+    });
+    it('rejects a stale confirmed total and asks for a new quote',async()=>{
+      quoteService.quote.mockResolvedValue({total:'550.00',originalAmount:'500.00',serviceAmount:'550.00',visitFee:'0.00',taxableAmount:'550.00',taxTotal:'0.00',priceRuleId:'rule-1',currency:'INR',taxes:[]});
+      await expect(service.create('user-1',{...createDto,confirmedTotal:'500.00'})).rejects.toThrow(ConflictException);
+    });
+    it('creates an immutable pricing snapshot in the same booking transaction',async()=>{
+      quoteService.quote.mockResolvedValue({total:'554.00',originalAmount:'500.00',serviceAmount:'500.00',visitFee:'0.00',taxableAmount:'500.00',taxTotal:'54.00',priceRuleId:null,currency:'INR',taxes:[{component:'CGST',rateBps:540,amount:'27.00',ruleId:'gst1'},{component:'SGST',rateBps:540,amount:'27.00',ruleId:'gst2'}]});
+      prisma.booking.create.mockResolvedValue({id:'new-booking'});
+      await service.create('user-1',{...createDto,confirmedTotal:'554.00'});
+      expect(prisma.bookingPriceSnapshot.create).toHaveBeenCalledWith({data:expect.objectContaining({
+        bookingId:'new-booking',totalAmount:'554.00',taxTotal:'54.00',taxBreakdown:expect.arrayContaining([expect.objectContaining({component:'CGST',amountCents:2700})]),
+      })});
+    });
+
     it('creates a booking copying pricing snapshot from the offering', async () => {
       prisma.booking.create.mockResolvedValue({ id: 'booking-1' });
 
