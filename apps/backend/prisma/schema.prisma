@@ -1979,6 +1979,7 @@ model BillingIssuer {
   stateCode String @map("state_code")
   gstin String?
   sacCode String? @map("sac_code")
+  authorizedSignatory String? @map("authorized_signatory")
   verified Boolean @default(false)
   updatedBy String @map("updated_by")
   updatedAt DateTime @updatedAt @map("updated_at")
