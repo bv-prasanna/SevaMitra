@@ -5,6 +5,7 @@ import {PermissionsGuard} from '../iam/authorization/permissions.guard';
 import {RequirePermissions} from '../iam/authorization/require-permissions.decorator';
 import {CurrentUser} from '../auth/decorators/current-user.decorator';
 import type {AuthenticatedUser} from '../auth/token/jwt-payload.interface';
+import {UpdateGstStateCodeDto} from './rules.dto';
 import {FinanceRulesService} from './rules.service';
 import {CreatePriceRuleDto,CreateTaxRuleDto,UpdatePriceRuleDto,UpdateTaxRuleDto} from './rules.dto';
 @ApiTags('Finance tax and pricing configuration')
@@ -13,6 +14,8 @@ import {CreatePriceRuleDto,CreateTaxRuleDto,UpdatePriceRuleDto,UpdateTaxRuleDto}
 @Controller({path:'finance/config',version:'1'})
 export class FinanceRulesController {
  constructor(private readonly rules:FinanceRulesService){}
+ @Patch('states/:id/gst-code') @RequirePermissions('finance.tax.manage')
+ stateGstCode(@Param('id') id:string,@Body() dto:UpdateGstStateCodeDto){return this.rules.updateGstStateCode(id,dto.gstStateCode)}
  @Get('taxes') @RequirePermissions('finance.tax.manage')
  taxes(){return this.rules.taxes()}
  @Post('taxes') @RequirePermissions('finance.tax.manage')
