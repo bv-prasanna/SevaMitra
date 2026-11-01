@@ -17,7 +17,7 @@ CONSTRAINT "tax_rules_dates_ck" CHECK ("valid_to" IS NULL OR "valid_from" IS NUL
 CREATE TABLE "finance"."pricing_rules" (
 "id" TEXT NOT NULL,"name" TEXT NOT NULL,"geo_scope" "finance"."FinanceGeoScope" NOT NULL DEFAULT 'ALL',"geo_id" TEXT,
 "target_scope" "finance"."FinanceTargetScope" NOT NULL DEFAULT 'ALL',"target_id" TEXT,
-"adjustment" "finance"."FinancePriceAdjustment" NOT NULL,"value" DECIMAL(12,2) NOT NULL,
+"adjustment" "finance"."FinancePriceAdjustment" NOT NULL,"start_time" TEXT,"end_time" TEXT,"weekdays" INTEGER[] NOT NULL DEFAULT ARRAY[]::INTEGER[],"value" DECIMAL(12,2) NOT NULL,
 "priority" INTEGER NOT NULL DEFAULT 0,"enabled" BOOLEAN NOT NULL DEFAULT false,
 "valid_from" TIMESTAMP(3),"valid_to" TIMESTAMP(3),"created_by" TEXT NOT NULL,"updated_by" TEXT NOT NULL,
 "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,"updated_at" TIMESTAMP(3) NOT NULL,
