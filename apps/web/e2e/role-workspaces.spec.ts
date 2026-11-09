@@ -29,7 +29,8 @@ test('denied/expired token never displays privileged workspaces',async({page})=>
  await page.goto('/workspaces/');
  await expect(page.getByRole('heading',{name:'Admin',exact:true})).toHaveCount(0);
  await expect(page.getByRole('heading',{name:'Provider',exact:true})).toHaveCount(0);
- await expect(page.getByRole('link',{name:'Sign in'})).toBeVisible();
+ await expect(page.getByRole('button',{name:'Sign out',exact:true})).toBeVisible();
+ await expect(page.getByRole('link',{name:'Sign in / Register'})).toHaveCount(0);
 });
 test('admin creates role with specific View and Edit rights, not bundled Manage',async({page})=>{
  let roles=[] as any[],sent:any=null;
