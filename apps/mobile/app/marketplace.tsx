@@ -33,7 +33,7 @@ export default function Marketplace(){
  })().catch(()=>undefined)},[]);
  const publicApi=new ApiClient(API_BASE);
  useEffect(()=>{
-  if(!API_BASE){setMessage("API not configured. Set EXPO_PUBLIC_API_BASE_URL.");return}
+  if(!API_BASE){setMessage("Service discovery is temporarily unavailable. Please contact support.");return}
   void publicApi.get<ActiveService[]>("/catalogue/services").then(items=>{
    const live=items.filter(x=>x.isActive);setServices(live);setMessage(live.length?"Select a service to find verified local professionals.":"No active services available yet.");
   }).catch(e=>setMessage(err(e)));
