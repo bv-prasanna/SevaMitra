@@ -22,7 +22,7 @@ describe('Role-aware mobile/web workspace menu',()=>{
  it('shows customer registration but no privileged workspaces to a new account',async()=>{
   const result=await service.forUser('new-user');
   expect(result).toEqual({
-   customer:true,provider:false,agent:false,admin:false,
+   customer:true,provider:false,agent:false,admin:false,adminPermissions:[],
    canJoinProvider:true,canJoinAgent:true,providerStatus:null,agentStatus:null,
   });
  });
@@ -44,11 +44,32 @@ describe('Role-aware mobile/web workspace menu',()=>{
   iam.getEffectivePermissionKeys.mockResolvedValue(new Set(['provider.onboarding.review']));
   const result=await service.forUser('reviewer');
   expect(result.admin).toBe(true);
+  expect(result.adminPermissions).toEqual(['provider.onboarding.review']);
   expect(result.provider).toBe(false);
  });
  it('recognizes super-admin wildcard without requiring provider profile',async()=>{
   iam.getEffectivePermissionKeys.mockResolvedValue(new Set(['*']));
   expect((await service.forUser('super-admin')).admin).toBe(true);
+ });
+ it('allows delegated agent reviewers to open their agent-only admin workspace',async()=>{
+  iam.getEffectivePermissionKeys.mockResolvedValue(new Set(['agent.review']));
+  const result=await service.forUser('agent-reviewer');
+  expect(result.admin).toBe(true);
+  expect(result.adminPermissions).toEqual(['agent.review']);
+  expect(result.provider).toBe(false);
+ });
+ it('allows catalogue-only managers to open admin but not provider approval tools',async()=>{
+  iam.getEffectivePermissionKeys.mockResolvedValue(new Set(['catalogue.manage']));
+  const result=await service.forUser('catalogue-manager');
+  expect(result.admin).toBe(true);
+  expect(result.adminPermissions).not.toContain('provider.onboarding.review');
+  expect(result.adminPermissions).toEqual(['catalogue.manage']);
+ });
+ it('ignores irrelevant permissions when constructing navigation hints',async()=>{
+  iam.getEffectivePermissionKeys.mockResolvedValue(new Set(['iam.permission.view','agent.review','audit.view']));
+  const result=await service.forUser('agent-manager');
+  expect(result.admin).toBe(true);
+  expect(result.adminPermissions).toEqual(['agent.review']);
  });
  it('does not treat unrelated permissions as onboarding-admin privileges',async()=>{
   iam.getEffectivePermissionKeys.mockResolvedValue(new Set(['iam.permission.view','commission.rule.view']));
