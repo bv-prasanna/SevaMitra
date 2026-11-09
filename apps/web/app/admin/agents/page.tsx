@@ -23,13 +23,13 @@ export default function AgentReview(){
   setLoading(true);setError("");
   try{
    const token=localStorage.getItem("sevamitra_token");
-   if(!token){setNeedsLogin(true);setAgents([]);setError("Sign in to review agent applications.");return}
+   if(!token){setNeedsLogin(true);setAgents([]);setError("Sign in to review agent applications.");return false}
    const result=await api.get<Agent[]>("/agents/admin");
-   setAgents(Array.isArray(result)?result:[]);setNeedsLogin(false);
+   setAgents(Array.isArray(result)?result:[]);setNeedsLogin(false);return true;
   }catch(e){
    const status=(e as {status?:number}).status;
    setAgents([]);setNeedsLogin(status===401);
-   setError(status===401?"Your session expired. Please sign in again.":status===403?"Your account does not have the agent.review permission. Ask an administrator for the appropriate scope.":e instanceof Error?e.message:"Unable to load agent applications.");
+   setError(status===401?"Your session expired. Please sign in again.":status===403?"Your account does not have the agent.review permission. Ask an administrator for the appropriate scope.":e instanceof Error?e.message:"Unable to load agent applications.");return false;
   }finally{setLoading(false)}
  },[]);
  useEffect(()=>{void load()},[load]);
@@ -40,8 +40,9 @@ export default function AgentReview(){
   setBusy(x.id);setError("");setNotice("");
   try{
    await api.patch("/agents/admin/"+encodeURIComponent(x.id)+"/status",{decision});
-   setIntent(null);await load();
-   setNotice(decision==="APPROVE"?x.fullName+" is now an approved agent.":x.fullName+" has been suspended.");
+   setIntent(null);const confirmed=await load();
+   if(confirmed)setNotice(decision==="APPROVE"?x.fullName+" is now an approved agent.":x.fullName+" has been suspended.");
+   else setError("Decision was submitted, but the latest agent status could not be confirmed. Refresh before retrying.");
   }catch(e){setError(e instanceof Error?e.message:"Unable to update agent. Refresh and try again.")}
   finally{setBusy(null)}
  }

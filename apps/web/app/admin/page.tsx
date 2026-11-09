@@ -7,8 +7,8 @@ export default function Admin(){
  const[notice,setNotice]=useState(""),[documents,setDocuments]=useState<Record<string,Document[]>>({}),[items,setItems]=useState<Application[]>([]),[msg,setMsg]=useState("Loading onboarding queue…"),[busy,setBusy]=useState<string|null>(null),[notes,setNotes]=useState<Record<string,string>>({});
  const api=new ApiClient(base,()=>typeof window!=="undefined"?localStorage.getItem("sevamitra_token")||undefined:undefined);
  const load=useCallback(async()=>{
-  try{const a=await api.get<Application[]>("/provider-onboarding/applications");setItems(Array.isArray(a)?a:[]);setMsg("")}
-  catch(e){setItems([]);setDocuments({});setMsg(e instanceof Error?e.message:"Unable to load applications; check admin permissions and sign-in")}
+  try{const a=await api.get<Application[]>("/provider-onboarding/applications");setItems(Array.isArray(a)?a:[]);setMsg("");return true}
+  catch(e){setItems([]);setDocuments({});setMsg(e instanceof Error?e.message:"Unable to load applications; check admin permissions and sign-in");return false}
  // eslint-disable-next-line react-hooks/exhaustive-deps
  },[]);
  useEffect(()=>{void load()},[load]);
@@ -36,7 +36,9 @@ export default function Admin(){
   try{
    if(action==="claim")await api.patch(`/provider-onboarding/applications/${x.id}/claim`,{});
    else await api.post(`/provider-onboarding/applications/${x.id}/review`,{decision:action==="approve"?"APPROVED":"REJECTED",...(action==="reject"?{reviewNote:notes[x.id]?.trim()??""}:{})});
-   await load();setNotice(action==="claim"?"Application claimed for review.":action==="approve"?"Provider application approved.":"Provider application rejected.");
+   const confirmed=await load();
+   if(confirmed)setNotice(action==="claim"?"Application claimed for review.":action==="approve"?"Provider application approved.":"Provider application rejected.");
+   else setMsg("Decision was submitted, but the verification queue could not be refreshed. Check the current state before retrying.");
   }catch(e){setMsg(e instanceof Error?e.message:"Update failed")}finally{setBusy(null)}
  }
  return <main>

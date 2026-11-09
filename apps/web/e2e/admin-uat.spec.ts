@@ -73,3 +73,18 @@ test('catalogue creation validates fields and saves real server results',async({
  await page.getByLabel('Search', {exact:true}).fill('Not listed');
  await expect(page.getByText('No matching services')).toBeVisible();
 });
+
+test('review action with failed subsequent refresh never claims confirmed approval',async({page})=>{
+ let decisionSent=false;
+ await page.route(API+'/agents/admin',r=>{
+  if(decisionSent)return r.fulfill({status:503,json:{error:{message:'database unavailable'}}});
+  return r.fulfill({json:[{id:'agent-2',fullName:'Second Agent',agentCode:'UAT444',status:'PENDING',createdAt:'2026-11-02T00:00:00Z'}]});
+ });
+ await page.route(API+'/agents/admin/agent-2/status',r=>{decisionSent=true;return r.fulfill({json:{status:'ACTIVE'}})});
+ await page.goto('/admin/agents/');
+ await page.getByRole('button',{name:'Review and approve'}).click();
+ await page.getByRole('button',{name:'Approve agent'}).click();
+ await expect(page.locator('.uatFeedback[role="alert"]')).toContainText('could not be confirmed');
+ await expect(page.getByText('now an approved agent')).toHaveCount(0);
+ expect(decisionSent).toBe(true);
+});

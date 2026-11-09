@@ -26,10 +26,10 @@ export default function AdminCatalogue(){
   setLoading(true);setError("");
   try{
    const[c,s]=await Promise.all([api.get<Category[]>("/catalogue/categories"),api.get<Service[]>("/catalogue/services")]);
-   setCategories(Array.isArray(c)?c:[]);setServices(Array.isArray(s)?s:[]);
+   setCategories(Array.isArray(c)?c:[]);setServices(Array.isArray(s)?s:[]);return true;
   }catch(e){
    setCategories([]);setServices([]);
-   setError(e instanceof Error?e.message:"Unable to load the catalogue. Confirm your permission and try again.");
+   setError(e instanceof Error?e.message:"Unable to load the catalogue. Confirm your permission and try again.");return false;
   }finally{setLoading(false)}
  },[]);
  useEffect(()=>{void load()},[load]);
@@ -44,8 +44,9 @@ export default function AdminCatalogue(){
   if(name.length<2){setError("Category name must contain at least two characters.");return}
   setBusy(true);setError("");setNotice("");
   try{
-   await api.post("/catalogue/categories",{name});setCategoryName("");await load();
-   setNotice("Category created. You can now add services under this category.");
+   await api.post("/catalogue/categories",{name});setCategoryName("");const confirmed=await load();
+   if(confirmed)setNotice("Category created. You can now add services under this category.");
+   else setError("Category was submitted, but the catalogue could not be refreshed. Verify before retrying.");
   }catch(e){setError(e instanceof Error?e.message:"Cannot create category. Check your catalogue permissions.")}
   finally{setBusy(false)}
  }
@@ -55,8 +56,9 @@ export default function AdminCatalogue(){
   setBusy(true);setError("");setNotice("");
   try{
    await api.post("/catalogue/services",{categoryId,name,description:description.trim()||undefined});
-   setServiceName("");setDescription("");await load();
-   setNotice("Service created. Providers can now configure an offering once it is enabled.");
+   setServiceName("");setDescription("");const confirmed=await load();
+   if(confirmed)setNotice("Service created. Providers can now configure an offering once it is enabled.");
+   else setError("Service was submitted, but the catalogue could not be refreshed. Verify before retrying.");
   }catch(e){setError(e instanceof Error?e.message:"Unable to create service. Check the details and permissions.")}
   finally{setBusy(false)}
  }
