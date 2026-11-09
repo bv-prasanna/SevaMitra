@@ -24,7 +24,7 @@ export default function Organizations(){
   try{await fn();await refresh();if(refreshId)await open(refreshId);setMsg(success)}
   catch(e){setMsg(e instanceof Error?e.message:"Request failed")}finally{setBusy(false)}
  }
- return <main><header className="nav"><Link href="/admin" className="brand">← SevaMitra Admin</Link><Link href="/workspaces">Workspaces</Link></header>
+ return <main>
  <section className="workspace"><h1>Provider organizations</h1><p>Manage verified company structures, provider groups and staff. This section requires <code>provider.organization.manage</code>.</p>
  {!!msg&&<p role="status">{msg}</p>}
  <article style={{padding:18,border:"1px solid #ddd",borderRadius:12}}><h2>Create company (pending verification)</h2><input maxLength={150} value={companyName} placeholder="Company name" onChange={e=>setCompanyName(e.target.value)}/>

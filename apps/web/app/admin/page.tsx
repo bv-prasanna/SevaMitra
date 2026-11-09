@@ -39,7 +39,7 @@ export default function Admin(){
    await load();setNotice(action==="claim"?"Application claimed for review.":action==="approve"?"Provider application approved.":"Provider application rejected.");
   }catch(e){setMsg(e instanceof Error?e.message:"Update failed")}finally{setBusy(null)}
  }
- return <main><header className="nav"><Link href="/" className="brand"><span className="mark">✦</span><div><b>Seva<span>Mitra</span></b><small>Operations console</small></div></Link><Link href="/workspaces">Workspaces</Link></header>
+ return <main>
   <section className="workspace adminHub"><div className="workspaceTop"><div><div className="pill">Operations console</div><h1>SevaMitra administration</h1><p>Control your service catalogue, onboarding, permissions and pilot operations from one place.</p></div><button className="primary" disabled={!!busy} onClick={()=>void load()}><RefreshCw size={16}/> Refresh</button></div>
   {!!notice&&<p role="status" aria-live="polite">{notice}</p>}{!!msg&&<p role="alert">{msg}</p>}{!msg&&items.length===0&&<p>No onboarding applications are waiting for review.</p>}
   <h2>Management tools</h2><div className="adminToolGrid">

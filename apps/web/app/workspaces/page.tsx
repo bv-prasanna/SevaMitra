@@ -27,7 +27,7 @@ export default function Workspaces(){
   localStorage.removeItem("sevamitra_token");
   window.location.assign("/login");
  }
- return <main><header className="nav"><Link href="/workspaces" className="brand"><span className="mark">✦</span><div><b>Seva<span>Mitra</span></b><small>Workspaces</small></div></Link></header>
+ return <main>
  <section className="workspace workspaceHub"><div className="workspaceTop"><div><div className="pill">Your SevaMitra account</div><h1>Choose your workspace</h1><p>Everything you need, with one sign-in. Only your authorized roles are shown.</p></div><Link href="/profile" className="outline">My profile <ArrowUpRight size={16}/></Link></div>
  {message&&<p role="status">{message}</p>}
  <div className="workspaceRoleGrid">{access&&menu.filter(x=>access[x.key]).map(x=><Link className="workspaceRoleCard" href={x.href} key={x.href}><div className="workspaceRoleIcon"><x.icon size={24}/></div><h2>{x.name}</h2><p>{x.desc}</p><span>Open workspace <ArrowUpRight size={17}/></span></Link>)}</div>

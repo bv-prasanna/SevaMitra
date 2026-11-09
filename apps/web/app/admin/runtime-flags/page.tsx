@@ -39,7 +39,7 @@ export default function RuntimeFlags(){
   finally{setBusy(false)}
  }
  return <main>
-  <header className="nav"><Link href="/admin" className="brand">← SevaMitra Admin</Link><Link href="/workspaces">Workspaces</Link></header>
+  
   <section className="workspace">
    <div className="workspaceTop"><div><h1>Pilot and emergency controls</h1>
     <p>Operations-only, audited runtime switches. Only users authorized to manage IAM roles may change these interim controls.</p></div>

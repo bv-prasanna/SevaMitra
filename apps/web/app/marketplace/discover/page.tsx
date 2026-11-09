@@ -85,7 +85,7 @@ export default function Discover(){
    setConfirmed(booking);setMessage("Booking request created. Track it in your customer workspace.");
   }catch(e){setMessage(showError(e))}finally{setBusy(false)}
  }
- return <main><header className="nav"><Link href="/" className="brand"><span className="mark">✦</span><div><b>Seva<span>Mitra</span></b><small>Service discovery</small></div></Link><Link href="/marketplace">All services</Link></header>
+ return <main>
  <section className="workspace"><h1>{name||"Find local professionals"}</h1><p>Only active, verified providers with approved service coverage are shown. Sign in to view providers and book.</p>
  <p>We use your current location only with your permission. For automatic detection, the approximate coordinates are sent to OpenStreetMap to identify your PIN. You may choose a different area below.</p><button type="button" className="primary" onClick={()=>void useMyLocation(true)} disabled={locating}>{locating?"Detecting location…":"Use my current location"}</button>{locationNote&&<p role="status">{locationNote}</p>}<div style={{display:"flex",gap:12,flexWrap:"wrap",margin:"22px 0"}}>
   {([[states,state,(id:string)=>void loadDistricts(id),"State"],[districts,district,(id:string)=>void loadTaluks(id),"District"],[taluks,taluk,(id:string)=>void loadTowns(id),"Taluk"],[towns,town,(id:string)=>{setTown(id);setResults([]);setSelected("")},"Town/Village"]] as const).map(([options,current,onChange,label])=><label key={label} style={{display:"grid",gap:6,minWidth:180}}>{label}<select value={current} onChange={e=>onChange(e.target.value)}><option value="">Select {label}</option>{options.map(x=><option key={x.id} value={x.id}>{x.name}{x.pincode?` (${x.pincode})`:""}</option>)}</select></label>)}

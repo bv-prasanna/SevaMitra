@@ -31,7 +31,7 @@ export default function Operations(){
   const href=URL.createObjectURL(new Blob([data],{type:"text/csv;charset=utf-8"}));
   const a=document.createElement("a");a.href=href;a.download="sevamitra-operations-summary.csv";a.click();URL.revokeObjectURL(href);
  }
- return <main><header className="nav"><Link href="/">SevaMitra</Link><Link href="/admin">Admin</Link></header><section className="workspace">
+ return <main><section className="workspace">
  <div className="workspaceTop"><div><div className="pill">Administration</div><h1>Operations, analytics & help</h1><p>Live counts from the staging database; this is not a financial report.</p></div><button onClick={()=>void load()}>Refresh</button></div>
  {!!message&&<p role="status">{message}</p>}
  {summary&&<><p>Updated: {new Date(summary.generatedAt).toLocaleString()}</p><button onClick={download}>Export summary (CSV)</button><div className="adminModules">{metrics.map(([label,value])=><article key={label}><h3>{value}</h3><p>{label}</p></article>)}</div></>}

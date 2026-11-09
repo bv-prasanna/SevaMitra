@@ -71,7 +71,7 @@ export default function ProviderServiceManagement(){
    :api.post("/serviceability/coverage/me",{primaryTownVillageId:town,radiusKm:km}),
    "Coverage profile saved");
  }
- return <main><header className="nav"><Link href="/provider" className="brand">← Provider workspace</Link><Link href="/workspaces">Workspaces</Link></header>
+ return <main>
  <section className="workspace"><h1>Services, working hours and coverage</h1><p>Manage the services you provide. Only verified and active providers appear in customer discovery.</p>
  {!!message&&<p role="status">{message}</p>}
  <h2>My services ({offers.length})</h2>
