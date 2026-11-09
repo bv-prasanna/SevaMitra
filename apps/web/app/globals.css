@@ -78,3 +78,31 @@ button:disabled{cursor:not-allowed;opacity:.58}
  .workspace>article,.workspace>section>article{padding:16px}
 }
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}*,*:before,*:after{transition:none!important;animation:none!important}}
+
+
+/* Dedicated profile, role chooser and admin hub; cohesive SevaMitra shell */
+.workspaceTop .pill{gap:7px}.workspaceTop button,.workspaceHub .workspaceTop a{display:inline-flex;align-items:center;justify-content:center;gap:8px}
+.workspaceRoleGrid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:18px;margin:28px 0}
+.workspaceRoleCard{min-height:248px;display:flex;flex-direction:column;align-items:flex-start;gap:10px;padding:25px;border:1px solid #d8e7dd;border-radius:22px;background:#fff;box-shadow:0 10px 35px rgba(8,56,47,.045);transition:transform .16s ease,box-shadow .16s ease,border-color .16s ease}
+.workspaceRoleCard:hover,.workspaceRoleCard:focus-visible{border-color:#95c7ac;box-shadow:0 18px 44px rgba(8,56,47,.11);transform:translateY(-3px)}
+.workspaceRoleIcon{height:54px;width:54px;border-radius:16px;background:#e4f4eb;color:var(--green);display:grid;place-items:center}
+.workspaceRoleCard h2{margin:3px 0 0;font-size:21px}.workspaceRoleCard p{margin:0;line-height:1.5;color:var(--muted);font-size:13px}
+.workspaceRoleCard>span{display:flex;align-items:center;gap:8px;color:var(--green);font-weight:800;font-size:13px;margin-top:auto}
+.workspaceHub>section h2{font-size:20px;margin-top:22px}
+.adminToolGrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;margin:20px 0 35px}
+.adminToolCard{border:1px solid #dce8de;background:#fff;border-radius:18px;padding:23px;min-height:155px;display:flex;flex-direction:column;align-items:flex-start;gap:9px;position:relative;box-shadow:0 9px 25px rgba(8,56,47,.045)}
+.adminToolCard>svg:first-child{color:var(--green)}.adminToolCard strong{font-size:16px}.adminToolCard span{font-size:12px;color:var(--muted);max-width:90%;line-height:1.5}
+.adminToolCard .adminToolArrow{color:var(--orange);position:absolute;right:19px;bottom:20px}
+.adminToolCard:hover,.adminToolCard:focus-visible{border-color:#94c7a9;box-shadow:0 16px 35px rgba(8,56,47,.09)}
+.queueHeading{display:flex;justify-content:space-between;align-items:flex-end;margin-top:25px}.queueHeading h2{margin:12px 0 5px}
+.accountProfileGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px;margin-top:25px}
+.accountPanel{min-width:0;background:#fff;border:1px solid #dce9e1;border-radius:22px;padding:25px;box-shadow:0 9px 30px rgba(8,56,47,.045)}
+.accountPanelWide{grid-column:1/-1}.accountPanel h2{font-size:21px;margin:0}.accountPanel p{color:var(--muted)}
+.panelHeading{display:flex;align-items:flex-start;gap:14px;margin-bottom:20px}.panelHeading>svg{color:var(--green);flex-shrink:0}
+.panelHeading p{font-size:12px;margin:5px 0 0}.profileField{padding:14px 0;border-top:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;gap:16px}
+.profileField span{font-size:13px;color:var(--muted)}.profileField strong{font-size:14px;overflow-wrap:anywhere}
+.accountHint{font-size:12px}.profileCheck{display:flex!important;align-items:center;gap:10px;font-weight:600!important;font-size:13px;cursor:pointer}
+.accountProfile .profileCheck input{width:18px;height:18px;margin:0;flex-shrink:0}.accountProfile .profileCheck svg{color:var(--green)}.accountProfile button[type=submit]{margin-top:18px}
+.accountRoles{display:flex;flex-wrap:wrap;gap:11px}.accountRoles a{border:1px solid #cde5d6;background:#f1f9f4;border-radius:12px;padding:12px 16px;display:flex;gap:9px;align-items:center;font-weight:800;font-size:13px;color:var(--green)}
+@media(max-width:1060px){.workspaceRoleGrid{grid-template-columns:repeat(2,minmax(0,1fr))}.adminToolGrid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:650px){.workspaceRoleGrid,.adminToolGrid,.accountProfileGrid{grid-template-columns:minmax(0,1fr)}.accountPanelWide{grid-column:auto}.workspaceRoleCard{min-height:190px}.accountPanel{padding:18px}.profileField{align-items:flex-start;flex-direction:column;gap:5px}}

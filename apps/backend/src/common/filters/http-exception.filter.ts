@@ -26,11 +26,12 @@ export class HttpExceptionFilter implements ExceptionFilter {
       : HttpStatus.INTERNAL_SERVER_ERROR;
 
     const body = isHttpException ? exception.getResponse() : undefined;
-    const { message, details } = isHttpException
+    const isServerError = status >= HttpStatus.INTERNAL_SERVER_ERROR;
+    const { message, details } = !isServerError && isHttpException
       ? this.normalize(body, exception)
-      : { message: "An unexpected server error occurred. Please try again later.", details: undefined };
+      : { message: 'An unexpected server error occurred. Please try again later.', details: undefined };
 
-    if (!isHttpException) {
+    if (isServerError) {
       this.logger.error(
         exception instanceof Error ? exception.stack : exception,
       );

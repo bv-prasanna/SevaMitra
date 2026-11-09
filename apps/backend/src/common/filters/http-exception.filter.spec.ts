@@ -1,4 +1,4 @@
-import { ArgumentsHost, BadRequestException, ForbiddenException } from '@nestjs/common';
+import { ArgumentsHost, BadRequestException, ForbiddenException, InternalServerErrorException, ServiceUnavailableException } from '@nestjs/common';
 import { HttpExceptionFilter } from './http-exception.filter';
 
 describe('HttpExceptionFilter negative-path responses', () => {
@@ -15,6 +15,17 @@ describe('HttpExceptionFilter negative-path responses', () => {
   expect(actual.status).toBe(500);
   expect(actual.body.error.message).toBe('An unexpected server error occurred. Please try again later.');
   expect(JSON.stringify(actual.body)).not.toContain('top-secret');
+ });
+ it('redacts explicitly thrown 5xx exceptions with sensitive nested messages',()=>{
+  for(const exception of [
+   new InternalServerErrorException('DB password=top-secret'),
+   new ServiceUnavailableException('Payments gateway API key=top-secret'),
+  ]){
+   const actual=invoke(exception);
+   expect(actual.status).toBeGreaterThanOrEqual(500);
+   expect(actual.body.error.message).toMatch(/try again later/);
+   expect(JSON.stringify(actual.body)).not.toContain('top-secret');
+  }
  });
  it('keeps a safe validation message for user-correctable requests',()=>{
   const actual=invoke(new BadRequestException('Date must not be in the past'));
