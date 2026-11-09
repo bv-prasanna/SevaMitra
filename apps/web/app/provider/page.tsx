@@ -36,7 +36,7 @@ export default function Provider(){
  async function action(b:Booking,kind:"accept"|"reject"|"complete"){
   if(kind==="reject"&&!reasons[b.id]?.trim()){setMsg("Enter a rejection reason.");return}
   if(kind==="complete"&&!confirm("Confirm service completion?"))return;
-  setBusy(true);try{await api.post(`/bookings/provider/me/${b.id}/${kind}`,kind==="reject"?{reason:reasons[b.id].trim()}:{});setReasons(old=>({...old,[b.id]:""}));await load();setNotice(kind==="accept"?"Booking accepted.":kind==="reject"?"Booking rejected.":"Service marked as completed.");}catch(e){setMsg(e instanceof Error?e.message:"Booking update failed")}finally{setBusy(false)}
+  setBusy(true);try{await api.post(`/bookings/provider/me/${b.id}/${kind}`,kind==="reject"?{reason:reasons[b.id]?.trim()??""}:{});setReasons(old=>({...old,[b.id]:""}));await load();setNotice(kind==="accept"?"Booking accepted.":kind==="reject"?"Booking rejected.":"Service marked as completed.");}catch(e){setMsg(e instanceof Error?e.message:"Booking update failed")}finally{setBusy(false)}
  }
  return <main><header className="nav"><Link className="brand" href="/"><span className="mark">✦</span><div><b>Seva<span>Mitra</span></b><small>Provider workspace</small></div></Link><div style={{display:"flex",gap:15}}><Link href="/provider/manage">Manage services & coverage</Link><Link href="/workspaces">Workspaces</Link></div></header>
  <section className="workspace">{notice&&<p role="status" aria-live="polite">{notice}</p>}<div className="workspaceTop"><div><div className="pill">Provider</div><h1>{profile?.fullName||"Provider registration"}</h1><p>{profile?`Account: ${profile.status} · Verification: ${profile.verificationStatus}`:msg}</p></div><Link href="/login" className="primary">Sign in</Link></div>
