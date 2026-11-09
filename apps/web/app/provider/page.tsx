@@ -5,15 +5,18 @@ type Profile={id:string;fullName:string;status:string;verificationStatus:string}
 type Booking={id:string;status:string;scheduledDate:string;scheduledStartTime:string;scheduledEndTime:string;amount?:string|null;currency:string};
 type App={id:string;status:string;reviewNote?:string|null;documents?:{id:string;type:string;createdAt:string}[]};
 export default function Provider(){
- const[notice,setNotice]=useState(""),[uploadFile,setUploadFile]=useState<File|null>(null),[documentType,setDocumentType]=useState("IDENTITY"),[referralCode,setReferralCode]=useState(""),[profile,setProfile]=useState<Profile|null>(null),[onboard,setOnboard]=useState<App|null>(null),[bookings,setBookings]=useState<Booking[]>([]),[name,setName]=useState(""),[reasons,setReasons]=useState<Record<string,string>>({}),[msg,setMsg]=useState("Loading…"),[busy,setBusy]=useState(false);
+ const[profileState,setProfileState]=useState<"loading"|"missing"|"ready"|"error">("loading"),[notice,setNotice]=useState(""),[uploadFile,setUploadFile]=useState<File|null>(null),[documentType,setDocumentType]=useState("IDENTITY"),[referralCode,setReferralCode]=useState(""),[profile,setProfile]=useState<Profile|null>(null),[onboard,setOnboard]=useState<App|null>(null),[bookings,setBookings]=useState<Booking[]>([]),[name,setName]=useState(""),[reasons,setReasons]=useState<Record<string,string>>({}),[msg,setMsg]=useState("Loading…"),[busy,setBusy]=useState(false);
  const api=new ApiClient(process.env.NEXT_PUBLIC_API_BASE_URL||"",()=>localStorage.getItem("sevamitra_token")||undefined);
  async function load(){
   try{
-   const p=await api.get<Profile>("/providers/me");setProfile(p);
+   const p=await api.get<Profile>("/providers/me");setProfile(p);setProfileState("ready");
    const r=await Promise.allSettled([api.get<Booking[]>("/bookings/provider/me"),api.get<App>("/provider-onboarding/applications/me")]);
    setBookings(r[0].status==="fulfilled"&&Array.isArray(r[0].value)?r[0].value:[]);
-   setOnboard(r[1].status==="fulfilled"?r[1].value:null);setMsg("");
-  }catch(e){setProfile(null);setBookings([]);setOnboard(null);setMsg((e as {status?:number}).status===404?"Create a provider profile to begin.":e instanceof Error?e.message:"Unable to load provider workspace")}
+   setOnboard(r[1].status==="fulfilled"?r[1].value:null);
+   const bookingsError=r[0].status==="rejected"?r[0].reason:null;
+   const onboardingError=r[1].status==="rejected"&&(r[1].reason as {status?:number})?.status!==404?r[1].reason:null;
+   setMsg(bookingsError||onboardingError?"Some provider details could not be loaded. Refresh to retry.":"");
+  }catch(e){const status=(e as {status?:number}).status;setProfile(null);setBookings([]);setOnboard(null);setProfileState(status===404?"missing":"error");setMsg(status===404?"Create a provider profile to begin.":status===401?"Sign in to access your provider workspace.":e instanceof Error?e.message:"Unable to load provider workspace")}
  }
  useEffect(()=>{void load()},[]);
  async function create(){if(name.trim().length<2)return;setBusy(true);try{await api.post("/providers/me",{fullName:name.trim(),preferredLanguage:"kn"});await load();setNotice("Provider profile created. Submit your verification application to continue.")}catch(e){setMsg(e instanceof Error?e.message:"Profile creation failed")}finally{setBusy(false)}}
@@ -41,7 +44,7 @@ export default function Provider(){
  return <main><header className="nav"><Link className="brand" href="/"><span className="mark">✦</span><div><b>Seva<span>Mitra</span></b><small>Provider workspace</small></div></Link><div style={{display:"flex",gap:15}}><Link href="/provider/manage">Manage services & coverage</Link><Link href="/workspaces">Workspaces</Link></div></header>
  <section className="workspace">{notice&&<p role="status" aria-live="polite">{notice}</p>}<div className="workspaceTop"><div><div className="pill">Provider</div><h1>{profile?.fullName||"Provider registration"}</h1><p>{profile?`Account: ${profile.status} · Verification: ${profile.verificationStatus}`:msg}</p></div><Link href="/profile" className="primary">My profile</Link></div>
  {!!msg&&<p role="alert">{msg}</p>}
- {!profile&&<article><label>Your full name</label><input maxLength={150} value={name} onChange={e=>setName(e.target.value)}/><button disabled={busy||name.trim().length<2} onClick={()=>void create()}>Create provider profile</button></article>}
+ {profileState==="error"&&<p><Link href="/login">Sign in →</Link> <button type="button" onClick={()=>void load()}>Retry</button></p>}{profileState==="missing"&&<article><label htmlFor="provider-name">Your full name</label><input id="provider-name" maxLength={150} value={name} onChange={e=>setName(e.target.value)}/><button disabled={busy||name.trim().length<2} onClick={()=>void create()}>Create provider profile</button></article>}
  {profile&&<><article><h2>Verification</h2><p>Application: {onboard?.status||"Not submitted"}</p>{onboard?.reviewNote&&<p>{onboard.reviewNote}</p>}{(!onboard||onboard.status==="REJECTED")&&<><label>Agent referral code (optional)</label><input maxLength={20} placeholder="Referral code" value={referralCode} onChange={e=>setReferralCode(e.target.value.toUpperCase())}/><button disabled={busy} onClick={()=>void submit()}>Submit application for review</button></>}
  {onboard&&<section><h3>Private verification documents</h3><p>PDF/JPG/PNG, up to 5 MB. Only authorized operations reviewers can download these documents.</p>
  <label>Document type<select value={documentType} onChange={e=>setDocumentType(e.target.value)}>{["IDENTITY","ADDRESS_PROOF","BUSINESS_REGISTRATION","SKILL_CERTIFICATE","LICENSE","REFERENCE","OTHER"].map(t=><option value={t} key={t}>{t.replaceAll("_"," ")}</option>)}</select></label>

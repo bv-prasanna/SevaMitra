@@ -6,15 +6,15 @@ type Booking={id:string;status:string;scheduledDate:string;scheduledStartTime:st
 type Profile={id:string;fullName:string;status:string;verificationStatus:string};
 type Onboarding={status:string;reviewNote?:string|null};
 export default function Provider(){
- const[profile,setProfile]=useState<Profile|null>(null),[name,setName]=useState(""),[bookings,setBookings]=useState<Booking[]>([]),[onboard,setOnboard]=useState<Onboarding|null>(null),[busy,setBusy]=useState(false),[message,setMessage]=useState("Loading…"),[reasons,setReasons]=useState<Record<string,string>>({});
+ const[profileState,setProfileState]=useState<"loading"|"missing"|"ready"|"error">("loading"),[profile,setProfile]=useState<Profile|null>(null),[name,setName]=useState(""),[bookings,setBookings]=useState<Booking[]>([]),[onboard,setOnboard]=useState<Onboarding|null>(null),[busy,setBusy]=useState(false),[message,setMessage]=useState("Loading…"),[reasons,setReasons]=useState<Record<string,string>>({});
  const load=useCallback(async()=>{
   try{
-   const p=await requestWithSession<Profile>("GET","/providers/me");setProfile(p);
+   const p=await requestWithSession<Profile>("GET","/providers/me");setProfile(p);setProfileState("ready");
    const results=await Promise.allSettled([requestWithSession<Booking[]>("GET","/bookings/provider/me"),requestWithSession<Onboarding>("GET","/provider-onboarding/applications/me")]);
    setBookings(results[0].status==="fulfilled"&&Array.isArray(results[0].value)?results[0].value:[]);
    setOnboard(results[1].status==="fulfilled"?results[1].value:null);
    setMessage("");
-  }catch(e){setProfile(null);setMessage((e as {status?:number}).status===404?"Create your provider profile to begin onboarding.":e instanceof Error?e.message:"Unable to load workspace")}
+  }catch(e){const status=(e as {status?:number}).status;setProfile(null);setBookings([]);setOnboard(null);setProfileState(status===404?"missing":"error");setMessage(status===404?"Create your provider profile to begin onboarding.":status===401?"Sign in to access your provider workspace.":e instanceof Error?e.message:"Unable to load workspace")}
  },[]);
  useEffect(()=>{void load()},[load]);
  async function create(){if(name.trim().length<2)return;setBusy(true);try{await requestWithSession("POST","/providers/me",{fullName:name.trim(),preferredLanguage:"kn"});await load();setMessage("Provider profile saved. Submit your verification application to continue.")}catch(e){setMessage(e instanceof Error?e.message:"Unable to create profile")}finally{setBusy(false)}}
@@ -23,7 +23,7 @@ export default function Provider(){
  return <SafeAreaView style={s.safe}><ScrollView contentContainerStyle={s.page}><Text style={s.title}>Provider workspace</Text>
   <View style={s.nav}><Pressable onPress={()=>router.push("/workspaces")}><Text style={s.link}>Workspaces</Text></Pressable><Pressable onPress={()=>void signOut().then(()=>router.replace("/login"))}><Text style={s.link}>Sign out</Text></Pressable><Pressable onPress={()=>void load()}><Text style={s.link}>↻ Refresh</Text></Pressable></View>
   {!!message&&<Text accessibilityRole="alert" style={s.notice}>{message}</Text>}
-  {!profile&&<View style={s.card}><Text style={s.heading}>Register as a provider</Text><TextInput style={s.input} value={name} placeholder="Your full name" maxLength={150} onChangeText={setName}/><Pressable disabled={busy||name.trim().length<2} style={s.btn} onPress={()=>void create()}><Text style={s.white}>Create provider profile</Text></Pressable></View>}
+  {profileState==="error"&&<Pressable style={s.btn} onPress={()=>router.replace("/login")}><Text style={s.white}>Sign in to continue</Text></Pressable>}{profileState==="missing"&&<View style={s.card}><Text style={s.heading}>Register as a provider</Text><TextInput style={s.input} value={name} placeholder="Your full name" maxLength={150} onChangeText={setName}/><Pressable disabled={busy||name.trim().length<2} style={s.btn} onPress={()=>void create()}><Text style={s.white}>Create provider profile</Text></Pressable></View>}
   {profile&&<><View style={s.card}><Text style={s.heading}>{profile.fullName}</Text><Text>Status: {profile.status} · Verification: {profile.verificationStatus}</Text><Text style={s.muted}>Application: {onboard?.status||"Not submitted"}</Text>{onboard?.reviewNote&&<Text style={s.notice}>{onboard.reviewNote}</Text>}
    {(!onboard||onboard.status==="REJECTED")&&<Pressable disabled={busy} style={s.btn} onPress={()=>void submit()}><Text style={s.white}>{onboard?"Resubmit":"Submit"} verification application</Text></Pressable>}
   </View>

@@ -5,19 +5,21 @@ import{requestWithSession,signOut}from"../src/session";
 type Profile={fullName:string};
 type Booking={id:string;status:string;scheduledDate:string;scheduledStartTime:string;scheduledEndTime:string;amount?:string|null;currency:string};
 export default function Customer(){
- const[profile,setProfile]=useState<Profile|null>(null),[bookings,setBookings]=useState<Booking[]>([]),[name,setName]=useState(""),[message,setMessage]=useState("Loading…"),[busy,setBusy]=useState(false);
+ const[profileState,setProfileState]=useState<"loading"|"missing"|"ready"|"error">("loading"),[profile,setProfile]=useState<Profile|null>(null),[bookings,setBookings]=useState<Booking[]>([]),[name,setName]=useState(""),[message,setMessage]=useState("Loading…"),[busy,setBusy]=useState(false);
  async function load(){
   try{
-   const p=await requestWithSession<Profile>("GET","/customers/me");setProfile(p);
+   const p=await requestWithSession<Profile>("GET","/customers/me");setProfile(p);setProfileState("ready");
+  }catch(e){const status=(e as {status?:number}).status;setProfile(null);setBookings([]);setProfileState(status===404?"missing":"error");setMessage(status===404?"Complete your customer profile to book services.":status===401?"Sign in to access your customer profile.":e instanceof Error?e.message:"Unable to load customer profile");return}
+  try{
    const b=await requestWithSession<Booking[]>("GET","/bookings/me");setBookings(Array.isArray(b)?b:[]);setMessage("");
-  }catch(e){if((e as {status?:number}).status===404){setProfile(null);setMessage("Complete your customer profile to book services.")}else setMessage(e instanceof Error?e.message:"Unable to load bookings")}
+  }catch(e){setBookings([]);setMessage(e instanceof Error?e.message:"Unable to load bookings. Refresh and try again.")}
  }
  useEffect(()=>{void load()},[]);
  async function create(){if(name.trim().length<2)return;setBusy(true);try{await requestWithSession("POST","/customers/me",{fullName:name.trim(),preferredLanguage:"kn"});await load();setMessage("Customer profile saved.")}catch(e){setMessage(e instanceof Error?e.message:"Unable to create customer")}finally{setBusy(false)}}
  async function cancel(id:string){setBusy(true);try{await requestWithSession("POST",`/bookings/me/${id}/cancel`,{reason:"Cancelled by customer"});await load();setMessage("Booking cancelled. Check its refund status separately, if applicable.")}catch(e){setMessage(e instanceof Error?e.message:"Cancellation failed")}finally{setBusy(false)}}
  return <SafeAreaView style={s.safe}><ScrollView contentContainerStyle={s.page}><Text style={s.title}>Customer workspace</Text><View style={s.nav}><Pressable onPress={()=>router.push("/workspaces")}><Text style={s.link}>Workspaces</Text></Pressable><Pressable onPress={()=>void signOut().then(()=>router.replace("/login"))}><Text style={s.link}>Sign out</Text></Pressable></View>
   {!!message&&<Text accessibilityRole="alert" style={s.notice}>{message}</Text>}
-  {!profile?<View style={s.card}><Text style={s.heading}>Complete your profile</Text><TextInput accessibilityLabel="Customer full name" style={s.input} value={name} maxLength={150} placeholder="Full name" onChangeText={setName}/><Pressable disabled={busy||name.trim().length<2} style={s.btn} onPress={()=>void create()}><Text style={s.white}>Save profile</Text></Pressable></View>:<><Text style={s.heading}>Welcome, {profile.fullName}</Text>
+  {profileState==="error"&&<Pressable style={s.btn} onPress={()=>router.replace("/login")}><Text style={s.white}>Sign in to continue</Text></Pressable>}{profileState==="missing"?<View style={s.card}><Text style={s.heading}>Complete your profile</Text><TextInput accessibilityLabel="Customer full name" style={s.input} value={name} maxLength={150} placeholder="Full name" onChangeText={setName}/><Pressable disabled={busy||name.trim().length<2} style={s.btn} onPress={()=>void create()}><Text style={s.white}>Save profile</Text></Pressable></View>:profileState==="ready"&&profile?<><Text style={s.heading}>Welcome, {profile.fullName}</Text>
    <Pressable style={s.btn} onPress={()=>router.push("/marketplace")}><Text style={s.white}>Find services →</Text></Pressable>
    <Text style={s.heading}>My bookings ({bookings.length})</Text>
    {bookings.length===0&&<Text style={s.muted}>No bookings yet.</Text>}
