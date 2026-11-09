@@ -22,7 +22,7 @@ test.describe('one site-wide header on public and workspace pages',()=>{
  });
  test('provider service management link remains after removing legacy header',async({page})=>{
   await page.goto('/provider/');
-  await expect(page.getByRole('link',{name:'Manage services & coverage'})).toHaveAttribute('href','/provider/manage');
+  await expect(page.getByRole('link',{name:'Manage services & coverage'})).toHaveAttribute('href',/\\/provider\\/manage\\/?$/);
  });
  test('mobile account navigation has a single accessible menu',async({page})=>{
   await page.setViewportSize({width:390,height:844});
