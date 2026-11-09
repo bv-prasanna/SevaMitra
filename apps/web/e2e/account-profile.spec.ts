@@ -38,7 +38,7 @@ test('rejected profile update never claims successful save',async({page})=>{
  await page.getByLabel('Full name').fill('Another Name');
  await page.getByRole('button',{name:'Save changes'}).click();
  await expect(page.locator('.accountProfile [role=alert]')).toContainText('do not have permission');
- await expect(page.locator('.accountProfile [role=status]')).not.toContainText('saved successfully');
+ await expect(page.locator('.accountProfile [role=status]')).toHaveCount(0);
 });
 test('anonymous visitors are asked to sign in and cannot see cached identity',async({page})=>{
  await page.addInitScript(()=>localStorage.removeItem('sevamitra_token'));
