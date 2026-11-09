@@ -14,12 +14,12 @@ const categories=[
   {name:"More Services",icon:MoreHorizontal,tone:"green"}
 ];
 export default function Home(){
- const [kn,setKn]=useState(false); const t=kn?messages.kn:messages.en;
+ const [kn,setKn]=useState(false); const [searchPin,setSearchPin]=useState("");const [searchTerm,setSearchTerm]=useState("");const [menuOpen,setMenuOpen]=useState(false);const t=kn?messages.kn:messages.en;
  return <main className="home">
   <header className="siteHeader">
    <a className="brandLogo" href="/"><img className="officialLogo" src="/sevamitra-logo.png" alt="SevaMitra — One App. Many Services."/></a>
-   <nav className="mainNav"><a href="/marketplace">{t.nav.services}</a><a href="#customers">{kn?"ಗ್ರಾಹಕರಿಗೆ":"For Customers"}</a><a href="#providers">{t.nav.providers}</a><a href="#agents">{t.nav.agents}</a><a href="#about">{t.nav.about}</a></nav>
-   <div className="headerActions"><button className="locationBtn"><MapPin size={16}/>{kn?"ಸ್ಥಳ ಆಯ್ಕೆ":"Select location"}</button><button className="languageBtn" onClick={()=>setKn(!kn)}><Languages size={16}/>{kn?"English":"ಕನ್ನಡ"}</button><HomeAccountActions/></div>
+   <nav id="primary-navigation" aria-label="Main navigation" className={"mainNav"+(menuOpen?" open":"")}><a href="/marketplace">{t.nav.services}</a><a href="#customers">{kn?"ಗ್ರಾಹಕರಿಗೆ":"For Customers"}</a><a href="#providers">{t.nav.providers}</a><a href="#agents">{t.nav.agents}</a><a href="#about">{t.nav.about}</a></nav>
+   <div className="headerActions"><a href="/marketplace" className="locationBtn"><MapPin size={16}/>{kn?"ಸ್ಥಳ ಆಯ್ಕೆ":"Select location"}</a><button type="button" className="menuToggle" aria-controls="primary-navigation" aria-expanded={menuOpen} aria-label={menuOpen?"Close menu":"Open menu"} onClick={()=>setMenuOpen(v=>!v)}>{menuOpen?"✕":"☰"}</button><button className="languageBtn" onClick={()=>setKn(!kn)}><Languages size={16}/>{kn?"English":"ಕನ್ನಡ"}</button><HomeAccountActions/></div>
   </header>
 
   <section className="premiumHero">
@@ -30,18 +30,18 @@ export default function Home(){
     <span className="eyebrow"><BadgeCheck size={16}/>{t.hero.badge}</span>
     <h1>{t.hero.title1}<br/><span>{t.hero.title2}</span></h1>
     <p>{t.hero.body}</p>
-    <div className="heroSearch">
-      <button className="heroLocation"><MapPin size={20}/><span><small>{kn?"ನಿಮ್ಮ ಸ್ಥಳ":"Your location"}</small>{t.hero.location}</span></button>
-      <div className="searchInput"><Search size={20}/><input placeholder={t.hero.searchPlaceholder}/></div>
-      <a href="/marketplace">{t.hero.search} <ArrowRight size={18}/></a>
-    </div>
+    <form className="heroSearch" role="search" onSubmit={event=>{event.preventDefault();const params=new URLSearchParams();if(searchPin)params.set("pin",searchPin);if(searchTerm.trim())params.set("query",searchTerm.trim());window.location.assign("/marketplace"+(params.size?"?"+params.toString():""));}}>
+      <label className="heroLocation"><MapPin size={20}/><span><small>{kn?"ನಿಮ್ಮ ಪಿನ್ ಕೋಡ್":"Your PIN code"}</small><input aria-label="Service PIN code" inputMode="numeric" pattern="[0-9]{6}" maxLength={6} placeholder="6-digit PIN" value={searchPin} onChange={e=>setSearchPin(e.target.value.replace(/\D/g,"").slice(0,6))}/></span></label>
+      <div className="searchInput"><Search size={20}/><input aria-label="Search services" value={searchTerm} onChange={e=>setSearchTerm(e.target.value)} placeholder={t.hero.searchPlaceholder}/></div>
+      <button type="submit" className="heroSearchSubmit">{t.hero.search} <ArrowRight size={18}/></button>
+    </form>
     <div className="heroTrust"><span><ShieldCheck/>{kn?"ಪರಿಶೀಲಿತ ಪ್ರೊಫೈಲ್‌ಗಳು":"Verification information"}</span><span><Star/>{kn?"ರೇಟಿಂಗ್ ಮತ್ತು ವಿಮರ್ಶೆಗಳು":"Service information"}</span><span><CheckCircle2/>{kn?"ಪಾರದರ್ಶಕ ಸೇವಾ ವಿವರಗಳು":"Transparent service details"}</span></div>
    </div>
   </section>
 
   <section className="categorySection" id="customers">
    <div className="sectionIntro"><div><span className="sectionKicker">{kn?"ಸೇವೆಗಳನ್ನು ಅನ್ವೇಷಿಸಿ":"Explore services"}</span><h2>{kn?"ಪ್ರತಿ ಅಗತ್ಯಕ್ಕೂ ನಿಮ್ಮ ಹತ್ತಿರದಲ್ಲೇ ಸಹಾಯ":"Help for every need, close to home"}</h2></div><a href="/marketplace">{kn?"ಎಲ್ಲಾ ಸೇವೆಗಳನ್ನು ನೋಡಿ":"View all services"} <ArrowRight size={17}/></a></div>
-   <div className="categoryGrid">{categories.map(({name,icon:Icon,tone},i)=><a href="/marketplace" className="categoryCard" key={name}><span className={"categoryIcon "+tone}><Icon/></span><strong>{kn?["ಮನೆ ಸ್ವಚ್ಛತೆ","ಎಲೆಕ್ಟ್ರಿಷಿಯನ್","ಪ್ಲಂಬರ್","ಸೌಂದರ್ಯ ಮತ್ತು ವೆಲ್‌ನೆಸ್","ಉಪಕರಣ ದುರಸ್ತಿ","ಟ್ಯೂಟರ್‌ಗಳು","ಇನ್ನಷ್ಟು ಸೇವೆಗಳು"][i]:name}</strong><small>{kn?"ಆಯ್ಕೆಗಳನ್ನು ನೋಡಿ":"Explore options"}</small><ArrowRight className="cardArrow" size={18}/></a>)}</div>
+   <div className="categoryGrid">{categories.map(({name,icon:Icon,tone},i)=><a href={"/marketplace?query="+encodeURIComponent(name==="More Services"?"":name)} className="categoryCard" key={name}><span className={"categoryIcon "+tone}><Icon/></span><strong>{kn?["ಮನೆ ಸ್ವಚ್ಛತೆ","ಎಲೆಕ್ಟ್ರಿಷಿಯನ್","ಪ್ಲಂಬರ್","ಸೌಂದರ್ಯ ಮತ್ತು ವೆಲ್‌ನೆಸ್","ಉಪಕರಣ ದುರಸ್ತಿ","ಟ್ಯೂಟರ್‌ಗಳು","ಇನ್ನಷ್ಟು ಸೇವೆಗಳು"][i]:name}</strong><small>{kn?"ಆಯ್ಕೆಗಳನ್ನು ನೋಡಿ":"Explore options"}</small><ArrowRight className="cardArrow" size={18}/></a>)}</div>
   </section>
 
   <section className="confidenceBand">
@@ -66,7 +66,7 @@ export default function Home(){
    <article id="agents" className="agentPanel"><div className="panelBadge">{kn?"ಸಮುದಾಯ ಪಾಲುದಾರರಿಗೆ":"For community partners"}</div><h2>{kn?"ಸ್ಥಳೀಯ ವೃತ್ತಿಪರರು ಡಿಜಿಟಲ್ ಮಾರುಕಟ್ಟೆಗೆ ಸೇರಲು ಸಹಾಯ ಮಾಡಿ.":"Help local professionals join the digital marketplace."}</h2><p>{kn?"SevaMitra ಏಜೆಂಟ್‌ಗಳು ಸೇವಾ ಪೂರೈಕೆದಾರರ ನೋಂದಣಿಗೆ ಸಹಾಯ ಮಾಡಿ, ಸಮುದಾಯಗಳಲ್ಲಿ ವಿಶ್ವಾಸಾರ್ಹ ಸೇವೆಗಳ ಲಭ್ಯತೆಯನ್ನು ವಿಸ್ತರಿಸುತ್ತಾರೆ.":"SevaMitra agents support provider onboarding and help expand trusted service access across local communities."}</p><a href="/agent">{kn?"ಏಜೆಂಟ್ ಅವಕಾಶಗಳನ್ನು ನೋಡಿ":"Explore Agent Opportunities"} <ArrowRight size={18}/></a><div className="panelArt"><Users/><span>{kn?"ಸಮುದಾಯಗಳನ್ನು ಸಂಪರ್ಕಿಸಿ":"Connect communities"}</span></div></article>
   </section>
 
-  <section className="communitySection" id="about"><div className="communityCopy"><span className="sectionKicker">{kn?"ಉತ್ತಮ ನಾಳೆಗಾಗಿ ಸೇವೆಗಳು":"Services for a better tomorrow"}</span><h2>{kn?"ಸ್ಥಳೀಯ ಸಮುದಾಯಗಳನ್ನು ಕೇಂದ್ರದಲ್ಲಿಡುವ ತಂತ್ರಜ್ಞಾನ.":"Technology that keeps local communities at the centre."}</h2><p>{kn?"ಸ್ಥಳೀಯ ಸೇವೆಗಳನ್ನು ಸುಲಭವಾಗಿ ಹುಡುಕಲು ಮತ್ತು ನಿಪುಣ ವೃತ್ತಿಪರರು ಡಿಜಿಟಲ್ ಆರ್ಥಿಕತೆಯಲ್ಲಿ ಭಾಗವಹಿಸಲು SevaMitra ನೆರವಾಗುತ್ತದೆ.":"SevaMitra is designed to make local services easier to discover while helping skilled professionals participate in the digital economy."}</p><div className="communityPoints"><span><CheckCircle2/>{kn?"ಸ್ಥಳೀಯ ಮತ್ತು ಸುಲಭ ಲಭ್ಯ":"Local & accessible"}</span><span><CheckCircle2/>{kn?"ಪಾರದರ್ಶಕ ಆಯ್ಕೆಗಳು":"Transparent choices"}</span><span><CheckCircle2/>{kn?"ಸಮುದಾಯ ಕೇಂದ್ರಿತ":"Community focused"}</span><span><CheckCircle2/>{kn?"ವಿಶ್ವಾಸಕ್ಕಾಗಿ ವಿನ್ಯಾಸ":"Designed for trust"}</span></div></div><div className="communityVisual"><div className="communityMark"><span>S</span><span>M</span></div><strong>{kn?"ಸ್ಥಳೀಯ ಸೇವೆಗಳು.":"Local Services."}<br/>{kn?"ಬಲಿಷ್ಠ ಸಮುದಾಯಗಳು.":"Stronger Communities."}</strong><p>{kn?"ಗ್ರಾಹಕರು, ಸೇವಾ ಪೂರೈಕೆದಾರರು ಮತ್ತು ಸಮುದಾಯ ಪಾಲುದಾರರನ್ನು ಸಂಪರ್ಕಿಸುವ ಒಂದೇ ಮಾರುಕಟ್ಟೆ.":"One marketplace connecting customers, providers and community partners."}</p></div></section>
+  <section className="communitySection" id="about"><div className="communityCopy"><span className="sectionKicker">{kn?"ಉತ್ತಮ ನಾಳೆಗಾಗಿ ಸೇವೆಗಳು":"Services for a better tomorrow"}</span><h2>{kn?"ಸ್ಥಳೀಯ ಸಮುದಾಯಗಳನ್ನು ಕೇಂದ್ರದಲ್ಲಿಡುವ ತಂತ್ರಜ್ಞಾನ.":"Technology that keeps local communities at the centre."}</h2><p>{kn?"ಸ್ಥಳೀಯ ಸೇವೆಗಳನ್ನು ಸುಲಭವಾಗಿ ಹುಡುಕಲು ಮತ್ತು ನಿಪುಣ ವೃತ್ತಿಪರರು ಡಿಜಿಟಲ್ ಆರ್ಥಿಕತೆಯಲ್ಲಿ ಭಾಗವಹಿಸಲು SevaMitra ನೆರವಾಗುತ್ತದೆ.":"SevaMitra is designed to make local services easier to discover while helping skilled professionals participate in the digital economy."}</p><div className="communityPoints"><span><CheckCircle2/>{kn?"ಸ್ಥಳೀಯ ಮತ್ತು ಸುಲಭ ಲಭ್ಯ":"Local & accessible"}</span><span><CheckCircle2/>{kn?"ಪಾರದರ್ಶಕ ಆಯ್ಕೆಗಳು":"Transparent choices"}</span><span><CheckCircle2/>{kn?"ಸಮುದಾಯ ಕೇಂದ್ರಿತ":"Community focused"}</span><span><CheckCircle2/>{kn?"ವಿಶ್ವಾಸಕ್ಕಾಗಿ ವಿನ್ಯಾಸ":"Designed for trust"}</span></div></div><div className="communityVisual"><div className="communityMark"><img src="/sevamitra-logo.png" alt="SevaMitra" /></div><strong>{kn?"ಸ್ಥಳೀಯ ಸೇವೆಗಳು.":"Local Services."}<br/>{kn?"ಬಲಿಷ್ಠ ಸಮುದಾಯಗಳು.":"Stronger Communities."}</strong><p>{kn?"ಗ್ರಾಹಕರು, ಸೇವಾ ಪೂರೈಕೆದಾರರು ಮತ್ತು ಸಮುದಾಯ ಪಾಲುದಾರರನ್ನು ಸಂಪರ್ಕಿಸುವ ಒಂದೇ ಮಾರುಕಟ್ಟೆ.":"One marketplace connecting customers, providers and community partners."}</p></div></section>
 
   <footer className="premiumFooter"><div className="footerBrand"><a className="brandLogo inverse" href="/"><img className="officialLogo footerLogo" src="/sevamitra-logo.png" alt="SevaMitra"/></a><p>{kn?"ನಿಮ್ಮ ಹತ್ತಿರದ ಸೇವೆಗಳು ಮತ್ತು ನಿಪುಣ ವೃತ್ತಿಪರರನ್ನು ಹುಡುಕಲು ವಿಶ್ವಾಸಾರ್ಹ ಹೈಪರ್‌ಲೋಕಲ್ ಮಾರುಕಟ್ಟೆ.":"Your trusted hyperlocal marketplace for discovering services and skilled professionals nearby."}</p></div><div><b>{kn?"ಅನ್ವೇಷಿಸಿ":"Explore"}</b><a href="/marketplace">{t.nav.services}</a><a href="/login">{kn?"ಗ್ರಾಹಕ ಲಾಗಿನ್":"Customer Login"}</a><a href="/#providers">{t.nav.providers}</a></div><div><b>{kn?"ಸಮುದಾಯ":"Community"}</b><a href="/#agents">{t.nav.agents}</a><a href="/#about">{kn?"SevaMitra ಬಗ್ಗೆ":"About SevaMitra"}</a></div><div><b>{kn?"ಬೆಂಬಲ":"Support"}</b><span>{kn?"ಸಹಾಯ ಮತ್ತು ಬೆಂಬಲ":"Help & support"}</span><span>{kn?"ಸುರಕ್ಷತೆ ಮತ್ತು ವಿಶ್ವಾಸ":"Safety & trust"}</span></div></footer>
  </main>

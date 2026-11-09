@@ -4,7 +4,7 @@ const base=process.env.NEXT_PUBLIC_API_BASE_URL||"";
 type Application={id:string;providerId:string;status:string;channel:string;submittedAt:string;reviewNote?:string|null};
 type Document={id:string;type:string;label?:string|null};
 export default function Admin(){
- const[documents,setDocuments]=useState<Record<string,Document[]>>({}),[items,setItems]=useState<Application[]>([]),[msg,setMsg]=useState("Loading onboarding queue…"),[busy,setBusy]=useState<string|null>(null),[notes,setNotes]=useState<Record<string,string>>({});
+ const[notice,setNotice]=useState(""),[documents,setDocuments]=useState<Record<string,Document[]>>({}),[items,setItems]=useState<Application[]>([]),[msg,setMsg]=useState("Loading onboarding queue…"),[busy,setBusy]=useState<string|null>(null),[notes,setNotes]=useState<Record<string,string>>({});
  const api=new ApiClient(base,()=>typeof window!=="undefined"?localStorage.getItem("sevamitra_token")||undefined:undefined);
  const load=useCallback(async()=>{
   try{const a=await api.get<Application[]>("/provider-onboarding/applications");setItems(Array.isArray(a)?a:[]);setMsg("")}
@@ -32,16 +32,16 @@ export default function Admin(){
  async function act(x:Application,action:"claim"|"approve"|"reject"){
   if(action==="reject"&&!notes[x.id]?.trim()){setMsg("Rejection reason is required.");return}
   if(action!=="claim"&&!window.confirm(`${action==="approve"?"Approve":"Reject"} application ${x.id}?`))return;
-  setBusy(x.id);setMsg("");
+  setBusy(x.id);setMsg("");setNotice("");
   try{
    if(action==="claim")await api.patch(`/provider-onboarding/applications/${x.id}/claim`,{});
    else await api.post(`/provider-onboarding/applications/${x.id}/review`,{decision:action==="approve"?"APPROVED":"REJECTED",...(action==="reject"?{reviewNote:notes[x.id]?.trim()??""}:{})});
-   await load();
+   await load();setNotice(action==="claim"?"Application claimed for review.":action==="approve"?"Provider application approved.":"Provider application rejected.");
   }catch(e){setMsg(e instanceof Error?e.message:"Update failed")}finally{setBusy(null)}
  }
  return <main><header className="nav"><Link href="/" className="brand"><span className="mark">✦</span><div><b>Seva<span>Mitra</span></b><small>Operations console</small></div></Link><Link href="/workspaces">Workspaces</Link></header>
   <section className="workspace"><div className="workspaceTop"><div><div className="pill">Onboarding operations</div><h1>Provider verification queue</h1><p>Only accounts with <code>provider.onboarding.review</code> can view or decide cases.</p></div><button className="primary" onClick={()=>void load()}>Refresh</button></div>
-  {!!msg&&<p role="alert">{msg}</p>}{!msg&&items.length===0&&<p>No onboarding applications.</p>}
+  {!!notice&&<p role="status" aria-live="polite">{notice}</p>}{!!msg&&<p role="alert">{msg}</p>}{!msg&&items.length===0&&<p>No onboarding applications.</p>}
   <p><Link href="/admin/operations">Operations analytics, reports & support assistant →</Link></p><p><Link href="/admin/catalogue">Manage service categories & catalogue →</Link></p><p><Link href="/admin/agents">Review and approve agent applications →</Link></p><p><Link href="/admin/roles">Configure roles & permission matrix →</Link></p><p><Link href="/admin/organizations">Manage provider companies, groups and staff →</Link></p><p><Link href="/admin/runtime-flags">Pilot and emergency runtime switches →</Link></p><div className="adminModules">{items.map(x=><article key={x.id}><h3>{x.status} · {x.channel}</h3><p>Provider: <code>{x.providerId}</code></p><p>Application: <code>{x.id}</code></p><p>Submitted: {new Date(x.submittedAt).toLocaleDateString()}</p>{x.reviewNote&&<p>Note: {x.reviewNote}</p>}<button onClick={()=>void loadDocuments(x.id)}>Review documents</button>{(documents[x.id]||[]).map(doc=><p key={doc.id}>{doc.type} · <button onClick={()=>void download(x.id,doc.id)}>Download privately</button></p>)}
    {(x.status==="SUBMITTED"||x.status==="UNDER_REVIEW")&&<><label htmlFor={`reason-${x.id}`}>Rejection reason</label><input id={`reason-${x.id}`} maxLength={1000} value={notes[x.id]||""} onChange={e=>setNotes(prev=>({...prev,[x.id]:e.target.value}))} placeholder="Required if rejecting"/>
     <div style={{display:"flex",gap:8,flexWrap:"wrap",marginTop:14}}>
