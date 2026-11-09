@@ -1,3 +1,5 @@
+> **10 Nov 2026 source recovery note:** **Recovered:** backend/web/mobile, 52-model Prisma schema and 26 migrations are present on \`develop\`, not \`main\`. Read [current source audit](REVERSE_ENGINEERING.md) and [actual schema catalogue](SCHEMA_INDEX.md). Full technical handbook is linked from the audit.
+
 # SevaMitra: Architecture, Deployment, ER, DB, Migration and KT
 > **Snapshot:** 2026-11-09. Evidence: [bv-prasanna/SevaMitra](https://github.com/bv-prasanna/SevaMitra) default branch `main`. This is **source-derived**, not a live deployment or data audit.
 **Repository limitation:** default-branch tree has no authoritative application schema or deployable backend. The README may describe planned/other-branch components. Do not mistake this logical diagram for code verification.
