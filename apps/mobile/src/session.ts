@@ -67,7 +67,7 @@ function extractTokensFromRefresh(value:unknown):SessionTokenPair{
  return {accessToken:t.accessToken,refreshToken:t.refreshToken,expiresIn:t.expiresIn};
 }
 export async function requestWithSession<T=unknown>(method:"GET"|"POST"|"PATCH"|"PUT"|"DELETE",path:string,body?:unknown):Promise<T>{
- if(!API_BASE)throw new Error("Set EXPO_PUBLIC_API_BASE_URL to a reachable HTTPS API");
+ if(!API_BASE)throw new Error("Service is temporarily unavailable. Please contact support.");
  let session=await loadSession();
  if(!session)throw new Error("Please sign in first");
  if(Date.now()>session.expiresAt-30000)session=await refreshSession(session);
