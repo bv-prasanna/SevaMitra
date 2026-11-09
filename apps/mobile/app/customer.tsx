@@ -25,7 +25,7 @@ export default function Customer(){
    {bookings.length===0&&<Text style={s.muted}>No bookings yet.</Text>}
    {bookings.map(b=><View style={s.card} key={b.id}><Text style={s.heading}>{b.status}</Text><Text selectable style={s.muted}>Booking {b.id}</Text><Text>{String(b.scheduledDate).slice(0,10)} · {b.scheduledStartTime}–{b.scheduledEndTime}</Text><Text>{b.currency} {b.amount??"Price on request"}</Text>
     {(b.status==="REQUESTED"||b.status==="ACCEPTED")&&<Pressable disabled={busy} style={s.danger} onPress={()=>Alert.alert("Cancel booking?","This may have a refund impact. Check the cancellation terms.",[{text:"Back",style:"cancel"},{text:"Cancel booking",style:"destructive",onPress:()=>void cancel(b.id)}])}><Text style={s.white}>Cancel booking</Text></Pressable>}
-   </View>)}</>}
+   </View>)}</>:null}
  </ScrollView></SafeAreaView>
 }
 const s=StyleSheet.create({safe:{flex:1,backgroundColor:"#F6FBF8"},page:{padding:18,paddingBottom:42},title:{fontSize:25,fontWeight:"900",color:"#0A5039"},heading:{fontSize:18,fontWeight:"800",marginVertical:10},nav:{flexDirection:"row",gap:20,marginVertical:14},link:{color:"#087A4B",fontWeight:"700"},card:{padding:17,borderRadius:14,backgroundColor:"#fff",marginVertical:8,borderWidth:1,borderColor:"#DBE9DE"},input:{borderWidth:1,borderColor:"#DCE6DF",padding:12,borderRadius:9},btn:{backgroundColor:"#087A4B",padding:13,borderRadius:10,alignItems:"center",marginVertical:8},danger:{backgroundColor:"#B42318",padding:12,borderRadius:10,alignItems:"center",marginTop:12},white:{color:"#fff",fontWeight:"800"},notice:{color:"#98551A",marginVertical:8},muted:{color:"#61776B",lineHeight:20}});
