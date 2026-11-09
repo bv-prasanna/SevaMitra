@@ -12,8 +12,8 @@ export default function Admin(){
   setBusy(id);setMessage("");
   try{
    if(kind==="claim")await requestWithSession("PATCH",`/provider-onboarding/applications/${id}/claim`);
-   else await requestWithSession("POST",`/provider-onboarding/applications/${id}/review`,{decision:kind==="approve"?"APPROVED":"REJECTED",...(kind==="reject"?{reviewNote:notes[id].trim()}:{})});
-   await load();
+   else await requestWithSession("POST",`/provider-onboarding/applications/${id}/review`,{decision:kind==="approve"?"APPROVED":"REJECTED",...(kind==="reject"?{reviewNote:notes[id]?.trim()??""}:{})});
+   await load();setMessage(kind==="claim"?"Application claimed for review.":kind==="approve"?"Provider application approved.":"Provider application rejected.");
   }catch(e){setMessage(e instanceof Error?e.message:"Action failed")}finally{setBusy(null)}
  }
  const confirm=(x:Application,decision:"approve"|"reject")=>Alert.alert(decision==="approve"?"Approve provider?":"Reject provider?",`Application ${x.id}`,[{text:"Cancel",style:"cancel"},{text:decision==="approve"?"Approve":"Reject",style:decision==="reject"?"destructive":"default",onPress:()=>{void act(x.id,decision)}}]);
@@ -25,7 +25,7 @@ export default function Admin(){
   {items.map(x=><View key={x.id} style={s.card}><Text style={s.bold}>{x.status} · {x.channel}</Text><Text selectable style={s.detail}>Application: {x.id}</Text><Text selectable style={s.detail}>Provider: {x.providerId}</Text><Text style={s.detail}>Submitted: {new Date(x.submittedAt).toLocaleDateString()}</Text>
    {x.reviewNote&&<Text style={s.detail}>Review note: {x.reviewNote}</Text>}
    {(x.status==="SUBMITTED"||x.status==="UNDER_REVIEW")&&<>
-    <TextInput style={s.input} placeholder="Rejection reason (required)" value={notes[x.id]||""} maxLength={1000} onChangeText={v=>setNotes(prev=>({...prev,[x.id]:v}))}/>
+    <TextInput accessibilityLabel={"Rejection reason for application "+x.id} style={s.input} placeholder="Rejection reason (required)" value={notes[x.id]||""} maxLength={1000} onChangeText={v=>setNotes(prev=>({...prev,[x.id]:v}))}/>
     <View style={s.toolbar}>
      {x.status==="SUBMITTED"&&<Pressable disabled={busy===x.id} style={s.secondary} onPress={()=>void act(x.id,"claim")}><Text>Claim</Text></Pressable>}
      <Pressable disabled={busy===x.id} style={s.approve} onPress={()=>confirm(x,"approve")}><Text style={s.white}>Approve</Text></Pressable>

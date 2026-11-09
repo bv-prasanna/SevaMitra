@@ -1,16 +1,19 @@
 import React,{useEffect,useState}from"react";
 import{Alert,SafeAreaView,ScrollView,View,Text,TextInput,Pressable,StyleSheet}from"react-native";
-import{router}from"expo-router";
+import{router,useLocalSearchParams}from"expo-router";
 import * as SecureStore from "expo-secure-store";
 import{newBookingRequestId,canReplayBookingDraft,type PendingBookingDraft}from"../src/booking-pending";
 const PENDING_BOOKING_KEY="sevamitra.pending-booking.v1";
-import{ApiClient,type ActiveService,type GeoArea,type DiscoveredOffering,type BookingCreate}from"@sevamitra/api-client";
+import{ApiClient,validateLocalBookingWindow,type ActiveService,type GeoArea,type DiscoveredOffering,type BookingCreate}from"@sevamitra/api-client";
 import{API_BASE,requestWithSession,sessionUserId}from"../src/session";
 
 type BookingResult={id:string;status:string};
 type AreaField="state"|"district"|"taluk"|"town";
 export default function Marketplace(){
- const[services,setServices]=useState<ActiveService[]>([]),[serviceId,setServiceId]=useState(""),[search,setSearch]=useState("");
+ const params=useLocalSearchParams<{query?:string}>();
+ const initialQuery=typeof params.query==="string"?params.query.slice(0,100):"";
+ const[services,setServices]=useState<ActiveService[]>([]),[serviceId,setServiceId]=useState(""),[search,setSearch]=useState(initialQuery);
+ useEffect(()=>{if(typeof params.query==="string")setSearch(params.query.slice(0,100));},[params.query]);
  const[states,setStates]=useState<GeoArea[]>([]),[districts,setDistricts]=useState<GeoArea[]>([]),[taluks,setTaluks]=useState<GeoArea[]>([]),[towns,setTowns]=useState<GeoArea[]>([]);
  const[state,setState]=useState(""),[district,setDistrict]=useState(""),[taluk,setTaluk]=useState(""),[town,setTown]=useState("");
  const[offerings,setOfferings]=useState<DiscoveredOffering[]>([]),[selected,setSelected]=useState(""),[date,setDate]=useState(""),[start,setStart]=useState(""),[end,setEnd]=useState(""),[notes,setNotes]=useState("");
@@ -87,7 +90,8 @@ export default function Marketplace(){
  }
  async function submit(){
   if(!selected||!town||!date||!start||!end){setMessage("Complete booking date and time.");return}
-  if(!/^\d{4}-\d{2}-\d{2}$/.test(date)||!/^([01]\d|2[0-3]):[0-5]\d$/.test(start)||!/^([01]\d|2[0-3]):[0-5]\d$/.test(end)||start>=end){setMessage("Use YYYY-MM-DD and HH:mm times, with end after start.");return}
+  const windowError=validateLocalBookingWindow(date,start,end);
+  if(windowError){setMessage(windowError);return}
   if(pendingDraft){setMessage("Resolve or discard the earlier booking request first.");return}
   const userId=await sessionUserId();
   if(!userId){setMessage("Sign in before requesting a booking.");return}
@@ -113,7 +117,7 @@ export default function Marketplace(){
  return <SafeAreaView style={s.safe}><ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={s.page}>
   <View style={s.nav}><Text style={s.logo}>Seva<Text style={s.orange}>Mitra</Text></Text><Pressable onPress={()=>router.push("/customer")}><Text style={s.link}>My bookings →</Text></Pressable></View>
   <Text style={s.title}>Services near you</Text>
-  <TextInput style={s.input} placeholder="Search services" value={search} onChangeText={setSearch}/>
+  <TextInput accessibilityLabel="Search available services" style={s.input} placeholder="Search services" value={search} onChangeText={v=>setSearch(v.slice(0,100))}/>
   <Text style={s.label}>Choose service</Text>
   <View style={s.services}>{shown.map(x=><Pressable key={x.id} style={[s.chip,x.id===serviceId&&s.chipOn]} onPress={()=>void chooseService(x.id)}><Text style={x.id===serviceId?s.white:s.text}>{x.name}</Text></Pressable>)}</View>
   {!!chosen&&<><Text style={s.head}>Where do you need {chosen.name}?</Text>
@@ -133,7 +137,7 @@ export default function Marketplace(){
   </View>}
   {offerings.map(o=><Pressable key={o.id} style={[s.card,o.id===selected&&s.selected]} onPress={()=>{setSelected(o.id);setBooking(null)}}><Text style={s.head}>{o.providerName}</Text><Text>{o.amount===null?"Price on quote":o.currency+" "+o.amount} · {o.pricingModel}</Text>{o.visitFee!==null&&<Text style={s.muted}>Visit fee: {o.currency} {o.visitFee}</Text>}{o.notes&&<Text style={s.muted}>{o.notes}</Text>}<Text style={s.link}>{o.id===selected?"✓ Selected":"Choose provider →"}</Text></Pressable>)}
   {!!selected&&!booking&&<View style={s.card}><Text style={s.head}>Request booking</Text><Text style={s.muted}>Enter local service date (YYYY-MM-DD) and time (HH:mm). Availability is validated on the server.</Text>
-   <TextInput style={s.input} value={date} placeholder="2026-10-20" maxLength={10} onChangeText={setDate}/><TextInput style={s.input} value={start} placeholder="Start 09:00" maxLength={5} onChangeText={setStart}/><TextInput style={s.input} value={end} placeholder="End 10:00" maxLength={5} onChangeText={setEnd}/><TextInput style={s.input} value={notes} placeholder="Special instructions (optional)" maxLength={1000} onChangeText={setNotes}/>
+   <TextInput accessibilityLabel="Service date YYYY-MM-DD" style={s.input} value={date} placeholder="YYYY-MM-DD" maxLength={10} onChangeText={setDate}/><TextInput accessibilityLabel="Start time HH:mm" style={s.input} value={start} placeholder="Start 09:00" maxLength={5} onChangeText={setStart}/><TextInput accessibilityLabel="End time HH:mm" style={s.input} value={end} placeholder="End 10:00" maxLength={5} onChangeText={setEnd}/><TextInput style={s.input} value={notes} placeholder="Special instructions (optional)" maxLength={1000} onChangeText={setNotes}/>
    <Pressable disabled={busy||!date||!start||!end} style={[s.btn,busy&&s.disabled]} onPress={()=>Alert.alert("Request booking?","Provider acceptance is required. Any payment will be handled separately.",[{text:"Cancel",style:"cancel"},{text:"Request booking",onPress:()=>void submit()}])}><Text style={s.white}>Submit booking request</Text></Pressable>
   </View>}
   {!!booking&&<View style={s.card}><Text style={s.head}>Booking request submitted ✓</Text><Text selectable>{booking.id}</Text><Text>Status: {booking.status}</Text><Pressable onPress={()=>router.push("/customer")}><Text style={s.link}>Track booking →</Text></Pressable></View>}

@@ -2,7 +2,7 @@ import React,{useState,useEffect}from"react";
 import{myWorkspaces}from"../src/session";
 import{router}from"expo-router";import{SafeAreaView,ScrollView,View,Text,Pressable,TextInput,StyleSheet}from"react-native";import{messages,type Locale}from"@sevamitra/i18n";
 const services=["🏠 Cleaning","⚡ Electrician","🔧 Plumber","✨ Beauty","👴 Elder Care","⚙️ Appliance","📚 Tutors","••• More"];
-export default function Home(){const[locale,setLocale]=useState<Locale>("kn");
+export default function Home(){const[locale,setLocale]=useState<Locale>("kn");const[searchTerm,setSearchTerm]=useState("");
  useEffect(()=>{let alive=true;void myWorkspaces().then(()=>{
   if(alive)router.replace('/workspaces');
  }).catch(()=>{/* No stored trusted session; display login normally */});
@@ -18,7 +18,7 @@ export default function Home(){const[locale,setLocale]=useState<Locale>("kn");
   </Pressable>
  </View>
  <View style={s.hero}><Text style={s.badge}>{t.hero.badge}</Text><Text style={s.title}>{t.hero.title1}{"\n"}<Text style={s.green}>{t.hero.title2}</Text></Text><Text style={s.subtitle}>{t.hero.subtitle}</Text><Text style={s.body}>{t.hero.body}</Text>
- <View style={s.location}><Text>📍</Text><Text style={s.locationText}>{t.hero.location}</Text></View><View style={s.search}><TextInput style={s.input} placeholder={t.hero.searchPlaceholder}/><Pressable accessibilityRole="button" accessibilityLabel="Browse and search services" onPress={()=>router.push("/marketplace")} style={s.searchBtn}><Text style={s.searchTxt}>⌕ {t.hero.search}</Text></Pressable></View></View>
+ <View style={s.location}><Text>📍</Text><Text style={s.locationText}>{t.hero.location}</Text></View><View style={s.search}><TextInput accessibilityLabel="Search local services" style={s.input} placeholder={t.hero.searchPlaceholder} value={searchTerm} onChangeText={setSearchTerm} returnKeyType="search" onSubmitEditing={()=>router.push({pathname:"/marketplace",params:{query:searchTerm.trim()}})}/><Pressable accessibilityRole="button" accessibilityLabel="Browse and search services" onPress={()=>router.push({pathname:"/marketplace",params:{query:searchTerm.trim()}})} style={s.searchBtn}><Text style={s.searchTxt}>⌕ {t.hero.search}</Text></Pressable></View></View>
  <Text style={s.section}>{t.nav.services}</Text><View style={s.grid}>{services.map(x=><Pressable key={x} accessibilityRole="button" onPress={()=>router.push("/marketplace")} style={s.card}><Text style={s.service}>{x}</Text></Pressable>)}</View>
  <View style={s.trust}><Text style={s.trustTitle}>✓ {t.how.subtitle}</Text><Text style={s.body}>{t.how.steps[2].body}</Text></View>
  <Text style={s.section}>{t.how.title}</Text>{t.how.steps.map((x,i)=><View style={s.step} key={x.title}><Text style={s.num}>{i+1}</Text><View style={{flex:1,minWidth:0}}><Text style={s.stepTitle}>{x.title}</Text><Text style={s.body}>{x.body}</Text></View></View>)}

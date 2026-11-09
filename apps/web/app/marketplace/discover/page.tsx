@@ -1,7 +1,7 @@
 "use client";
 import {useCallback,useEffect,useState} from "react";
 import Link from "next/link";
-import {ApiClient,type GeoArea,type ActiveService,type DiscoveredOffering,type BookingCreate} from "@sevamitra/api-client";
+import {ApiClient,validateLocalBookingWindow,type GeoArea,type ActiveService,type DiscoveredOffering,type BookingCreate} from "@sevamitra/api-client";
 
 const base=process.env.NEXT_PUBLIC_API_BASE_URL||"";
 type BookingResponse={id:string;status:string};
@@ -75,8 +75,8 @@ export default function Discover(){
  },[town,serviceId]);
  async function book(){
   if(!selected||!town||!date||!start||!end){setMessage("Choose a provider, date and start/end times.");return}
-  if(start>=end){setMessage("End time must be after start time.");return}
-  if(date<new Date().toLocaleDateString("en-CA")){setMessage("Choose a future date.");return}
+  const windowError=validateLocalBookingWindow(date,start,end);
+  if(windowError){setMessage(windowError);return}
   if(!window.confirm("Request this booking? The provider must accept it before service is confirmed."))return;
   setBusy(true);setMessage("");
   try{

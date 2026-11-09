@@ -6,7 +6,7 @@ type Booking={id:string;status:string;scheduledDate:string;scheduledStartTime:st
 type Profile={id:string;fullName:string;status:string;verificationStatus:string};
 type Onboarding={status:string;reviewNote?:string|null};
 export default function Provider(){
- const[profile,setProfile]=useState<Profile|null>(null),[name,setName]=useState(""),[bookings,setBookings]=useState<Booking[]>([]),[onboard,setOnboard]=useState<Onboarding|null>(null),[busy,setBusy]=useState(false),[message,setMessage]=useState("Loading…"),[reason,setReason]=useState("");
+ const[profile,setProfile]=useState<Profile|null>(null),[name,setName]=useState(""),[bookings,setBookings]=useState<Booking[]>([]),[onboard,setOnboard]=useState<Onboarding|null>(null),[busy,setBusy]=useState(false),[message,setMessage]=useState("Loading…"),[reasons,setReasons]=useState<Record<string,string>>({});
  const load=useCallback(async()=>{
   try{
    const p=await requestWithSession<Profile>("GET","/providers/me");setProfile(p);
@@ -17,9 +17,9 @@ export default function Provider(){
   }catch(e){setProfile(null);setMessage((e as {status?:number}).status===404?"Create your provider profile to begin onboarding.":e instanceof Error?e.message:"Unable to load workspace")}
  },[]);
  useEffect(()=>{void load()},[load]);
- async function create(){if(name.trim().length<2)return;setBusy(true);try{await requestWithSession("POST","/providers/me",{fullName:name.trim(),preferredLanguage:"kn"});await load()}catch(e){setMessage(e instanceof Error?e.message:"Unable to create profile")}finally{setBusy(false)}}
- async function submit(){setBusy(true);try{await requestWithSession("POST","/provider-onboarding/applications/me",{});await load()}catch(e){setMessage(e instanceof Error?e.message:"Unable to submit application")}finally{setBusy(false)}}
- async function action(b:Booking,kind:"accept"|"reject"|"complete"){if(kind==="reject"&&!reason.trim()){Alert.alert("Reason required","Enter a rejection reason.");return}setBusy(true);try{await requestWithSession("POST",`/bookings/provider/me/${b.id}/${kind}`,kind==="reject"?{reason:reason.trim()}:{});setReason("");await load()}catch(e){setMessage(e instanceof Error?e.message:"Booking update failed")}finally{setBusy(false)}}
+ async function create(){if(name.trim().length<2)return;setBusy(true);try{await requestWithSession("POST","/providers/me",{fullName:name.trim(),preferredLanguage:"kn"});await load();setMessage("Provider profile saved. Submit your verification application to continue.")}catch(e){setMessage(e instanceof Error?e.message:"Unable to create profile")}finally{setBusy(false)}}
+ async function submit(){setBusy(true);try{await requestWithSession("POST","/provider-onboarding/applications/me",{});await load();setMessage("Application submitted for verification. You can track the status here.")}catch(e){setMessage(e instanceof Error?e.message:"Unable to submit application")}finally{setBusy(false)}}
+ async function action(b:Booking,kind:"accept"|"reject"|"complete"){if(kind==="reject"&&!reasons[b.id]?.trim()){Alert.alert("Reason required","Enter a rejection reason.");return}setBusy(true);try{await requestWithSession("POST",`/bookings/provider/me/${b.id}/${kind}`,kind==="reject"?{reason:reasons[b.id]?.trim()??""}:{});setReasons(old=>({...old,[b.id]:""}));await load();setMessage(kind==="accept"?"Booking accepted.":kind==="reject"?"Booking rejected.":"Booking marked complete.")}catch(e){setMessage(e instanceof Error?e.message:"Booking update failed")}finally{setBusy(false)}}
  return <SafeAreaView style={s.safe}><ScrollView contentContainerStyle={s.page}><Text style={s.title}>Provider workspace</Text>
   <View style={s.nav}><Pressable onPress={()=>router.push("/workspaces")}><Text style={s.link}>Workspaces</Text></Pressable><Pressable onPress={()=>void signOut().then(()=>router.replace("/login"))}><Text style={s.link}>Sign out</Text></Pressable><Pressable onPress={()=>void load()}><Text style={s.link}>↻ Refresh</Text></Pressable></View>
   {!!message&&<Text accessibilityRole="alert" style={s.notice}>{message}</Text>}
@@ -30,7 +30,7 @@ export default function Provider(){
   <Pressable style={s.btn} onPress={()=>router.push("/provider-manage")}><Text style={s.white}>Manage services, hours and coverage →</Text></Pressable><Text style={s.heading}>My bookings ({bookings.length})</Text>
   {bookings.length===0&&<Text style={s.muted}>No assigned bookings yet.</Text>}
   {bookings.map(b=><View style={s.card} key={b.id}><Text style={s.heading}>{b.status}</Text><Text selectable style={s.muted}>Booking {b.id}</Text><Text>{String(b.scheduledDate).slice(0,10)} · {b.scheduledStartTime}–{b.scheduledEndTime}</Text><Text>{b.currency} {b.amount??"Price on request"}</Text>
-   {b.status==="REQUESTED"&&<><TextInput style={s.input} placeholder="Reason if rejecting" value={reason} onChangeText={setReason}/><View style={s.nav}><Pressable disabled={busy} style={s.btn} onPress={()=>void action(b,"accept")}><Text style={s.white}>Accept</Text></Pressable><Pressable disabled={busy} style={s.danger} onPress={()=>void action(b,"reject")}><Text style={s.white}>Reject</Text></Pressable></View></>}
+   {b.status==="REQUESTED"&&<><TextInput style={s.input} accessibilityLabel={"Rejection reason for booking "+b.id} placeholder="Reason if rejecting" value={reasons[b.id]||""} onChangeText={v=>setReasons(old=>({...old,[b.id]:v}))}/><View style={s.nav}><Pressable disabled={busy} style={s.btn} onPress={()=>void action(b,"accept")}><Text style={s.white}>Accept</Text></Pressable><Pressable disabled={busy} style={s.danger} onPress={()=>void action(b,"reject")}><Text style={s.white}>Reject</Text></Pressable></View></>}
    {b.status==="ACCEPTED"&&<Pressable disabled={busy} style={s.btn} onPress={()=>Alert.alert("Complete booking?","Confirm service delivery.",[{text:"Cancel",style:"cancel"},{text:"Complete",onPress:()=>void action(b,"complete")}])}><Text style={s.white}>Mark completed</Text></Pressable>}
   </View>)}</>}
  </ScrollView></SafeAreaView>

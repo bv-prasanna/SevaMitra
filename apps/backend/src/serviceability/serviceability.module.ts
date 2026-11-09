@@ -3,6 +3,7 @@ import { ProviderModule } from '../provider/provider.module';
 import { GeographyModule } from '../geography/geography.module';
 import { IamModule } from '../iam/iam.module';
 import { AvailabilityModule } from '../availability/availability.module';
+import { RuntimeFlagsModule } from '../runtime-flags/runtime-flags.module';
 import { MatchingService } from './matching/matching.service';
 import { MatchingController } from './matching/matching.controller';
 import { CoverageProfileController } from './coverage-profile/coverage-profile.controller';
@@ -16,7 +17,7 @@ import { DiscoveryService } from './discovery/discovery.service';
 import { CoverageCheckService } from './check/coverage-check.service';
 
 @Module({
-  imports: [ProviderModule, GeographyModule, IamModule, AvailabilityModule],
+  imports: [ProviderModule, GeographyModule, IamModule, AvailabilityModule, RuntimeFlagsModule],
   controllers: [
     CoverageProfileController,
     CoverageAreaController,

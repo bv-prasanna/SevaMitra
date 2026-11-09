@@ -1,6 +1,7 @@
 import * as SecureStore from "expo-secure-store";
 import {eventLocationHeaders} from "./event-location";
 import {canReplayBookingDraft} from "./booking-pending";
+import {shouldClearStoredSessionOnRefreshError} from "./session-policy";
 import {ApiClient,extractOtpLoginTokens,type SessionTokenPair} from "@sevamitra/api-client";
 
 export const API_BASE=process.env.EXPO_PUBLIC_API_BASE_URL||"";
@@ -52,7 +53,7 @@ async function refreshSession(session:Stored):Promise<Stored>{
     if(generation!==sessionGeneration)throw new Error("Session changed during refresh");
     return {...tokens,userId:session.userId,expiresAt:Date.now()+tokens.expiresIn*1000};
    }catch(e){
-     if(generation===sessionGeneration)await queueStorageWrite(async()=>{
+     if(generation===sessionGeneration && shouldClearStoredSessionOnRefreshError(e))await queueStorageWrite(async()=>{
        if(generation===sessionGeneration)await SecureStore.deleteItemAsync(KEY);
      });
      throw e;

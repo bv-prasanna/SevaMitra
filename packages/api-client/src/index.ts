@@ -91,3 +91,5 @@ export type DiscoveredOffering={
  pricingModel:string;amount:string|null;visitFee:string|null;currency:string;notes:string|null;
 };
 export type BookingCreate={offeringId:string;townVillageId:string;scheduledDate:string;scheduledStartTime:string;scheduledEndTime:string;notes?:string;clientRequestId?:string};
+
+export {localIsoDate,validateLocalBookingWindow} from "./booking-validation";
