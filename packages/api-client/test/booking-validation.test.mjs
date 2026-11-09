@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {localIsoDate,validateLocalBookingWindow as valid} from '../src/booking-validation.ts';
+import {localIsoDate,validateLocalBookingWindow as valid} from '../src/index.ts';
 const now=new Date(2026,10,9,14,30,0);
 test('local date is stable regardless of locale formatting',()=>assert.equal(localIsoDate(now),'2026-11-09'));
 test('valid future time windows are accepted',()=>{
