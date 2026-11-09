@@ -11,7 +11,7 @@ const idPattern=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 function validControlKey(key:string){
  if(key==="bookings.enabled"||key==="pilot.enabled")return true;
  const segments=key.split(".");
- return segments.length===3&&(segments[0]==="service"||segments[0]==="geography")&&idPattern.test(segments[1])&&segments[2]==="enabled";
+ return segments.length===3&&(segments[0]==="service"||segments[0]==="geography")&&idPattern.test(segments[1]??"")&&segments[2]==="enabled";
 }
 const EXAMPLES=[
  {key:"bookings.enabled",hint:"false temporarily stops all new bookings"},
