@@ -1,0 +1,39 @@
+erDiagram
+    CustomerProfile ||--o{ Booking : makes
+    ProviderOffering ||--o{ Booking : booked
+    TownVillage ||--o{ Booking : in_area
+    Booking ||--o{ Payment : payments
+    Booking ||--o| CommissionCalculation : calculated
+    CommissionRule ||--o{ CommissionCalculation : applied
+    Settlement ||--o{ CommissionCalculation : batches
+    ProviderProfile ||--o{ Settlement : receives
+    Booking ||--o| Refund : refund_record
+    RefundPolicy ||--o{ Refund : applied
+    ServiceCategory ||--o{ CommissionRule : category_rule
+    Service ||--o{ CommissionRule : service_rule
+    Booking {
+      string id PK
+      string customerId FK
+      string offeringId FK
+      string townVillageId FK
+      string clientRequestId
+      string status
+    }
+    Payment {
+      string id PK
+      string bookingId FK
+      string gatewayOrderId UK
+      string gatewayPaymentId UK
+      string status
+    }
+    Refund {
+      string id PK
+      string bookingId FK
+      string status
+    }
+    Settlement {
+      string id PK
+      string providerId FK
+      string status
+    }
+
