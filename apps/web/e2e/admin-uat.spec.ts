@@ -22,15 +22,16 @@ test('mobile admin navigation uses one accessible expandable shell, not duplicat
 test('agent permission denied shows a clear error without stale privileged records',async({page})=>{
  await page.route(API+'/agents/admin',r=>r.fulfill({status:403,json:{error:{message:'Forbidden'}}}));
  await page.goto('/admin/agents/');
- await expect(page.getByRole('alert')).toContainText('does not have the agent.review permission');
+ await expect(page.locator('.uatFeedback[role="alert"]')).toContainText('does not have the agent.review permission');
  await expect(page.getByRole('button',{name:'Review and approve'})).toHaveCount(0);
 });
 test('agent approval requires a visible confirmation and reports success only on server success',async({page})=>{
  let agentStatus='PENDING';let patches=0;
  await page.route(API+'/agents/admin',async r=>{
   if(r.request().method()==='GET')return r.fulfill({json:[{id:'agent-1',fullName:'Test Agent',agentCode:'UAT123',status:agentStatus,createdAt:'2026-11-01T00:00:00Z'}]});
-  patches++;agentStatus='ACTIVE';return r.fulfill({json:{status:agentStatus}});
+  return r.fulfill({status:405,json:{error:{message:'Method not allowed'}}});
  });
+ await page.route(API+'/agents/admin/agent-1/status',r=>{patches++;agentStatus='ACTIVE';return r.fulfill({json:{status:agentStatus}})});
  await page.goto('/admin/agents/');
  await page.getByRole('button',{name:'Review and approve'}).click();
  await expect(page.getByRole('alertdialog',{name:'Approve this agent?'})).toBeVisible();
