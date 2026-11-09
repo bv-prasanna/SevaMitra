@@ -23,10 +23,6 @@ export default function Workspaces(){
   catch(e){setAccess(null);setMessage(e instanceof Error?e.message:"Cannot read account roles")}
  },[]);
  useEffect(()=>{void load()},[load]);
- function logout(){
-  localStorage.removeItem("sevamitra_token");
-  window.location.assign("/login");
- }
  return <main>
  <section className="workspace workspaceHub"><div className="workspaceTop"><div><div className="pill">Your SevaMitra account</div><h1>Choose your workspace</h1><p>Everything you need, with one sign-in. Only your authorized roles are shown.</p></div><Link href="/profile" className="outline">My profile <ArrowUpRight size={16}/></Link></div>
  {message&&<p role="status">{message}</p>}
@@ -37,7 +33,6 @@ export default function Workspaces(){
  </section>}
  <div style={{display:"flex",gap:24,marginTop:30}}>
   <button onClick={()=>void load()}><RefreshCw size={16}/> Refresh permissions</button>
-  <button onClick={logout}>Sign out / Switch account</button>
-  {!access&&<Link href="/login">Sign in</Link>}
+
  </div></section></main>;
 }
