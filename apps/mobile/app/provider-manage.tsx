@@ -1,6 +1,7 @@
 import React,{useEffect,useState} from "react";
 import{Alert,SafeAreaView,ScrollView,View,Text,TextInput,Pressable,StyleSheet}from"react-native";
 import{router}from"expo-router";
+import{WorkspaceHero,MobileFeedback}from"../src/components/WorkspaceHero";
 import{requestWithSession}from"../src/session";
 
 type Service={id:string;name:string;isActive:boolean};
@@ -25,16 +26,19 @@ export default function ProviderManage(){
    requestWithSession<Area[]>("GET","/geography/states"),
    requestWithSession<{radiusKm:number}>("GET","/serviceability/coverage/me"),
   ]);
-  if(response[0].status==="fulfilled")setServices(response[0].value.filter(s=>s.isActive));
-  if(response[1].status==="fulfilled")setOffers(response[1].value);
-  if(response[2].status==="fulfilled")setHours(response[2].value);
-  if(response[3].status==="fulfilled")setStates(response[3].value.filter(s=>s.isActive));
+  if(response[0].status==="fulfilled")setServices(response[0].value.filter(s=>s.isActive));else setServices([]);
+  if(response[1].status==="fulfilled")setOffers(response[1].value);else setOffers([]);
+  if(response[2].status==="fulfilled")setHours(response[2].value);else setHours([]);
+  if(response[3].status==="fulfilled")setStates(response[3].value.filter(s=>s.isActive));else setStates([]);
   if(response[4].status==="fulfilled"){setHasCoverage(true);setRadius(String(response[4].value.radiusKm))}
-  setMessage(response[1].status==="rejected"?msg(response[1].reason):"");
+  else setHasCoverage(false);
+  const errors=response.map((r,i)=>r.status==="rejected"&&(i!==4||(r.reason as {status?:number})?.status!==404)?["Catalogue","Offerings","Working hours","Service geography","Coverage"][i]+": "+msg(r.reason):"").filter(Boolean);
+  setMessage(errors.join(" • "));
+  return errors.length===0;
  }
  useEffect(()=>{void load()},[]);
  async function save(fn:()=>Promise<unknown>,success:string){
-  setBusy(true);try{await fn();await load();setMessage(success)}catch(e){setMessage(msg(e))}finally{setBusy(false)}
+  setBusy(true);try{await fn();const refreshed=await load();setMessage(refreshed?success:"Change saved, but some sections could not be refreshed. Check the current state before retrying.")}catch(e){setMessage(msg(e))}finally{setBusy(false)}
  }
  async function selectArea(which:"state"|"district"|"taluk",id:string){
   try{
@@ -66,8 +70,8 @@ export default function ProviderManage(){
  }
  return <SafeAreaView style={styles.safe}><ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.page}>
  <View style={styles.top}><Pressable onPress={()=>router.back()}><Text style={styles.link}>← Provider workspace</Text></Pressable><Pressable onPress={()=>void load()}><Text style={styles.link}>↻ Refresh</Text></Pressable></View>
- <Text style={styles.heading}>Manage my services</Text><Text style={styles.muted}>Only verified active provider listings are shown to customers.</Text>
- {!!message&&<Text accessibilityRole="alert" style={styles.notice}>{message}</Text>}
+ <WorkspaceHero category="Provider tools" title="Services & coverage" description="Set your live services, working hours and approved service areas."/>
+ {!!message&&<MobileFeedback message={message} kind={/saved|changed/i.test(message)?"success":"error"}/>}
  <Text style={styles.section}>Current offerings</Text>
  {offers.map(o=><View key={o.id} style={styles.card}><Text style={styles.label}>{services.find(s=>s.id===o.serviceId)?.name||o.serviceId}</Text>
  <Text>{o.pricingModel} · {o.amount===null?"Quote":"INR "+o.amount}</Text><Text style={styles.muted}>{o.isActive?"Listed":"Paused"}</Text>

@@ -1,6 +1,7 @@
 import React,{useEffect,useState}from"react";
 import{Alert,SafeAreaView,ScrollView,Text,TextInput,Pressable,StyleSheet,View}from"react-native";
 import{router}from"expo-router";
+import{WorkspaceHero,MobileFeedback}from"../src/components/WorkspaceHero";
 import{requestWithSession,signOut}from"../src/session";
 type Profile={fullName:string};
 type Booking={id:string;status:string;scheduledDate:string;scheduledStartTime:string;scheduledEndTime:string;amount?:string|null;currency:string};
@@ -17,8 +18,8 @@ export default function Customer(){
  useEffect(()=>{void load()},[]);
  async function create(){if(name.trim().length<2)return;setBusy(true);try{await requestWithSession("POST","/customers/me",{fullName:name.trim(),preferredLanguage:"kn"});await load();setMessage("Customer profile saved.")}catch(e){setMessage(e instanceof Error?e.message:"Unable to create customer")}finally{setBusy(false)}}
  async function cancel(id:string){setBusy(true);try{await requestWithSession("POST",`/bookings/me/${id}/cancel`,{reason:"Cancelled by customer"});await load();setMessage("Booking cancelled. Check its refund status separately, if applicable.")}catch(e){setMessage(e instanceof Error?e.message:"Cancellation failed")}finally{setBusy(false)}}
- return <SafeAreaView style={s.safe}><ScrollView contentContainerStyle={s.page}><Text style={s.title}>Customer workspace</Text><View style={s.nav}><Pressable onPress={()=>router.push("/workspaces")}><Text style={s.link}>Workspaces</Text></Pressable><Pressable onPress={()=>void signOut().then(()=>router.replace("/login"))}><Text style={s.link}>Sign out</Text></Pressable></View>
-  {!!message&&<Text accessibilityRole="alert" style={s.notice}>{message}</Text>}
+ return <SafeAreaView style={s.safe}><ScrollView contentContainerStyle={s.page}><WorkspaceHero category="Customer" title="Your local services" description="Discover trusted services and follow every booking from request to completion."/><View style={s.nav}><Pressable onPress={()=>router.push("/workspaces")}><Text style={s.link}>Workspaces</Text></Pressable><Pressable onPress={()=>void signOut().then(()=>router.replace("/login"))}><Text style={s.link}>Sign out</Text></Pressable></View>
+  {!!message&&<MobileFeedback message={message} kind={message.startsWith("Loading")?"info":/saved|cancelled/i.test(message)?"success":"error"}/>}
   {profileState==="error"&&<Pressable style={s.btn} onPress={()=>router.replace("/login")}><Text style={s.white}>Sign in to continue</Text></Pressable>}{profileState==="missing"?<View style={s.card}><Text style={s.heading}>Complete your profile</Text><TextInput accessibilityLabel="Customer full name" style={s.input} value={name} maxLength={150} placeholder="Full name" onChangeText={setName}/><Pressable disabled={busy||name.trim().length<2} style={s.btn} onPress={()=>void create()}><Text style={s.white}>Save profile</Text></Pressable></View>:profileState==="ready"&&profile?<><Text style={s.heading}>Welcome, {profile.fullName}</Text>
    <Pressable style={s.btn} onPress={()=>router.push("/marketplace")}><Text style={s.white}>Find services →</Text></Pressable>
    <Text style={s.heading}>My bookings ({bookings.length})</Text>

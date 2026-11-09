@@ -1,6 +1,7 @@
 import React,{useCallback,useEffect,useState}from"react";
 import{SafeAreaView,View,Text,Pressable,ScrollView,StyleSheet}from"react-native";
 import{router}from"expo-router";
+import{WorkspaceHero,MobileFeedback}from"../src/components/WorkspaceHero";
 import{myWorkspaces,signOut,type WorkspaceEntitlements}from"../src/session";
 import{enableEventLocation}from"../src/event-location";
 import{visibleWorkspaceRoles,canOfferRoleEnrollment}from"../src/workspace-policy";
@@ -25,9 +26,8 @@ export default function Workspaces(){
   router.replace("/login");
  }
  return <SafeAreaView style={s.safe}><ScrollView contentContainerStyle={s.page}>
-  <Text style={s.title}>SevaMitra workspaces</Text>
-  <Text style={s.sub}>One app. Your available workspaces are based on your verified account and permissions.</Text>
-  {!!message&&<Text accessibilityRole="alert" style={s.notice}>{message}</Text>}
+  <WorkspaceHero category="One app, many services" title="Your workspaces" description="Manage all your eligible roles from one secure account. Only authorized workspaces appear below."/>
+  {!!message&&<MobileFeedback message={message} kind={message.startsWith("Loading")?"info":message.includes("enabled")?"success":"error"}/>}
   {access&&roles.filter(item=>visibleWorkspaceRoles(access).includes(item.key)).map(item=>
    <Pressable key={item.key} accessibilityRole="button" style={s.card} onPress={()=>router.push(item.path as Path)}>
     <Text style={s.bold}>{item.label} →</Text><Text style={s.sub}>{item.desc}</Text>

@@ -1,6 +1,7 @@
 import React,{useCallback,useEffect,useState}from"react";
 import{Alert,SafeAreaView,ScrollView,Text,TextInput,Pressable,StyleSheet,View}from"react-native";
 import{router}from"expo-router";
+import{WorkspaceHero,MobileFeedback}from"../src/components/WorkspaceHero";
 import{requestWithSession,signOut}from"../src/session";
 type Booking={id:string;status:string;scheduledDate:string;scheduledStartTime:string;scheduledEndTime:string;amount?:string|null;currency:string;notes?:string|null};
 type Profile={id:string;fullName:string;status:string;verificationStatus:string};
@@ -13,16 +14,18 @@ export default function Provider(){
    const results=await Promise.allSettled([requestWithSession<Booking[]>("GET","/bookings/provider/me"),requestWithSession<Onboarding>("GET","/provider-onboarding/applications/me")]);
    setBookings(results[0].status==="fulfilled"&&Array.isArray(results[0].value)?results[0].value:[]);
    setOnboard(results[1].status==="fulfilled"?results[1].value:null);
-   setMessage("");
+   const bookingError=results[0].status==="rejected"?(results[0].reason instanceof Error?results[0].reason.message:"Unable to retrieve bookings. Refresh to try again."):"";
+   const onboardingError=results[1].status==="rejected"&&(results[1].reason as {status?:number})?.status!==404?(results[1].reason instanceof Error?results[1].reason.message:"Unable to read verification status."):"";
+   setMessage([bookingError,onboardingError].filter(Boolean).join(" • "));
   }catch(e){const status=(e as {status?:number}).status;setProfile(null);setBookings([]);setOnboard(null);setProfileState(status===404?"missing":"error");setMessage(status===404?"Create your provider profile to begin onboarding.":status===401?"Sign in to access your provider workspace.":e instanceof Error?e.message:"Unable to load workspace")}
  },[]);
  useEffect(()=>{void load()},[load]);
  async function create(){if(name.trim().length<2)return;setBusy(true);try{await requestWithSession("POST","/providers/me",{fullName:name.trim(),preferredLanguage:"kn"});await load();setMessage("Provider profile saved. Submit your verification application to continue.")}catch(e){setMessage(e instanceof Error?e.message:"Unable to create profile")}finally{setBusy(false)}}
  async function submit(){setBusy(true);try{await requestWithSession("POST","/provider-onboarding/applications/me",{});await load();setMessage("Application submitted for verification. You can track the status here.")}catch(e){setMessage(e instanceof Error?e.message:"Unable to submit application")}finally{setBusy(false)}}
  async function action(b:Booking,kind:"accept"|"reject"|"complete"){if(kind==="reject"&&!reasons[b.id]?.trim()){Alert.alert("Reason required","Enter a rejection reason.");return}setBusy(true);try{await requestWithSession("POST",`/bookings/provider/me/${b.id}/${kind}`,kind==="reject"?{reason:reasons[b.id]?.trim()??""}:{});setReasons(old=>({...old,[b.id]:""}));await load();setMessage(kind==="accept"?"Booking accepted.":kind==="reject"?"Booking rejected.":"Booking marked complete.")}catch(e){setMessage(e instanceof Error?e.message:"Booking update failed")}finally{setBusy(false)}}
- return <SafeAreaView style={s.safe}><ScrollView contentContainerStyle={s.page}><Text style={s.title}>Provider workspace</Text>
+ return <SafeAreaView style={s.safe}><ScrollView contentContainerStyle={s.page}><WorkspaceHero category="Provider" title="Manage your services" description="Complete verification, manage your availability, and respond to customer requests."/>
   <View style={s.nav}><Pressable onPress={()=>router.push("/workspaces")}><Text style={s.link}>Workspaces</Text></Pressable><Pressable onPress={()=>void signOut().then(()=>router.replace("/login"))}><Text style={s.link}>Sign out</Text></Pressable><Pressable onPress={()=>void load()}><Text style={s.link}>↻ Refresh</Text></Pressable></View>
-  {!!message&&<Text accessibilityRole="alert" style={s.notice}>{message}</Text>}
+  {!!message&&<MobileFeedback message={message} kind={message.startsWith("Loading")?"info":/saved|submitted|accepted|rejected|marked complete/i.test(message)?"success":"error"}/>}
   {profileState==="error"&&<Pressable style={s.btn} onPress={()=>router.replace("/login")}><Text style={s.white}>Sign in to continue</Text></Pressable>}{profileState==="missing"&&<View style={s.card}><Text style={s.heading}>Register as a provider</Text><TextInput style={s.input} value={name} placeholder="Your full name" maxLength={150} onChangeText={setName}/><Pressable disabled={busy||name.trim().length<2} style={s.btn} onPress={()=>void create()}><Text style={s.white}>Create provider profile</Text></Pressable></View>}
   {profile&&<><View style={s.card}><Text style={s.heading}>{profile.fullName}</Text><Text>Status: {profile.status} · Verification: {profile.verificationStatus}</Text><Text style={s.muted}>Application: {onboard?.status||"Not submitted"}</Text>{onboard?.reviewNote&&<Text style={s.notice}>{onboard.reviewNote}</Text>}
    {(!onboard||onboard.status==="REJECTED")&&<Pressable disabled={busy} style={s.btn} onPress={()=>void submit()}><Text style={s.white}>{onboard?"Resubmit":"Submit"} verification application</Text></Pressable>}
