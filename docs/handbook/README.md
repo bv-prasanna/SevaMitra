@@ -6,10 +6,12 @@
 |---|---|---|
 | Architect / new developer | [Architecture](../ARCHITECTURE.md) | Modules, trust boundaries, persistence, sequence |
 | DevOps / SRE | [Deployment topology](DEPLOYMENT_TOPOLOGY.md) | Cloud Run/Neon and EC2 alternatives, environments |
+| API integrator | [API reference](API_REFERENCE.md) | Core routes, authentication/error contract and generated OpenAPI |
 | DBA / backend | [ER diagrams](ER_DIAGRAMS.md) · [Database catalogue](DATABASE_CATALOG.md) | Actual relationships, PostgreSQL schema/table/column/enum inventory |
 | DBA / release engineer | [Migrations](MIGRATIONS.md) | Change approvals, preflight, safe apply and rollback |
 | On-call / admin | [Operations](OPERATIONS_RUNBOOK.md) · [Troubleshooting](TROUBLESHOOTING.md) | Health, backup, notification retries, incidents |
 | Security / compliance | [Security](SECURITY_AND_SECRETS.md) | Credentials, evidence, data access and hardening gates |
+| Technical lead | [Decisions](TECHNICAL_DECISIONS.md) | Architectural choices and pending decisions |
 | Trainer / customer | [KT demo](KT_DEMO.md) | Role-by-role live demonstrations |
 | QA / release board | [UAT and release](UAT_RELEASE.md) | Negative tests, evidence capture, go/no-go |
 
