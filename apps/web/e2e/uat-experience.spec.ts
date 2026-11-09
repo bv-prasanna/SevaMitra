@@ -21,8 +21,8 @@ test('OTP rate limits show actionable errors instead of technical messages',asyn
  await page.goto('/login/');
  await page.getByRole('textbox',{name:'Mobile number'}).fill('9876543210');
  await page.getByRole('button',{name:'Send OTP'}).click();
- await expect(page.getByRole('alert')).toContainText('Too many requests');
- await expect(page.getByRole('alert')).not.toContainText('Redis');
+ await expect(page.locator('.authCard div[role=alert]')).toContainText('Too many requests');
+ await expect(page.locator('.authCard div[role=alert]')).not.toContainText('Redis');
 });
 test('completed OTP login navigates even if workspace lookup is temporarily unavailable',async({page})=>{
  await page.route(API+'/auth/otp/request',r=>r.fulfill({status:200,json:{message:'requested'}}));
