@@ -1,0 +1,46 @@
+flowchart TB
+    subgraph clients["Clients (single API contract)"]
+      WEB["Next.js 15 / React 19"]
+      MOBILE["Expo SDK 54 / React Native"]
+      SHARED["@sevamitra/api-client + @sevamitra/i18n"]
+    end
+    WEB --> SHARED
+    MOBILE --> SHARED
+    SHARED --> HTTP["HTTPS REST /api/v1 + JWT"]
+    subgraph api["NestJS modular monolith"]
+      AUTH["Auth / OTP / Device Sessions"]
+      IAM["IAM / Roles / Permissions"]
+      MARKET["Customer / Provider / Agent / Catalogue / Geography"]
+      BOOK["Coverage / Discovery / Matching / Availability / Booking"]
+      VERIFY["Onboarding / KYC / Organizations"]
+      FIN["Payments / Commission / Settlement / Refund / Tax Assessment"]
+      OPS["Audit / Notifications / Runtime Flags / Incidents"]
+    end
+    HTTP --> AUTH
+    HTTP --> MARKET
+    HTTP --> BOOK
+    HTTP --> VERIFY
+    HTTP --> FIN
+    HTTP --> OPS
+    AUTH --> IAM
+    MARKET --> BOOK
+    VERIFY --> BOOK
+    BOOK --> FIN
+    FIN --> OPS
+    subgraph state["Persistence + external adapters"]
+      P[("Prisma 7 / PostgreSQL")]
+      FILES[("Private KYC object storage")]
+      OTP["MSG91 / SMS provider"]
+      GATE["Payment adapter\nDisabled for pilot"]
+    end
+    AUTH --> P
+    IAM --> P
+    MARKET --> P
+    BOOK --> P
+    VERIFY --> P
+    FIN --> P
+    OPS --> P
+    VERIFY --> FILES
+    AUTH --> OTP
+    FIN --> GATE
+

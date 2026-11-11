@@ -1,0 +1,12 @@
+node_modules
+dist
+coverage
+.env
+.env.*
+.git
+docs
+scripts
+test
+*.md
+docker-compose.yml
+/frontend

@@ -1,0 +1,4 @@
+{
+  "name":"sevamitra","private":true,"packageManager":"pnpm@10.15.0",
+  "scripts":{"dev:web":"pnpm --filter @sevamitra/web dev","dev:mobile":"pnpm --filter @sevamitra/mobile start","build":"pnpm -r build","typecheck":"pnpm -r typecheck"}
+}

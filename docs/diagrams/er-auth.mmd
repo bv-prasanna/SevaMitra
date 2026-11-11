@@ -1,0 +1,33 @@
+erDiagram
+    User ||--o| Credential : credentials
+    User ||--o{ OauthIdentity : identities
+    User ||--o{ RefreshToken : sessions
+    User ||--o{ TrustedDevice : devices
+    User ||--o{ OtpChallenge : challenges
+    User ||--o{ UserRoleAssignment : grants
+    Role ||--o{ UserRoleAssignment : assigned
+    Role ||--o{ RolePermission : maps
+    Permission ||--o{ RolePermission : allows
+    User {
+      string id PK
+      string phoneNumber UK
+      string email UK
+      string status
+    }
+    Role {
+      string id PK
+      string name UK
+      boolean isSystem
+    }
+    Permission {
+      string id PK
+      string key UK
+    }
+    UserRoleAssignment {
+      string id PK
+      string userId FK
+      string roleId FK
+      string scopeType
+      datetime revokedAt
+    }
+

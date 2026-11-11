@@ -1,0 +1,11 @@
+flowchart LR
+    WEB["Cloudflare Pages\nStatic Next.js"] -->|"HTTPS"| EDGE["Cloudflare Tunnel / DNS"]
+    PHONE["Expo mobile app"] -->|"HTTPS"| EDGE
+    EDGE --> EC2["Staging EC2\nDocker Compose NestJS API"]
+    EC2 --> LOCAL[("Docker PostgreSQL\nsynthetic staging only")]
+    EC2 --> R2[("Private R2")]
+    EC2 --> SMS["MSG91"]
+    SSM["AWS SSM SecureString"] -.-> EC2
+    ECR["ECR SHA-tagged image"] -.-> EC2
+    BK["Encrypted off-host backup"] <-.-> LOCAL
+

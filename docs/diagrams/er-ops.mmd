@@ -1,0 +1,34 @@
+erDiagram
+    User ||--o{ AuditLog : actor
+    User ||--o{ Notification : recipient
+    User ||--o{ PushDevice : device
+    User ||--o{ IncidentCase : reporter
+    IncidentCase ||--o{ IncidentCaseActivity : timeline
+    IncidentCase {
+      string id PK
+      string reporterId FK
+      string assignedToId FK
+      string status
+      string severity
+      datetime acknowledgeDueAt
+      datetime resolveDueAt
+    }
+    IncidentCaseActivity {
+      string id PK
+      string incidentId FK
+      string actorId FK
+      string action
+    }
+    Notification {
+      string id PK
+      string userId FK
+      string status
+      int attemptCount
+      datetime nextAttemptAt
+    }
+    RuntimeFlag {
+      string key PK
+      boolean enabled
+      string reason
+    }
+
