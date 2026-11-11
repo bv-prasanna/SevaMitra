@@ -1,5 +1,5 @@
 import { ConflictException, NotFoundException } from '@nestjs/common';
-import { OnboardingChannel, OnboardingStatus } from '@prisma/client';
+import { OnboardingChannel, OnboardingStatus, ProviderStatus, VerificationStatus } from '@prisma/client';
 import { ApplicationService } from './application.service';
 import type { PrismaService } from '../prisma/prisma.service';
 import type { ProviderService } from '../provider/provider.service';
@@ -11,8 +11,12 @@ describe('ApplicationService', () => {
       findUnique: jest.Mock;
       create: jest.Mock;
       update: jest.Mock;
+      updateMany: jest.Mock;
+      findUniqueOrThrow: jest.Mock;
       findMany: jest.Mock;
     };
+    providerProfile: { updateMany: jest.Mock };
+    $transaction: jest.Mock;
     onboardingDocument: {
       create: jest.Mock;
       findMany: jest.Mock;
@@ -34,10 +38,15 @@ describe('ApplicationService', () => {
         findUnique: jest.fn(),
         create: jest.fn(),
         update: jest.fn(),
+        updateMany: jest.fn().mockResolvedValue({count:1}),
+        findUniqueOrThrow: jest.fn().mockResolvedValue({id:'app-1',status:OnboardingStatus.APPROVED}),
         findMany: jest.fn(),
       },
+      providerProfile: {updateMany: jest.fn().mockResolvedValue({count:1})},
+      $transaction: jest.fn(),
       onboardingDocument: { create: jest.fn(), findMany: jest.fn() },
     };
+    prisma.$transaction.mockImplementation(async (run:(tx:unknown)=>Promise<unknown>)=>run(prisma));
     providerService = {
       getActiveProfileOrThrow: jest.fn().mockResolvedValue(provider),
       markVerified: jest.fn(),
@@ -148,7 +157,7 @@ describe('ApplicationService', () => {
       await expect(service.claim('app-1', 'reviewer-1')).rejects.toThrow(
         ConflictException,
       );
-      expect(prisma.onboardingApplication.update).not.toHaveBeenCalled();
+      expect(prisma.onboardingApplication.updateMany).not.toHaveBeenCalled();
     });
 
     it('moves a SUBMITTED application to UNDER_REVIEW', async () => {
@@ -157,17 +166,24 @@ describe('ApplicationService', () => {
         status: OnboardingStatus.SUBMITTED,
         documents: [],
       });
-      prisma.onboardingApplication.update.mockResolvedValue({});
-
       await service.claim('app-1', 'reviewer-1');
 
-      expect(prisma.onboardingApplication.update).toHaveBeenCalledWith({
-        where: { id: 'app-1' },
+      expect(prisma.onboardingApplication.updateMany).toHaveBeenCalledWith({
+        where: { id: 'app-1', status: OnboardingStatus.SUBMITTED },
         data: {
           status: OnboardingStatus.UNDER_REVIEW,
           reviewedBy: 'reviewer-1',
         },
       });
+    });
+
+    it('losing a simultaneous claim fails closed',async()=>{
+      prisma.onboardingApplication.findUnique.mockResolvedValue({
+        id:'app-1',status:OnboardingStatus.SUBMITTED,documents:[],
+      });
+      prisma.onboardingApplication.updateMany.mockResolvedValue({count:0});
+      await expect(service.claim('app-1','reviewer-2')).rejects.toThrow(ConflictException);
+      expect(prisma.onboardingApplication.findUniqueOrThrow).not.toHaveBeenCalled();
     });
   });
 
@@ -193,17 +209,18 @@ describe('ApplicationService', () => {
         status: OnboardingStatus.SUBMITTED,
         documents: [],
       });
-      prisma.onboardingApplication.update.mockResolvedValue({});
-
       await service.review('app-1', 'reviewer-1', {
         decision: OnboardingStatus.APPROVED,
       });
 
-      expect(providerService.markVerified).toHaveBeenCalledWith('provider-1');
-      expect(providerService.markRejected).not.toHaveBeenCalled();
-      expect(prisma.onboardingApplication.update).toHaveBeenCalledWith({
-        where: { id: 'app-1' },
+      expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+      expect(prisma.onboardingApplication.updateMany).toHaveBeenCalledWith({
+        where: { id: 'app-1', status: OnboardingStatus.SUBMITTED },
         data: expect.objectContaining({ status: OnboardingStatus.APPROVED }),
+      });
+      expect(prisma.providerProfile.updateMany).toHaveBeenCalledWith({
+        where: {id:'provider-1',status:{not:ProviderStatus.DELETED}},
+        data:{status:ProviderStatus.ACTIVE,verificationStatus:VerificationStatus.VERIFIED},
       });
     });
 
@@ -214,15 +231,39 @@ describe('ApplicationService', () => {
         status: OnboardingStatus.UNDER_REVIEW,
         documents: [],
       });
-      prisma.onboardingApplication.update.mockResolvedValue({});
-
       await service.review('app-1', 'reviewer-1', {
         decision: OnboardingStatus.REJECTED,
         reviewNote: 'Blurry document',
       });
 
-      expect(providerService.markRejected).toHaveBeenCalledWith('provider-1');
-      expect(providerService.markVerified).not.toHaveBeenCalled();
+      expect(prisma.providerProfile.updateMany).toHaveBeenCalledWith({
+        where:{id:'provider-1',status:{not:ProviderStatus.DELETED}},
+        data:{verificationStatus:VerificationStatus.REJECTED},
+      });
+    });
+    it('rejects a decision when another reviewer owns an under-review case',async()=>{
+      prisma.onboardingApplication.findUnique.mockResolvedValue({
+        id:'app-1',providerId:'provider-1',status:OnboardingStatus.UNDER_REVIEW,reviewedBy:'reviewer-other',documents:[],
+      });
+      await expect(service.review('app-1','reviewer-1',{decision:OnboardingStatus.APPROVED})).rejects.toThrow(ConflictException);
+      expect(prisma.$transaction).not.toHaveBeenCalled();
+    });
+
+    it('does not update provider profile when concurrent decision wins',async()=>{
+      prisma.onboardingApplication.findUnique.mockResolvedValue({
+        id:'app-1',providerId:'provider-1',status:OnboardingStatus.SUBMITTED,documents:[],
+      });
+      prisma.onboardingApplication.updateMany.mockResolvedValue({count:0});
+      await expect(service.review('app-1','reviewer-1',{decision:OnboardingStatus.APPROVED})).rejects.toThrow(ConflictException);
+      expect(prisma.providerProfile.updateMany).not.toHaveBeenCalled();
+    });
+
+    it('rejects removed providers instead of approving orphaned applications',async()=>{
+      prisma.onboardingApplication.findUnique.mockResolvedValue({
+        id:'app-1',providerId:'provider-1',status:OnboardingStatus.SUBMITTED,documents:[],
+      });
+      prisma.providerProfile.updateMany.mockResolvedValue({count:0});
+      await expect(service.review('app-1','reviewer-1',{decision:OnboardingStatus.APPROVED})).rejects.toThrow(ConflictException);
     });
   });
 });

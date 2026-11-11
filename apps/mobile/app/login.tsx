@@ -2,13 +2,13 @@ import React,{useState}from"react";
 import{SafeAreaView,View,Text,TextInput,Pressable,StyleSheet,Platform,ScrollView,KeyboardAvoidingView}from"react-native";
 import{router}from"expo-router";
 import{ApiClient}from"@sevamitra/api-client";
-import{API_BASE,saveLoginResponse,myWorkspaces}from"../src/session";
+import{API_BASE,saveLoginResponse}from"../src/session";
 const api=new ApiClient(API_BASE);
 export default function Login(){
  const[mobile,setMobile]=useState("");const[otp,setOtp]=useState("");const[sent,setSent]=useState(false);const[msg,setMsg]=useState("");const[busy,setBusy]=useState(false);
  const valid=/^[6-9]\d{9}$/.test(mobile);
  async function go(){
-  if(!API_BASE){setMsg("API URL missing: configure EXPO_PUBLIC_API_BASE_URL.");return}
+  if(!API_BASE){setMsg("Sign-in is temporarily unavailable. Please contact support.");return}
   setBusy(true);setMsg("");
   try{
    const phoneNumber="+91"+mobile;
@@ -20,7 +20,7 @@ export default function Login(){
       deviceLabel:Platform.OS==="ios"?"SevaMitra iPhone":"SevaMitra Android",
     });
     await saveLoginResponse(response);
-    await myWorkspaces();
+    // Roles are checked on the workspace screen; an unavailable lookup must not block a successful OTP login.
     router.replace("/workspaces");
    }
   }catch(e){setMsg(e instanceof Error?e.message:"Login failed. Please retry.")}finally{setBusy(false)}
@@ -28,8 +28,8 @@ export default function Login(){
  return <SafeAreaView style={s.safe}><KeyboardAvoidingView style={{flex:1}} behavior={Platform.OS==="ios"?"padding":undefined}><ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={s.page}><View style={s.card}>
   <Text style={s.logo}>Seva<Text style={s.orange}>Mitra</Text></Text>
   <Text style={s.title}>Welcome / ಸ್ವಾಗತ</Text><Text style={s.body}>Sign in using your mobile number and one-time password.</Text>
-  <TextInput style={s.input} keyboardType="phone-pad" autoComplete="tel" maxLength={10} editable={!sent&&!busy} value={mobile} onChangeText={x=>setMobile(x.replace(/\D/g,"").slice(0,10))} placeholder="10-digit mobile number"/>
-  {sent&&<><TextInput style={s.input} keyboardType="number-pad" maxLength={6} value={otp} onChangeText={x=>setOtp(x.replace(/\D/g,"").slice(0,6))} placeholder="6-digit OTP"/>
+  <TextInput accessibilityLabel="Mobile number" style={s.input} keyboardType="phone-pad" autoComplete="tel" maxLength={10} editable={!sent&&!busy} value={mobile} onChangeText={x=>setMobile(x.replace(/\D/g,"").slice(0,10))} placeholder="10-digit mobile number"/>
+  {sent&&<><TextInput accessibilityLabel="One-time password" style={s.input} keyboardType="number-pad" maxLength={6} value={otp} onChangeText={x=>setOtp(x.replace(/\D/g,"").slice(0,6))} placeholder="6-digit OTP"/>
    <Pressable onPress={()=>{setSent(false);setOtp("");setMsg("")}}><Text style={s.link}>Change number / Resend</Text></Pressable></>}
   <Pressable accessibilityRole="button" disabled={busy||!valid||(sent&&otp.length!==6)} style={[s.btn,(busy||!valid||(sent&&otp.length!==6))&&s.disabled]} onPress={go}><Text style={s.white}>{busy?"Please wait…":sent?"Verify & continue":"Send OTP"}</Text></Pressable>
   {!!msg&&<Text accessibilityRole="alert" style={s.msg}>{msg}</Text>}

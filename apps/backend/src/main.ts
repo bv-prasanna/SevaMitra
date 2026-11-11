@@ -4,6 +4,7 @@ import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 import { allowedBrowserOrigins } from './common/config/cors-origins';
+import { CORS_ALLOWED_REQUEST_HEADERS } from './common/config/http-headers';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -19,7 +20,7 @@ async function bootstrap() {
     origin: origins,
     credentials: false,
     methods: ['GET','POST','PUT','PATCH','DELETE','OPTIONS'],
-    allowedHeaders: ['Content-Type','Authorization','Idempotency-Key'],
+    allowedHeaders: [...CORS_ALLOWED_REQUEST_HEADERS],
   });
   app.use((_req: unknown, res: {setHeader:(name:string,value:string)=>void}, next:()=>void)=>{
     res.setHeader('X-Content-Type-Options','nosniff');

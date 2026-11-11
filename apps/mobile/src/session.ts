@@ -1,6 +1,7 @@
 import * as SecureStore from "expo-secure-store";
 import {eventLocationHeaders} from "./event-location";
 import {canReplayBookingDraft} from "./booking-pending";
+import {shouldClearStoredSessionOnRefreshError} from "./session-policy";
 import {ApiClient,extractOtpLoginTokens,type SessionTokenPair} from "@sevamitra/api-client";
 
 export const API_BASE=process.env.EXPO_PUBLIC_API_BASE_URL||"";
@@ -52,7 +53,7 @@ async function refreshSession(session:Stored):Promise<Stored>{
     if(generation!==sessionGeneration)throw new Error("Session changed during refresh");
     return {...tokens,userId:session.userId,expiresAt:Date.now()+tokens.expiresIn*1000};
    }catch(e){
-     if(generation===sessionGeneration)await queueStorageWrite(async()=>{
+     if(generation===sessionGeneration && shouldClearStoredSessionOnRefreshError(e))await queueStorageWrite(async()=>{
        if(generation===sessionGeneration)await SecureStore.deleteItemAsync(KEY);
      });
      throw e;
@@ -67,7 +68,7 @@ function extractTokensFromRefresh(value:unknown):SessionTokenPair{
  return {accessToken:t.accessToken,refreshToken:t.refreshToken,expiresIn:t.expiresIn};
 }
 export async function requestWithSession<T=unknown>(method:"GET"|"POST"|"PATCH"|"PUT"|"DELETE",path:string,body?:unknown):Promise<T>{
- if(!API_BASE)throw new Error("Set EXPO_PUBLIC_API_BASE_URL to a reachable HTTPS API");
+ if(!API_BASE)throw new Error("Service is temporarily unavailable. Please contact support.");
  let session=await loadSession();
  if(!session)throw new Error("Please sign in first");
  if(Date.now()>session.expiresAt-30000)session=await refreshSession(session);

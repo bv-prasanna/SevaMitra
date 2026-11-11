@@ -2,20 +2,37 @@ import {ProviderStatus,VerificationStatus} from '@prisma/client';
 import {DiscoveryService} from './discovery.service';
 import type {PrismaService} from '../../prisma/prisma.service';
 import type {CoverageCheckService} from '../check/coverage-check.service';
+import type {RuntimeFlagsService} from '../../runtime-flags/runtime-flags.service';
 
 describe('DiscoveryService',()=>{
  let prisma:{providerOffering:{findMany:jest.Mock}};
  let coverage:{listServiceableProviderIds:jest.Mock};
  let service:DiscoveryService;
+ let flags:{filterDiscoverableServiceIds:jest.Mock};
  beforeEach(()=>{
   prisma={providerOffering:{findMany:jest.fn().mockResolvedValue([])}};
   coverage={listServiceableProviderIds:jest.fn().mockResolvedValue(['provider-1'])};
-  service=new DiscoveryService(prisma as unknown as PrismaService,coverage as unknown as CoverageCheckService);
+  flags={filterDiscoverableServiceIds:jest.fn().mockImplementation((ids:string[])=>Promise.resolve(new Set(ids)))};
+  service=new DiscoveryService(prisma as unknown as PrismaService,coverage as unknown as CoverageCheckService,flags as unknown as RuntimeFlagsService);
  });
  it('returns empty and does not query offerings if there are no serviceable providers',async()=>{
   coverage.listServiceableProviderIds.mockResolvedValue([]);
   await expect(service.findServiceableOfferings('svc','town')).resolves.toEqual([]);
   expect(prisma.providerOffering.findMany).not.toHaveBeenCalled();
+ });
+ it('never exposes a disabled service via the offerings endpoint',async()=>{
+  flags.filterDiscoverableServiceIds.mockResolvedValue(new Set());
+  await expect(service.findServiceableOfferings('disabled','town')).resolves.toEqual([]);
+  expect(prisma.providerOffering.findMany).not.toHaveBeenCalled();
+ });
+ it('does not advertise disabled services in the available-services catalogue',async()=>{
+  prisma.providerOffering.findMany.mockResolvedValue([
+   {service:{id:'allowed',name:'Plumbing'}},
+   {service:{id:'blocked',name:'Electrician'}},
+  ]);
+  flags.filterDiscoverableServiceIds.mockResolvedValue(new Set(['allowed']));
+  await expect(service.findAvailableServices('town')).resolves.toEqual([{id:'allowed',name:'Plumbing'}]);
+  expect(flags.filterDiscoverableServiceIds).toHaveBeenCalledWith(['allowed','blocked'],'town');
  });
  it('filters to active offerings from verified active providers',async()=>{
   await service.findServiceableOfferings('svc','town');

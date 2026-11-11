@@ -41,7 +41,10 @@ export type Query=Record<string,string|number|boolean|undefined|null>; export ty
 const qs=(q?:Query)=>{if(!q)return"";const p=new URLSearchParams();Object.entries(q).forEach(([k,v])=>{if(v!=null)p.set(k,String(v))});const s=p.toString();return s?`?${s}`:""};
 export class ApiClient{
  constructor(private baseUrl:string,private getToken?:()=>string|undefined){}
- private async request<T>(method:string,path:string,body?:unknown,o:RequestOptions={}):Promise<T>{const token=this.getToken?.();const geo=token&&method!=="GET"?await permittedBrowserEventLocation():{};const res=await fetch(this.baseUrl.replace(/\/$/,"")+"/api/v1"+path+qs(o.query),{method,headers:{"Content-Type":"application/json",...geo,...(token?{Authorization:`Bearer ${token}`}:{}),...(o.idempotencyKey?{"Idempotency-Key":o.idempotencyKey}:{}),...o.headers},...(body===undefined?{}:{body:JSON.stringify(body)})});if(!res.ok){const raw=await res.json().catch(()=>({error:{code:"HTTP_ERROR",message:res.statusText}}));const detail=raw?.error??raw;const e=new Error(typeof detail?.message==="string"?detail.message:`Request failed (HTTP ${res.status})`) as Error & ApiError & {status:number};e.code=typeof detail?.code==="string"?detail.code:"HTTP_ERROR";e.status=res.status;e.details=detail?.details;e.correlationId=detail?.correlationId;throw e}return res.status===204?undefined as T:res.json() as Promise<T>}
+ private async request<T>(method:string,path:string,body?:unknown,o:RequestOptions={}):Promise<T>{const token=this.getToken?.();const geo=token&&method!=="GET"?await permittedBrowserEventLocation():{};const res=await fetch(this.baseUrl.replace(/\/$/,"")+"/api/v1"+path+qs(o.query),{method,headers:{"Content-Type":"application/json",...geo,...(token?{Authorization:`Bearer ${token}`}:{}),...(o.idempotencyKey?{"Idempotency-Key":o.idempotencyKey}:{}),...o.headers},...(body===undefined?{}:{body:JSON.stringify(body)})}).catch(()=>{throw Object.assign(new Error("Unable to reach SevaMitra. Check your connection and try again."),{status:0,code:"NETWORK_UNAVAILABLE"})});if(!res.ok){const raw=await res.json().catch(()=>({error:{code:"HTTP_ERROR",message:res.statusText}}));const detail=raw?.error??raw;const supplied=typeof detail?.message==="string"?detail.message:"";
+ const friendly:Record<number,string>={401:"Your session has expired. Please sign in again.",403:"You do not have permission to perform this action.",408:"Request timed out. Please try again.",429:"Too many requests. Please wait and try again.",500:"Something went wrong on our side. Please try again later.",502:"Service temporarily unavailable. Please try again.",503:"Service temporarily unavailable. Please try again.",504:"Service timed out. Please try again."};
+ const message=friendly[res.status]||(res.status>=500?"Something went wrong on our side. Please try again later.":supplied||"We could not complete your request. Please check the details and try again.");
+ const e=new Error(message) as Error & ApiError & {status:number};e.code=typeof detail?.code==="string"?detail.code:"HTTP_ERROR";e.status=res.status;e.details=detail?.details;e.correlationId=detail?.correlationId;throw e}return res.status===204?undefined as T:res.json() as Promise<T>}
  get<T=unknown>(p:string,o?:RequestOptions){return this.request<T>("GET",p,undefined,o)} post<T=unknown>(p:string,b?:unknown,o?:RequestOptions){return this.request<T>("POST",p,b,o)} put<T=unknown>(p:string,b?:unknown,o?:RequestOptions){return this.request<T>("PUT",p,b,o)} patch<T=unknown>(p:string,b?:unknown,o?:RequestOptions){return this.request<T>("PATCH",p,b,o)} delete<T=unknown>(p:string,o?:RequestOptions){return this.request<T>("DELETE",p,undefined,o)}
  // Auth
  requestOtp(b:unknown){return this.post("/auth/otp/request",b)} verifyOtp(b:unknown){return this.post("/auth/otp/verify",b)} passwordLogin(b:unknown){return this.post("/auth/login",b)} socialLogin(b:unknown){return this.post("/auth/social",b)} refresh(b:unknown){return this.post("/auth/refresh",b)} logout(b?:unknown){return this.post("/auth/logout",b)} me(){return this.get("/auth/me")} authMethods(){return this.get("/auth/methods")}
@@ -88,3 +91,31 @@ export type DiscoveredOffering={
  pricingModel:string;amount:string|null;visitFee:string|null;currency:string;notes:string|null;
 };
 export type BookingCreate={offeringId:string;townVillageId:string;scheduledDate:string;scheduledStartTime:string;scheduledEndTime:string;notes?:string;clientRequestId?:string};
+
+/** Validate local service date/time without depending on locale-dependent
+ * date formatting. The server remains authoritative for provider availability.
+ */
+export function localIsoDate(now: Date): string {
+ const pad=(value:number)=>String(value).padStart(2,'0');
+ return [now.getFullYear(),pad(now.getMonth()+1),pad(now.getDate())].join('-');
+}
+export function validateLocalBookingWindow(date: string,start: string,end: string,now: Date=new Date()): string|null {
+ if(!/^\d{4}-\d{2}-\d{2}$/.test(date))return 'Enter a valid service date (YYYY-MM-DD).';
+ const [year,month,day]=date.split('-').map(Number);
+ if(year===undefined||month===undefined||day===undefined)return 'Enter a valid service date (YYYY-MM-DD).';
+ const actual=new Date(Date.UTC(year,month-1,day));
+ if(year<2000||year>2100||actual.getUTCFullYear()!==year||actual.getUTCMonth()!==month-1||actual.getUTCDate()!==day)
+   return 'Enter a valid service date (YYYY-MM-DD).';
+ if(!/^([01]\d|2[0-3]):[0-5]\d$/.test(start)||!/^([01]\d|2[0-3]):[0-5]\d$/.test(end))
+   return 'Enter valid start and end times (HH:mm).';
+ if(start>=end)return 'End time must be after start time.';
+ const today=localIsoDate(now);
+ if(date<today)return 'Choose today or a future service date.';
+ if(date===today){
+  const pad=(value:number)=>String(value).padStart(2,'0');
+  const current=pad(now.getHours())+':'+pad(now.getMinutes());
+  if(start<=current)return 'Choose a start time later than the current time.';
+ }
+ return null;
+}
+

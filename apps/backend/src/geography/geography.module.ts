@@ -8,6 +8,7 @@ import { TalukController } from './taluk/taluk.controller';
 import { TalukService } from './taluk/taluk.service';
 import { TownVillageController } from './town-village/town-village.controller';
 import { TownVillageService } from './town-village/town-village.service';
+import { PincodeSearchController } from './pincode-search.controller';
 
 @Module({
   imports: [IamModule],
@@ -16,6 +17,7 @@ import { TownVillageService } from './town-village/town-village.service';
     DistrictController,
     TalukController,
     TownVillageController,
+    PincodeSearchController,
   ],
   providers: [StateService, DistrictService, TalukService, TownVillageService],
   exports: [StateService, DistrictService, TalukService, TownVillageService],

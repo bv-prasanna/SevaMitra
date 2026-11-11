@@ -84,7 +84,7 @@ export default function RolePermissionMatrix(){
  }
 
  return <main>
-  <header className="nav"><Link href="/admin" className="brand">← SevaMitra Admin</Link><Link href="/workspaces">Workspaces</Link></header>
+  
   <section className="workspace">
    <h1>Roles & permissions matrix</h1>
    <p>Grant only the minimum permissions needed. Changes are enforced by the backend on subsequent requests. <strong>Manage (bundled)</strong> grants multiple actions in modules that have not yet split their legacy permission; it is not equivalent to separate Add/Edit/Delete controls.</p>

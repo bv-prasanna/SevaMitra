@@ -8,6 +8,8 @@ import {
   OnboardingChannel,
   OnboardingDocument,
   OnboardingStatus,
+  ProviderStatus,
+  VerificationStatus,
 } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { ProviderService } from '../provider/provider.service';
@@ -147,10 +149,15 @@ export class ApplicationService {
       );
     }
 
-    return this.prisma.onboardingApplication.update({
-      where: { id },
+    // Conditional update prevents two reviewers from claiming the same case.
+    const changed = await this.prisma.onboardingApplication.updateMany({
+      where: { id, status: OnboardingStatus.SUBMITTED },
       data: { status: OnboardingStatus.UNDER_REVIEW, reviewedBy: reviewerId },
     });
+    if (changed.count !== 1) {
+      throw new ConflictException('Application was claimed by another reviewer. Refresh the queue.');
+    }
+    return this.prisma.onboardingApplication.findUniqueOrThrow({ where: { id } });
   }
 
   async review(
@@ -162,23 +169,44 @@ export class ApplicationService {
     if (!DECIDABLE_STATUSES.includes(application.status)) {
       throw new ConflictException('This application has already been decided');
     }
-
-    const updated = await this.prisma.onboardingApplication.update({
-      where: { id },
-      data: {
-        status: dto.decision,
-        reviewNote: dto.reviewNote,
-        reviewedBy: reviewerId,
-        reviewedAt: new Date(),
-      },
-    });
-
-    if (dto.decision === OnboardingStatus.APPROVED) {
-      await this.providerService.markVerified(application.providerId);
-    } else {
-      await this.providerService.markRejected(application.providerId);
+    if (application.status === OnboardingStatus.UNDER_REVIEW &&
+        application.reviewedBy && application.reviewedBy !== reviewerId) {
+      throw new ConflictException('This application is claimed by another reviewer');
     }
 
-    return updated;
+    // Atomic compare-and-set decision and provider verification. If the
+    // provider has been deleted, or another reviewer wins a race, the entire
+    // transaction is rolled back (no approved application with stale profile).
+    return this.prisma.$transaction(async (tx) => {
+      const changed = await tx.onboardingApplication.updateMany({
+        where: {
+          id,
+          status: application.status,
+          ...(application.status === OnboardingStatus.UNDER_REVIEW
+            ? { reviewedBy: application.reviewedBy }
+            : {}),
+        },
+        data: {
+          status: dto.decision,
+          reviewNote: dto.reviewNote,
+          reviewedBy: reviewerId,
+          reviewedAt: new Date(),
+        },
+      });
+      if (changed.count !== 1) {
+        throw new ConflictException('Application status changed. Refresh before deciding.');
+      }
+
+      const provider = await tx.providerProfile.updateMany({
+        where: { id: application.providerId, status: { not: ProviderStatus.DELETED } },
+        data: dto.decision === OnboardingStatus.APPROVED
+          ? { status: ProviderStatus.ACTIVE, verificationStatus: VerificationStatus.VERIFIED }
+          : { verificationStatus: VerificationStatus.REJECTED },
+      });
+      if (provider.count !== 1) {
+        throw new ConflictException('Provider profile is no longer available for verification');
+      }
+      return tx.onboardingApplication.findUniqueOrThrow({ where: { id } });
+    });
   }
 }

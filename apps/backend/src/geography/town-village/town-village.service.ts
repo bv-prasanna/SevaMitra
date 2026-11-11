@@ -64,6 +64,19 @@ export class TownVillageService {
     });
   }
 
+  /** Public lookup: do not expose location owners, providers, private coordinates or PII. */
+  async findActiveByPincode(pincode:string):Promise<Array<{id:string;name:string;pincode:string}>> {
+    return this.prisma.townVillage.findMany({
+      where:{
+        pincode,isActive:true,
+        taluk:{isActive:true,district:{isActive:true,state:{name:'Karnataka',isActive:true}}},
+      },
+      select:{id:true,name:true,pincode:true},
+      orderBy:{name:'asc'},
+      take:50,
+    });
+  }
+
   /** Internal — flat, taluk-agnostic existence check for modules (Serviceability) that hold only a townVillageId. */
   async findByIdOrThrow(id: string): Promise<TownVillage> {
     const townVillage = await this.prisma.townVillage.findUnique({
