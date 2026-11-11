@@ -43,7 +43,7 @@ test('unauthorized account never receives administration controls',async({page})
     providerStatus:null,agentStatus:null,
   }}));
   await page.goto('/admin/');
-  await expect(page.getByRole('alert')).toContainText('does not have permission');
+  await expect(page.locator('.adminHub [role="alert"]').filter({hasText:'does not have permission'})).toBeVisible();
   await expect(page.locator('.adminToolCard')).toHaveCount(0);
   await expect(page.getByRole('heading',{name:/Verification queue/})).toHaveCount(0);
 });
