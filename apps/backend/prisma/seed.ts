@@ -53,6 +53,11 @@ async function main() {
         permissions: ['provider.onboarding.review', 'agent.review'],
       },
       {
+        name: 'FINANCE_MANAGER',
+        description: 'Maintain tax/pricing rules and issue validated billing documents',
+        permissions: ['finance.tax.manage','finance.pricing.manage','finance.billing.manage','tax.assessment.manage'],
+      },
+      {
         name: 'INCIDENT_MANAGER',
         description: 'Review, assign, resolve and escalate support incidents',
         permissions: ['incident.manage'],
