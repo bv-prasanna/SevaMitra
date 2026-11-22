@@ -1,12 +1,9 @@
 export const PAYMENT_GATEWAY = Symbol('PAYMENT_GATEWAY');
 
 /**
- * PaymentService only needs to open a payment order and verify a
- * completed one — actual Razorpay Orders API integration
- * (docs/ARCHITECTURE.md §12.1) doesn't exist yet. This interface is the
- * seam: swap StubPaymentGateway for a real Razorpay-backed implementation
- * (or a second gateway, per the BRD's config-first philosophy) without
- * touching PaymentService.
+ * PaymentService opens an order and verifies a captured payment. The
+ * Razorpay Orders API adapter is selected only through backend config;
+ * credentials never leave the server. Keep this contract gateway-neutral.
  */
 export interface PaymentGateway {
   createOrder(
