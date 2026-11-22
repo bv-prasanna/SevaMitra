@@ -115,18 +115,26 @@ export class RefundService {
           },
         });
 
+    if(refundAmount===0){
+      return this.prisma.refund.update({where:{id:refund.id},data:{
+        status:RefundStatus.REFUNDED,refundedAt:new Date(),refundReference:null,failureReason:null,
+      }});
+    }
     try {
-      const { refundReference } = await this.refundGateway.initiateRefund(
+      const { refundReference, status } = await this.refundGateway.initiateRefund(
         bookingId,
         refundAmount,
         booking.currency,
+        refund.id,
       );
+      const resolved=status??'REFUNDED';
       return this.prisma.refund.update({
         where: { id: refund.id },
         data: {
-          status: RefundStatus.REFUNDED,
+          status: resolved==='REFUNDED'?RefundStatus.REFUNDED:resolved==='FAILED'?RefundStatus.FAILED:RefundStatus.PENDING,
           refundReference,
-          refundedAt: new Date(),
+          refundedAt: resolved==='REFUNDED'?new Date():null,
+          failureReason: resolved==='FAILED'?'Gateway reported refund.failed':null,
         },
       });
     } catch (err) {
