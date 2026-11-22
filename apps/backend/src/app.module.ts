@@ -29,6 +29,7 @@ import { CommissionModule } from './commission/commission.module';
 import { SettlementModule } from './settlement/settlement.module';
 import { RefundModule } from './refund/refund.module';
 import { RuntimeFlagsModule } from './runtime-flags/runtime-flags.module';
+import { AppReleaseModule } from './app-release/app-release.module';
 
 @Module({
   imports: [
@@ -64,6 +65,7 @@ import { RuntimeFlagsModule } from './runtime-flags/runtime-flags.module';
     RefundModule,
     RuntimeFlagsModule,
     IncidentModule,
+    AppReleaseModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: ThrottlerGuard },
