@@ -248,3 +248,24 @@ like `ConsoleOtpSender`.
   on the provider route, a customer token against a provider-only
   action) → DTO validation confirmed **400** for a negative amount and
   an invalid `method` value, and **404** for a non-existent booking.
+
+
+## Razorpay sandbox webhook setup (implementation added 2026-11-22)
+
+The backend now exposes `POST /api/v1/payments/webhooks/razorpay`. NestJS is configured to preserve the exact raw request bytes; the endpoint validates the `x-razorpay-signature` HMAC-SHA256 using `RAZORPAY_WEBHOOK_SECRET`, requires Razorpay's `x-razorpay-event-id`, stores a durable unique inbox record and reconciles a matching INR captured payment against the local order and exact paise amount. Repeated processed event IDs are idempotent. An unprocessed event can be retried after an earlier local lookup failure.
+
+### Environment placeholders
+
+Set these only in the backend secret store (Render environment), never in source control:
+
+- `PAYMENT_PROVIDER=razorpay`
+- `RAZORPAY_KEY_ID=rzp_test_REPLACE_ME`
+- `RAZORPAY_KEY_SECRET=REPLACE_WITH_TEST_SECRET`
+- `RAZORPAY_WEBHOOK_SECRET=REPLACE_WITH_WEBHOOK_SECRET`
+- Keep `PILOT_DISABLE_COLLECTIONS=true` until sandbox end-to-end and finance approval are complete. Do not enable live collection by simply changing the provider switch.
+
+Configure the Razorpay dashboard webhook URL to `https://<staging-api-host>/api/v1/payments/webhooks/razorpay` and subscribe to `payment.captured`. Do not paste credentials into GitHub issues, commits, chat, or the APK. Test keys are not live keys.
+
+### Release gates / limitations
+
+This endpoint does not by itself complete refunds, payouts, chargebacks, a financial double-entry ledger, dead-letter replay tooling, gateway settlement reconciliation, or finance sign-off. Refund and payout providers remain disabled unless their independent workflows and controls are verified. Run Prisma migration deployment before testing this endpoint. Verify forged signatures, missing event IDs, duplicate event IDs, amount mismatch, unknown order, retry of an unprocessed event, and client disconnect against Razorpay sandbox receipts. Do not enable public payment collection before these checks pass.
