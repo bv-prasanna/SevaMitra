@@ -60,35 +60,38 @@ export class PaymentService {
       throw new ConflictException('Payment webhook is missing required payment details');
     }
     const payloadHash=createHash('sha256').update(rawBody).digest('hex');
-    try {
-      await this.prisma.gatewayWebhookEvent.create({data:{
-        provider:'razorpay',eventId,eventType:event.event,payloadHash,
-      }});
-    } catch(error) {
-      if(error instanceof Prisma.PrismaClientKnownRequestError && error.code==='P2002') {
-        const prior=await this.prisma.gatewayWebhookEvent.findUnique({where:{provider_eventId:{provider:'razorpay',eventId}}});
-        if(prior?.processedAt) return {received:true,duplicate:true};
-        // An earlier delivery may have arrived before the local payment row
-        // was visible. Permit safe reconciliation retry for unprocessed events.
-      } else throw error;
+    const inserted=await this.prisma.$queryRaw<Array<{id:string}>>`
+      INSERT INTO "finance"."gateway_webhook_events"
+        ("id","provider","event_id","event_type","payload_hash","received_at")
+      VALUES (gen_random_uuid()::text,'razorpay',${eventId},${event.event},${payloadHash},CURRENT_TIMESTAMP)
+      ON CONFLICT ("provider","event_id") DO NOTHING
+      RETURNING "id"
+    `;
+    if(inserted.length===0) {
+      const prior=await this.prisma.$queryRaw<Array<{processed_at:Date|null}>>`
+        SELECT "processed_at" FROM "finance"."gateway_webhook_events"
+        WHERE "provider"='razorpay' AND "event_id"=${eventId}
+      `;
+      if(prior[0]?.processed_at) return {received:true,duplicate:true};
+      // Unprocessed deliveries remain retryable after transient local failures.
     }
     const payment=await this.prisma.payment.findFirst({where:{
       gatewayOrderId:entity.order_id,method:PaymentMethod.ONLINE,currency:'INR',
     }});
     if(!payment) {
-      await this.prisma.gatewayWebhookEvent.update({where:{provider_eventId:{provider:'razorpay',eventId}},data:{failureCode:'PAYMENT_NOT_FOUND'}});
+      await this.prisma.$executeRaw`UPDATE \"finance\".\"gateway_webhook_events\" SET \"failure_code\"='PAYMENT_NOT_FOUND' WHERE \"provider\"='razorpay' AND \"event_id\"=${eventId}`;
       return {received:true,reconciled:false};
     }
     const expectedPaise=Math.round(Number(payment.amount)*100);
     if(expectedPaise!==entity.amount || (entity.status && entity.status!=='captured')) {
-      await this.prisma.gatewayWebhookEvent.update({where:{provider_eventId:{provider:'razorpay',eventId}},data:{failureCode:'PAYMENT_AMOUNT_OR_STATUS_MISMATCH'}});
+      await this.prisma.$executeRaw`UPDATE \"finance\".\"gateway_webhook_events\" SET \"failure_code\"='PAYMENT_AMOUNT_OR_STATUS_MISMATCH' WHERE \"provider\"='razorpay' AND \"event_id\"=${eventId}`;
       return {received:true,reconciled:false};
     }
     await this.prisma.$transaction(async tx=>{
       await tx.payment.updateMany({where:{id:payment.id,status:PaymentStatus.INITIATED},data:{
         status:PaymentStatus.SUCCEEDED,gatewayPaymentId:entity.id,settledAt:new Date(),
       }});
-      await tx.gatewayWebhookEvent.update({where:{provider_eventId:{provider:'razorpay',eventId}},data:{processedAt:new Date(),failureCode:null}});
+      await tx.$executeRaw`UPDATE \"finance\".\"gateway_webhook_events\" SET \"processed_at\"=CURRENT_TIMESTAMP, \"failure_code\"=NULL WHERE \"provider\"='razorpay' AND \"event_id\"=${eventId}`;
     });
     return {received:true,reconciled:true};
   }
