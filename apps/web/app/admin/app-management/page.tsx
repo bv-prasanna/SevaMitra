@@ -1,5 +1,6 @@
 "use client";
 import {useEffect,useState} from "react";
+import type {FormEvent} from "react";
 import Link from "next/link";
 import {ApiClient} from "@sevamitra/api-client";
 const api=new ApiClient(process.env.NEXT_PUBLIC_API_BASE_URL||"",()=>typeof window!=="undefined"?localStorage.getItem("sevamitra_token")||undefined:undefined);
@@ -10,7 +11,7 @@ export default function AppManagement(){
  async function load(){try{const data=await api.get<Release[]>("/app-releases/admin");setRows(data);setMessage(data.length?"":"No app releases have been configured yet.");}catch(e){setMessage(e instanceof Error?e.message:"Unable to load app releases. Check app.release.manage permission.")}}
  useEffect(()=>{void load()},[]);
  function change<K extends keyof typeof blank>(key:K,value:(typeof blank)[K]){setForm(prev=>({...prev,[key]:value}))}
- async function create(event:React.FormEvent){event.preventDefault();setBusy(true);setMessage("");
+ async function create(event:FormEvent){event.preventDefault();setBusy(true);setMessage("");
   try{
    await api.post("/app-releases/admin",{...form,sha256:form.sha256||undefined,releaseNotes:form.releaseNotes||undefined,minSupportedVersion:form.minSupportedVersion||undefined});
    setForm({...blank});await load();setMessage("App release saved. The public download page and QR code now use the published Android release.");
@@ -30,7 +31,7 @@ export default function AppManagement(){
   <form className="appReleaseForm" onSubmit={create}>
    <h2>Publish a new release</h2>
    <div className="formGrid">
-    <label>Platform<select value={form.platform} onChange={e=>change("platform",e.target.value as "ANDROID"|"IOS")}><option value="ANDROID">Android APK</option><option value="IOS">iOS (not active yet)</option></select></label>
+    <label>Platform<select value={form.platform} onChange={e=>change("platform",e.target.value as "ANDROID"|"IOS")}><option value="ANDROID">Android APK</option><option value="IOS" disabled>iOS (on hold)</option></select></label>
     <label>Version<input required pattern="\d+\.\d+\.\d+" placeholder="1.2.0" value={form.version} onChange={e=>change("version",e.target.value)}/></label>
     <label>Build number<input required inputMode="numeric" pattern="\d+" value={form.buildNumber} onChange={e=>change("buildNumber",e.target.value)}/></label>
     <label>Minimum supported version<input pattern="\d+\.\d+\.\d+" value={form.minSupportedVersion} onChange={e=>change("minSupportedVersion",e.target.value)}/></label>
