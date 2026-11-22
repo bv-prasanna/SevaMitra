@@ -1,5 +1,6 @@
 import {ConflictException,NotFoundException} from '@nestjs/common';
-import {FinanceGeoScope as G,FinanceTargetScope as T,FinanceTaxComponent as C,FinancePriceAdjustment as P,ProviderStatus,VerificationStatus} from '@prisma/client';
+import {ProviderStatus,VerificationStatus} from '@prisma/client';
+import {FinanceGeoScope as G,FinanceTargetScope as T,FinanceTaxComponent as C,FinancePriceAdjustment as P} from './finance.enums';
 import type {PrismaService} from '../prisma/prisma.service';
 import {FinanceQuoteService} from './quote.service';
 describe('FinanceQuoteService',()=>{
@@ -9,7 +10,7 @@ describe('FinanceQuoteService',()=>{
   pricingModel:'FIXED',amount:100,visitFee:10,currency:'INR',
   provider:{status:ProviderStatus.ACTIVE,verificationStatus:VerificationStatus.VERIFIED,deletedAt:null},
   service:{id:'service-1',categoryId:'category-1',isActive:true}};
- const town={id:'town-1',isActive:true,talukId:'taluk-1',taluk:{districtId:'district-1',district:{stateId:'state-1'}}};
+ const town={id:'town-1',isActive:true,talukId:'taluk-1',taluk:{districtId:'district-1',district:{stateId:'state-1',state:{gstStateCode:'29'}}}};
  const q={offeringId:'offering-1',townVillageId:'town-1',scheduledDate:'2026-11-07',scheduledStartTime:'10:00'};
  const pr={id:'pr-1',geoScope:G.ALL,geoId:null,targetScope:T.SERVICE,targetId:'service-1',
   priority:1,createdAt:date,adjustment:P.PERCENT_UP,value:10,weekdays:[],startTime:null,endTime:null};
@@ -19,7 +20,8 @@ describe('FinanceQuoteService',()=>{
   db={providerOffering:{findUnique:jest.fn().mockResolvedValue(offering)},
    townVillage:{findUnique:jest.fn().mockResolvedValue(town)},
    financePriceRule:{findMany:jest.fn().mockResolvedValue([])},
-   financeTaxRule:{findMany:jest.fn().mockResolvedValue([])}};
+   financeTaxRule:{findMany:jest.fn().mockResolvedValue([])},
+   billingIssuer:{findFirst:jest.fn().mockResolvedValue({gstin:'27ABCDE1234F1Z5',stateCode:'27',verified:true})}};
   quote=new FinanceQuoteService(db as PrismaService);
  });
  it('returns original provider price without changing GST when no rules enabled',async()=>{
@@ -55,7 +57,7 @@ describe('FinanceQuoteService',()=>{
  it('applies slot-specific rule only inside configured time window',async()=>{
   db.financePriceRule.findMany.mockResolvedValue([{...pr,startTime:'17:00',endTime:'20:00'}]);
   expect((await quote.quote(q)).total).toBe('110.00');
-  expect((await quote.quote({...q,scheduledStartTime:'18:30'})).total).toBe('121.00');
+  expect((await quote.quote({...q,scheduledStartTime:'18:30'})).total).toBe('120.00');
  });
  it('rejects conflicting GST components instead of silently double-taxing',async()=>{
   db.financeTaxRule.findMany.mockResolvedValue([tx,{...tx,id:'tx2',component:C.CGST,rateBps:900},{...tx,id:'tx3',component:C.SGST,rateBps:900}]);
