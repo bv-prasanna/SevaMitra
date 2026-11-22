@@ -1,4 +1,4 @@
-import {IncidentStatus} from '@prisma/client';
+import {IncidentSeverity,IncidentStatus} from '@prisma/client';
 import {IsBoolean,IsEnum,IsIn,IsInt,IsNotEmpty,IsOptional,IsString,Max,MaxLength,Matches,Min} from 'class-validator';
 export const INCIDENT_CATEGORIES=['SERVICE_ISSUE','SAFETY','ACCOUNT','PROVIDER_ONBOARDING','OTHER'] as const;
 export class OpenIncidentDto {
