@@ -14,7 +14,7 @@ export class RazorpayPaymentGateway implements PaymentGateway{
  private credentials(){
   const id=this.config.get<string>('RAZORPAY_KEY_ID');
   const secret=this.config.get<string>('RAZORPAY_KEY_SECRET');
-  if(!id||!secret)throw new ServiceUnavailableException('Razorpay gateway is not configured');
+  if(!id||!secret||/REPLACE|PLACEHOLDER|CHANGE_ME/i.test(id+secret))throw new ServiceUnavailableException('Razorpay gateway is not configured with real credentials');
   return {id,secret};
  }
  private rupeesToPaise(amount:number):number{
