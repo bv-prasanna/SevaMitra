@@ -22,6 +22,7 @@ export class AppReleaseService{
   return this.prisma.appRelease.findMany({orderBy:[{platform:'asc'},{createdAt:'desc'}],take:100});
  }
  async create(actorId:string,dto:CreateAppReleaseDto){
+  if(dto.platform===AppPlatform.IOS&&dto.isPublished)throw new BadRequestException('iOS release publishing is on hold');
   this.validateUrl(dto.downloadUrl);
   try{
    return await this.prisma.$transaction(async tx=>{
@@ -37,9 +38,10 @@ export class AppReleaseService{
  async update(id:string,actorId:string,dto:UpdateAppReleaseDto){
   const current=await this.prisma.appRelease.findUnique({where:{id}});
   if(!current)throw new NotFoundException('App release not found');
+  if(dto.platform===AppPlatform.IOS&&dto.isPublished)throw new BadRequestException('iOS release publishing is on hold');
   if(dto.downloadUrl)this.validateUrl(dto.downloadUrl);
   return this.prisma.$transaction(async tx=>{
-   if(dto.isPublished===true)await tx.appRelease.updateMany({where:{platform:current.platform,isPublished:true,id:{not:id}},data:{isPublished:false}});
+   if(dto.isPublished===true)await tx.appRelease.updateMany({where:{platform:dto.platform??current.platform,isPublished:true,id:{not:id}},data:{isPublished:false}});
    return tx.appRelease.update({where:{id},data:{
     ...(dto.platform!==undefined?{platform:dto.platform}:{}),
     ...(dto.version!==undefined?{version:dto.version}:{}),
