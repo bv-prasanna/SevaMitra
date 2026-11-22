@@ -1,5 +1,6 @@
 "use client";
 import {useEffect,useState} from "react";
+import type {FormEvent} from "react";
 import Link from "next/link";
 import {ApiClient} from "@sevamitra/api-client";
 const api=new ApiClient(process.env.NEXT_PUBLIC_API_BASE_URL||"",()=>typeof window!=="undefined"?localStorage.getItem("sevamitra_token")||undefined:undefined);
@@ -35,7 +36,7 @@ export default function IncidentAdmin(){
    await load();setMessage("Incident updated successfully.");
   }catch(e){setMessage(e instanceof Error?e.message:"Incident update failed")}finally{setBusy(false)}
  }
- async function savePolicy(event:React.FormEvent){
+ async function savePolicy(event:FormEvent){
   event.preventDefault();setBusy(true);
   try{
    await api.put("/incidents/admin/sla",{severity,acknowledgeMinutes:Number(ack),resolveMinutes:Number(resolve),escalationMinutes:Number(escalate),isActive:true});
