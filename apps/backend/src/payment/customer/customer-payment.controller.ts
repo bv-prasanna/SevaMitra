@@ -5,6 +5,7 @@ import {
   Param,
   Post,
   Query,
+  Req,
   UseGuards,
 } from '@nestjs/common';
 import {
@@ -24,6 +25,8 @@ import { VerifyPaymentDto } from '../dto/verify-payment.dto';
 import { ListPaymentsQueryDto } from '../dto/list-payments-query.dto';
 import { PaymentDto } from '../dto/responses/payment.dto';
 import { ErrorResponseDto } from '../../common/dto/error-response.dto';
+import type { RawBodyRequest } from '@nestjs/common';
+import type { Request } from 'express';
 
 @ApiTags('Payment')
 @ApiBearerAuth()
@@ -92,5 +95,22 @@ export class CustomerPaymentController {
     @Body() dto: VerifyPaymentDto,
   ) {
     return this.paymentService.verifyAsCustomer(user.id, id, dto);
+  }
+}
+
+
+/** Public endpoint authenticated exclusively by Razorpay's raw-body HMAC. */
+@ApiTags('Payment webhooks')
+@Controller({ path: 'payments/webhooks', version: '1' })
+export class RazorpayWebhookController {
+  constructor(private readonly paymentService: PaymentService) {}
+  @Post('razorpay')
+  @ApiOperation({ summary: 'Receive and reconcile signed Razorpay payment events' })
+  receive(@Req() request: RawBodyRequest<Request>) {
+    return this.paymentService.handleRazorpayWebhook(
+      request.rawBody,
+      request.headers['x-razorpay-signature'],
+      request.headers['x-razorpay-event-id'],
+    );
   }
 }
