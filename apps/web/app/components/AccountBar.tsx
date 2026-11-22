@@ -3,13 +3,13 @@ import {useCallback,useEffect,useId,useState} from "react";
 import Link from "next/link";
 import {usePathname} from "next/navigation";
 import {ApiClient} from "@sevamitra/api-client";
-import {ChevronDown,LayoutDashboard,Menu,ShieldCheck,X} from "lucide-react";
+import {ChevronDown,LayoutDashboard,Menu,ShieldCheck,X,Download} from "lucide-react";
 
 type Access={customer:boolean;provider:boolean;agent:boolean;admin:boolean};
 const sections:Record<string,string>={
  "/admin":"Overview","/admin/agents":"Agent approvals","/admin/catalogue":"Service catalogue",
  "/admin/roles":"Roles & permissions","/admin/organizations":"Provider organizations",
- "/admin/operations":"Operations & reports","/admin/runtime-flags":"Emergency controls",
+ "/admin/operations":"Operations & reports","/admin/runtime-flags":"Emergency controls","/admin/app-management":"App management",
 };
 export default function AccountBar(){
  const pathname=usePathname();
@@ -49,6 +49,7 @@ export default function AccountBar(){
   <nav id={navId} className={menuOpen?"accountNav isOpen":"accountNav"} aria-label="Account navigation">
    <Link href="/" className="accountNavLink">Home</Link>
    <Link href="/marketplace" className="accountNavLink" aria-current={pathname.startsWith("/marketplace")?"page":undefined}>Find services</Link>
+   <Link href="/download" className="accountNavLink"><Download size={15}/> Download App</Link>
    {signed?<><Link href="/workspaces" className="accountNavLink" aria-current={pathname==="/workspaces"?"page":undefined}><LayoutDashboard size={15}/> Workspaces</Link>
     {access?.admin&&<Link href="/admin" className="accountNavLink" aria-current={isAdmin?"page":undefined}>Admin console</Link>}
     <Link href="/profile" className="accountNavLink" aria-current={pathname==="/profile"?"page":undefined}>My profile</Link>
