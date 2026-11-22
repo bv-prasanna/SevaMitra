@@ -1,5 +1,6 @@
 import {BadRequestException,Injectable,NotFoundException} from '@nestjs/common';
-import {FinanceGeoScope,FinanceTargetScope,Prisma} from '@prisma/client';
+import {Prisma} from '@prisma/client';
+import {FinanceGeoScope,FinanceTargetScope} from './finance.enums';
 import {PrismaService} from '../prisma/prisma.service';
 import {CreateTaxRuleDto,CreatePriceRuleDto,UpdateTaxRuleDto,UpdatePriceRuleDto,RuleScopeDto} from './rules.dto';
 
