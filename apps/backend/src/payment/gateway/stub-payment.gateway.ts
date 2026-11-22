@@ -34,7 +34,7 @@ export class StubPaymentGateway implements PaymentGateway {
   ): boolean {
     this.assertAllowed();
     this.logger.warn(
-      `[STUB] Verifying payment ${gatewayPaymentId} for order ${gatewayOrderId} (signature ${gatewaySignature}) — no real payment gateway configured, always succeeds`,
+      `[STUB] Verifying payment ${gatewayPaymentId} for order ${gatewayOrderId} — simulated only; no signature or credential material is logged`,
     );
     return true;
   }
