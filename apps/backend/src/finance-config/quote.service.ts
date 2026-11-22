@@ -1,5 +1,6 @@
 import {BadRequestException,Injectable,NotFoundException} from '@nestjs/common';
-import {FinanceGeoScope,FinanceTargetScope,FinancePriceAdjustment,Prisma,ProviderStatus,VerificationStatus} from '@prisma/client';
+import {Prisma,ProviderStatus,VerificationStatus} from '@prisma/client';
+import {FinanceGeoScope,FinanceTargetScope} from './finance.enums';
 import {PrismaService} from '../prisma/prisma.service';
 import {calculateAmounts,matchingRules,rupees,RuleContext} from './pricing-calculator';
 import {QuoteQueryDto} from './quote.dto';
@@ -64,7 +65,7 @@ export class FinanceQuoteService{
    taxableAmount:rupees(amounts.taxableCents),taxTotal:rupees(amounts.taxCents),
    total:rupees(amounts.totalCents),priceRuleId:amounts.priceRuleId,
    taxes:amounts.taxLines.map(t=>({...t,amount:rupees(t.amountCents)})),
-   disclosure:'Indicative, tax-exclusive provider pricing. Final tax liability and invoice need finance verification.',
+   disclosure:'Calculated from the currently enabled pricing and tax rules. Confirm this breakdown before booking; invoice issuance still requires finance verification.',
    calculatedAt:now.toISOString()};
  }
 }
