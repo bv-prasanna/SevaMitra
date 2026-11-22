@@ -1,6 +1,6 @@
 import {createHmac} from 'node:crypto';
 import {ConflictException} from '@nestjs/common';
-import {PaymentMethod,PaymentStatus,Prisma} from '@prisma/client';
+import {PaymentMethod,PaymentStatus} from '@prisma/client';
 import {PaymentService} from './payment.service';
 
 describe('Razorpay webhook reconciliation',()=>{
