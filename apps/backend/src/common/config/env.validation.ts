@@ -105,7 +105,7 @@ class EnvironmentVariables {
 
   @IsOptional() @IsIn(['stub','disabled','razorpay'])
   PAYMENT_PROVIDER?: string;
-  @IsOptional() @IsIn(['stub','disabled'])
+  @IsOptional() @IsIn(['stub','disabled','razorpay'])
   REFUND_PROVIDER?: string;
   @IsOptional() @IsIn(['stub','disabled'])
   PAYOUT_PROVIDER?: string;
@@ -137,9 +137,10 @@ export function validateEnv(config: Record<string, unknown>) {
         validated.PAYOUT_PROVIDER === 'stub') {
       throw new Error('Simulated payment/refund/payout providers are forbidden outside development');
     }
-    if (validated.PAYMENT_PROVIDER === 'razorpay' &&
-        (!validated.RAZORPAY_KEY_ID || !validated.RAZORPAY_KEY_SECRET ||
-         !validated.RAZORPAY_WEBHOOK_SECRET)) {
+    const razorpayValues=[validated.RAZORPAY_KEY_ID,validated.RAZORPAY_KEY_SECRET,validated.RAZORPAY_WEBHOOK_SECRET];
+    const missingRazorpay=razorpayValues.some(value=>!value||/REPLACE|PLACEHOLDER|CHANGE_ME/i.test(value));
+    if ((validated.PAYMENT_PROVIDER === 'razorpay' || validated.REFUND_PROVIDER === 'razorpay') &&
+        (missingRazorpay || (validated.REFUND_PROVIDER==='razorpay'&&validated.PAYMENT_PROVIDER!=='razorpay'))) {
       throw new Error('Razorpay credentials and webhook secret are required');
     }
     const demoPhones = (validated.DEMO_OTP_ALLOWED_PHONES ?? '').split(',').map(p => p.trim()).filter(Boolean);
