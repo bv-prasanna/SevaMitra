@@ -72,6 +72,7 @@ async function main() {
           'geography.manage',
           'serviceability.review',
           'provider.organization.manage',
+          'app.release.manage',
           'audit.view',
           'incident.manage',
         ],
