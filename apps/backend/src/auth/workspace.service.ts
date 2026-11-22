@@ -26,7 +26,7 @@ export type WorkspacePermissions={
  */
 const ADMIN_NAV_PERMISSIONS=new Set([
  'provider.onboarding.review','agent.review','catalogue.manage',
- 'provider.organization.manage','iam.role.manage','iam.role.view',
+ 'provider.organization.manage','iam.role.manage','iam.role.view','app.release.manage',
 ]);
 
 @Injectable()
