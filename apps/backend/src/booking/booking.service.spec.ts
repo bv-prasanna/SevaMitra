@@ -43,7 +43,7 @@ describe('BookingService', () => {
     isActive: true,
     pricingModel: PricingModel.FIXED,
     amount: 500,
-    visitFee: null,
+    visitFee: 0,
     currency: 'INR',
   };
 
