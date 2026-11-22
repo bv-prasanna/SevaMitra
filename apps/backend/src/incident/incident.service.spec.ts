@@ -1,5 +1,5 @@
 import {ConflictException,ForbiddenException,NotFoundException} from '@nestjs/common';
-import {IncidentStatus} from '@prisma/client';
+import {IncidentSeverity,IncidentStatus} from '@prisma/client';
 import type {PrismaService} from '../prisma/prisma.service';
 import {IncidentService} from './incident.service';
 
@@ -7,6 +7,7 @@ describe('IncidentService',()=>{
  let prisma:{
   incidentCase:{create:jest.Mock,findMany:jest.Mock,findFirst:jest.Mock,findUnique:jest.Mock,findUniqueOrThrow:jest.Mock,updateMany:jest.Mock};
   incidentCaseActivity:{create:jest.Mock};
+  incidentSlaPolicy:{findUnique:jest.Mock,findMany:jest.Mock,upsert:jest.Mock,updateMany:jest.Mock};
   $transaction:jest.Mock;
  };
  let service:IncidentService;
@@ -22,6 +23,7 @@ describe('IncidentService',()=>{
     updateMany:jest.fn().mockResolvedValue({count:1}),
    },
    incidentCaseActivity:{create:jest.fn().mockResolvedValue({id:'activity-1'})},
+   incidentSlaPolicy:{findUnique:jest.fn().mockResolvedValue(null),findMany:jest.fn().mockResolvedValue([]),upsert:jest.fn().mockResolvedValue({severity:IncidentSeverity.P2}),updateMany:jest.fn().mockResolvedValue({count:1})},
    $transaction:jest.fn(),
   };
   prisma.$transaction.mockImplementation(async(fn:(tx:typeof prisma)=>Promise<unknown>)=>fn(prisma));
@@ -61,7 +63,7 @@ describe('IncidentService',()=>{
   await service.claim('case-1','reviewer-2');
   expect(prisma.incidentCase.updateMany).toHaveBeenCalledWith({
    where:{id:'case-1',assignedToId:null,status:IncidentStatus.OPEN},
-   data:{assignedToId:'reviewer-2',status:IncidentStatus.ACKNOWLEDGED},
+   data:{assignedToId:'reviewer-2',status:IncidentStatus.ACKNOWLEDGED,acknowledgeDueAt:null},
   });
   expect(prisma.incidentCaseActivity.create).toHaveBeenCalledWith({
    data:{incidentId:'case-1',actorId:'reviewer-2',action:'CLAIMED'},
@@ -107,7 +109,7 @@ describe('IncidentService',()=>{
   await service.escalate('case-1','reviewer-2','No response from assigned owner');
   expect(prisma.incidentCase.updateMany).toHaveBeenCalledWith({
    where:{id:'case-1',status:IncidentStatus.ACKNOWLEDGED,level:1},
-   data:{level:2},
+   data:{level:2,resolveDueAt:null},
   });
   expect(prisma.incidentCaseActivity.create).toHaveBeenCalledWith({
    data:{incidentId:'case-1',actorId:'reviewer-2',action:'ESCALATED_L2',note:'No response from assigned owner'},
@@ -116,6 +118,45 @@ describe('IncidentService',()=>{
  it.each([IncidentStatus.CLOSED,IncidentStatus.OPEN])('does not escalate invalid closed or L3 case %s',async status=>{
   prisma.incidentCase.findUnique.mockResolvedValue({...current,status,level:status===IncidentStatus.OPEN?3:1});
   await expect(service.escalate('case-1','reviewer-2','Review')).rejects.toThrow(ConflictException);
+ });
+
+ it('sets deadlines only from an active business-configured SLA policy',async()=>{
+  const policy={id:'sla-p2',isActive:true,acknowledgeMinutes:15,resolveMinutes:240};
+  prisma.incidentSlaPolicy.findUnique.mockResolvedValue(policy);
+  await service.open('reporter-1',{category:'SERVICE_ISSUE',title:'Delayed service',description:'Provider did not arrive'});
+  const data=prisma.incidentCase.create.mock.calls[0][0].data;
+  expect(data.slaPolicyId).toBe('sla-p2');
+  expect(data.acknowledgeDueAt).toBeInstanceOf(Date);
+  expect(data.resolveDueAt).toBeInstanceOf(Date);
+ });
+ it('does not invent SLA deadlines when no policy is configured',async()=>{
+  prisma.incidentSlaPolicy.findUnique.mockResolvedValue(null);
+  await service.open('reporter-1',{category:'SERVICE_ISSUE',title:'Delayed service',description:'Provider did not arrive'});
+  expect(prisma.incidentCase.create.mock.calls[0][0].data).not.toHaveProperty('acknowledgeDueAt');
+ });
+ it('automatically escalates overdue incidents once and writes a system activity',async()=>{
+  const policy={id:'sla-p2',isActive:true,escalationMinutes:30};
+  prisma.incidentCase.findMany.mockResolvedValue([{id:'case-1',status:IncidentStatus.OPEN,level:1,slaPolicy:policy}]);
+  const result=await service.escalateDue();
+  expect(result).toEqual({examined:1,escalated:1,skippedNoPolicy:0});
+  expect(prisma.incidentCase.updateMany).toHaveBeenCalledWith(expect.objectContaining({
+   where:expect.objectContaining({id:'case-1',status:IncidentStatus.OPEN,level:1,acknowledgeDueAt:expect.objectContaining({lte:expect.any(Date)})}),
+   data:expect.objectContaining({level:2,acknowledgeDueAt:expect.any(Date)}),
+  }));
+  expect(prisma.incidentCaseActivity.create).toHaveBeenCalledWith({data:expect.objectContaining({
+   incidentId:'case-1',actorId:null,action:'SLA_ESCALATED_L2',
+  })});
+ });
+ it('does not escalate when an SLA policy is missing or disabled',async()=>{
+  prisma.incidentCase.findMany.mockResolvedValue([{id:'case-1',status:IncidentStatus.OPEN,level:1,slaPolicy:null}]);
+  await expect(service.escalateDue()).resolves.toEqual({examined:1,escalated:0,skippedNoPolicy:1});
+  expect(prisma.incidentCase.updateMany).not.toHaveBeenCalled();
+ });
+ it('upserts a severity policy with the actor recorded',async()=>{
+  await service.upsertSlaPolicy('admin',{severity:IncidentSeverity.P1,acknowledgeMinutes:5,resolveMinutes:60,escalationMinutes:15});
+  expect(prisma.incidentSlaPolicy.upsert).toHaveBeenCalledWith(expect.objectContaining({
+   where:{severity:IncidentSeverity.P1},create:expect.objectContaining({createdBy:'admin',updatedBy:'admin'}),
+  }));
  });
  it('does not create an escalation activity if another reviewer already changed the level',async()=>{
   prisma.incidentCase.updateMany.mockResolvedValue({count:0});
