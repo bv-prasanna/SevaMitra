@@ -59,6 +59,9 @@ export class RefundService {
     const existing = await this.prisma.refund.findUnique({
       where: { bookingId },
     });
+    if (existing && existing.status === RefundStatus.FAILED && existing.refundReference) {
+      throw new ConflictException('Gateway returned a final failed refund reference; finance review is required before a new attempt');
+    }
     if (existing && existing.status !== RefundStatus.FAILED) {
       throw new ConflictException(
         'Refund has already been processed or is in progress for this booking',
