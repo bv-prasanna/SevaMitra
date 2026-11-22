@@ -1842,6 +1842,8 @@ model IncidentCase {
   severity IncidentSeverity @default(P2)
   status IncidentStatus @default(OPEN)
   level Int @default(1)
+  slaPolicyId String? @map("sla_policy_id")
+  slaPolicy IncidentSlaPolicy? @relation(fields:[slaPolicyId],references:[id],onDelete:SetNull)
   acknowledgeDueAt DateTime? @map("acknowledge_due_at")
   resolveDueAt DateTime? @map("resolve_due_at")
   closedAt DateTime? @map("closed_at")
@@ -1851,15 +1853,31 @@ model IncidentCase {
   @@index([status,createdAt])
   @@index([reporterId,createdAt])
   @@index([assignedToId,status])
+  @@index([slaPolicyId])
   @@map("incident_cases")
+  @@schema("ops")
+}
+model IncidentSlaPolicy {
+  id String @id @default(uuid())
+  severity IncidentSeverity @unique
+  acknowledgeMinutes Int @map("acknowledge_minutes")
+  resolveMinutes Int @map("resolve_minutes")
+  escalationMinutes Int @map("escalation_minutes")
+  isActive Boolean @default(true) @map("is_active")
+  createdBy String @map("created_by")
+  updatedBy String @map("updated_by")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  cases IncidentCase[]
+  @@map("incident_sla_policies")
   @@schema("ops")
 }
 model IncidentCaseActivity {
   id String @id @default(uuid())
   incidentId String @map("incident_id")
   incident IncidentCase @relation(fields:[incidentId],references:[id],onDelete:Restrict)
-  actorId String @map("actor_id")
-  actor User @relation("IncidentActor",fields:[actorId],references:[id],onDelete:Restrict)
+  actorId String? @map("actor_id")
+  actor User? @relation("IncidentActor",fields:[actorId],references:[id],onDelete:SetNull)
   action String
   note String?
   createdAt DateTime @default(now()) @map("created_at")
