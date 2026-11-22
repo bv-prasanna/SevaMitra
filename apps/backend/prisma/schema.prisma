@@ -2023,3 +2023,31 @@ model RazorpayWebhookEvent {
   @@map("razorpay_webhook_events")
   @@schema("finance")
 }
+
+
+/// Admin-managed Android/iOS distribution records for pre-Play-Store pilots.
+enum AppPlatform {
+  ANDROID
+  IOS
+  @@schema("ops")
+}
+model AppRelease {
+  id String @id @default(uuid())
+  platform AppPlatform
+  version String
+  buildNumber String @map("build_number")
+  downloadUrl String @map("download_url")
+  sha256 String?
+  releaseNotes String? @map("release_notes")
+  minSupportedVersion String? @map("min_supported_version")
+  isPublished Boolean @default(false) @map("is_published")
+  publishedAt DateTime? @map("published_at")
+  createdBy String @map("created_by")
+  updatedBy String @map("updated_by")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  @@unique([platform,version,buildNumber])
+  @@index([platform,isPublished,publishedAt])
+  @@map("app_releases")
+  @@schema("ops")
+}
