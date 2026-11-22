@@ -22,6 +22,7 @@ describe('PaymentService', () => {
       findMany: jest.Mock;
       findUnique: jest.Mock;
       update: jest.Mock;
+      updateMany: jest.Mock;
       findFirst: jest.Mock;
     };
   };
@@ -54,6 +55,7 @@ describe('PaymentService', () => {
         findMany: jest.fn().mockResolvedValue([]),
         findUnique: jest.fn(),
         update: jest.fn(),
+        updateMany: jest.fn().mockResolvedValue({count:1}),
         findFirst: jest.fn().mockResolvedValue(null),
       },
     };
@@ -292,10 +294,8 @@ describe('PaymentService', () => {
     };
 
     it('marks the payment SUCCEEDED when the gateway verifies it', async () => {
-      prisma.payment.findUnique.mockResolvedValue(initiatedOnlinePayment);
-      prisma.payment.update.mockResolvedValue({
-        id: 'payment-1',
-        status: PaymentStatus.SUCCEEDED,
+      prisma.payment.findUnique.mockResolvedValueOnce(initiatedOnlinePayment).mockResolvedValueOnce({
+        ...initiatedOnlinePayment,status:PaymentStatus.SUCCEEDED,gatewayPaymentId:'pay_1',
       });
 
       await service.verifyAsCustomer('user-1', 'payment-1', {
@@ -310,13 +310,20 @@ describe('PaymentService', () => {
         300,
         'INR',
       );
-      expect(prisma.payment.update).toHaveBeenCalledWith({
-        where: { id: 'payment-1', status: PaymentStatus.INITIATED },
-        data: expect.objectContaining({
-          status: PaymentStatus.SUCCEEDED,
-          gatewayPaymentId: 'pay_1',
-        }),
+      expect(prisma.payment.updateMany).toHaveBeenCalledWith({
+        where:{id:'payment-1',status:PaymentStatus.INITIATED,gatewayOrderId:'stub_order_1'},
+        data:expect.objectContaining({status:PaymentStatus.SUCCEEDED,gatewayPaymentId:'pay_1'}),
       });
+    });
+
+    it('returns the webhook-confirmed payment when the webhook wins the callback race',async()=>{
+      prisma.payment.findUnique.mockResolvedValueOnce(initiatedOnlinePayment).mockResolvedValueOnce({
+        ...initiatedOnlinePayment,status:PaymentStatus.SUCCEEDED,gatewayPaymentId:'pay_1',
+      });
+      prisma.payment.updateMany.mockResolvedValue({count:0});
+      await expect(service.verifyAsCustomer('user-1','payment-1',{
+        gatewayPaymentId:'pay_1',gatewaySignature:'sig_1',
+      })).resolves.toMatchObject({status:PaymentStatus.SUCCEEDED,gatewayPaymentId:'pay_1'});
     });
 
     it('preserves payment state when a forged verification fails', async () => {
