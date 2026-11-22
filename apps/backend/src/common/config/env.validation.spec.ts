@@ -92,6 +92,20 @@ describe('validateEnv production safety', () => {
   it('rejects real-money gateway selection without webhook keys', () => {
     expect(() => validateEnv({...validProd,PAYMENT_PROVIDER:'razorpay'})).toThrow('Razorpay credentials');
   });
+  it('rejects placeholder Razorpay values even when all three variables are present', () => {
+    expect(() => validateEnv({...validProd,PAYMENT_PROVIDER:'razorpay',REFUND_PROVIDER:'razorpay',
+      RAZORPAY_KEY_ID:'rzp_test_REPLACE_ME',RAZORPAY_KEY_SECRET:'REPLACE_WITH_TEST_SECRET',
+      RAZORPAY_WEBHOOK_SECRET:'REPLACE_WITH_WEBHOOK_SECRET'})).toThrow('Razorpay credentials');
+  });
+  it('requires payment and refund providers to use the same Razorpay merchant configuration', () => {
+    expect(() => validateEnv({...validProd,REFUND_PROVIDER:'razorpay',PAYMENT_PROVIDER:'disabled'}))
+      .toThrow('Razorpay credentials');
+  });
+  it('accepts explicitly configured Razorpay test credentials for sandbox use', () => {
+    expect(validateEnv({...validProd,PAYMENT_PROVIDER:'razorpay',REFUND_PROVIDER:'razorpay',
+      RAZORPAY_KEY_ID:'rzp_test_123456',RAZORPAY_KEY_SECRET:'test_secret_123456',
+      RAZORPAY_WEBHOOK_SECRET:'webhook_secret_123456'}).PAYMENT_PROVIDER).toBe('razorpay');
+  });
   it('accepts a production provider-first pilot with online payments disabled', () => {
     expect(validateEnv({...validProd,PAYMENT_PROVIDER:'disabled',REFUND_PROVIDER:'disabled',PAYOUT_PROVIDER:'disabled'}).NODE_ENV).toBe('production');
   });
