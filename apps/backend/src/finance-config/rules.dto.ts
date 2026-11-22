@@ -1,4 +1,4 @@
-import {FinanceGeoScope,FinanceTargetScope,FinancePriceAdjustment,FinanceTaxComponent} from '@prisma/client';
+import {FinanceGeoScope,FinanceTargetScope,FinancePriceAdjustment,FinanceTaxComponent} from './finance.enums';
 import {IsBoolean,IsEnum,IsInt,IsNumber,IsOptional,IsString,Max,MaxLength,Min,IsISO8601,Matches,IsArray} from 'class-validator';
 import {PartialType} from '@nestjs/swagger';
 
