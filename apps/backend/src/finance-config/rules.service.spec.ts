@@ -1,5 +1,5 @@
 import {BadRequestException,NotFoundException} from '@nestjs/common';
-import {FinanceGeoScope as G,FinanceTargetScope as T,FinancePriceAdjustment as P,FinanceTaxComponent as C} from '@prisma/client';
+import {FinanceGeoScope as G,FinanceTargetScope as T,FinancePriceAdjustment as P,FinanceTaxComponent as C} from './finance.enums';
 import type {PrismaService} from '../prisma/prisma.service';
 import {FinanceRulesService} from './rules.service';
 const rule={id:'r-1',name:'Test',geoScope:G.ALL,geoId:null,targetScope:T.ALL,targetId:null,
