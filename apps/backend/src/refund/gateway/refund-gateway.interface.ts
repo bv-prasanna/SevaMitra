@@ -13,5 +13,6 @@ export interface RefundGateway {
     bookingId: string,
     amount: number,
     currency: string,
-  ): Promise<{ refundReference: string }>;
+    idempotencyKey: string,
+  ): Promise<{ refundReference: string; status?: 'PENDING'|'REFUNDED'|'FAILED' }>;
 }
