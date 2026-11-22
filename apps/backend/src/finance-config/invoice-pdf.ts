@@ -8,7 +8,7 @@ function printable(s:unknown):string{
 export type InvoicePrintData={
  invoiceNumber:string|null;status:string;service:string;bookingId:string;issuedAt:string|null;
  supplierName:string;supplierAddress:string;supplierGstin:string|null;supplierStateCode:string|null;
- sacCode:string|null;authorizedSignatory:string|null;customerName:string;customerAddress:string;
+ sacCode:string|null;authorizedSignatory:string|null;verificationNote?:string;customerName:string;customerAddress:string;
  placeOfSupply:string;currency:string;originalAmount:string;serviceAmount:string;visitFee:string;
  taxableAmount:string;taxTotal:string;total:string;taxes:{component:string;rateBps:number;amount:string}[];
 };
