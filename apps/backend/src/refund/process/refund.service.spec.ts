@@ -256,6 +256,28 @@ describe('RefundService', () => {
       });
     });
 
+    it('keeps a gateway-accepted refund pending until a processed webhook arrives',async()=>{
+      prisma.refundPolicy.findFirst.mockImplementation(
+        ({where}:{where:{scopeType:string}})=>where.scopeType===CommissionScopeType.PLATFORM
+          ?Promise.resolve({id:'policy-1',refundPercentage:50}):Promise.resolve(null),
+      );
+      refundGateway.initiateRefund.mockResolvedValue({refundReference:'rfnd_pending',status:'PENDING'});
+      prisma.refund.create.mockResolvedValue({id:'refund-1'});
+      prisma.refund.update.mockResolvedValue({id:'refund-1',status:RefundStatus.PENDING,refundReference:'rfnd_pending'});
+      const result=await service.process('booking-1');
+      expect(result.status).toBe(RefundStatus.PENDING);
+      expect(refundGateway.initiateRefund).toHaveBeenCalledWith('booking-1',250,'INR','refund-1');
+      expect(prisma.refund.update).toHaveBeenLastCalledWith({where:{id:'refund-1'},data:expect.objectContaining({
+        status:RefundStatus.PENDING,refundReference:'rfnd_pending',refundedAt:null,
+      })});
+    });
+
+    it('does not retry a final failed gateway refund reference automatically',async()=>{
+      prisma.refund.findUnique.mockResolvedValue({id:'refund-1',status:RefundStatus.FAILED,refundReference:'rfnd_failed'});
+      await expect(service.process('booking-1')).rejects.toThrow('finance review is required');
+      expect(refundGateway.initiateRefund).not.toHaveBeenCalled();
+    });
+
     it('marks FAILED with a reason when the gateway throws', async () => {
       refundGateway.initiateRefund.mockRejectedValue(
         new Error('refund rail down'),
