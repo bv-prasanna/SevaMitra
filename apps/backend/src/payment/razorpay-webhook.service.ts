@@ -59,7 +59,7 @@ export class RazorpayWebhookService{
   if(eventType==='payment.captured'||eventType==='payment.failed'){
    const entity=envelope.payload?.payment?.entity;
    if(!entity||typeof entity.id!=='string'||typeof entity.order_id!=='string'||
-      !Number.isSafeInteger(entity.amount)||typeof entity.currency!=='string')
+      typeof entity.amount!=='number'||!Number.isSafeInteger(entity.amount)||typeof entity.currency!=='string')
     throw new BadRequestException('Razorpay payment event is incomplete');
    const payment=await tx.payment.findUnique({where:{gatewayOrderId:entity.order_id}});
    if(!payment)throw new NotFoundException('Payment order is not recognized');
