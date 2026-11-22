@@ -20,7 +20,7 @@ describe('FinanceBillingService',()=>{
   authorizedSignatory:'Authorized Person',verified:true};
  const existing={id:'invoice-1',bookingId:'booking-1',status:BillingInvoiceStatus.PRO_FORMA,snapshot,
   booking:{status:BookingStatus.COMPLETED,offering:{providerId:'provider-1'},
-   priceSnapshot:{taxTotal:18,totalAmount:118}}};
+   priceSnapshot:{taxTotal:18,totalAmount:118},townVillage:{taluk:{district:{state:{gstStateCode:'27',name:'Karnataka'}}}}}};
  beforeEach(()=>{
   db={
    billingInvoice:{findMany:jest.fn().mockResolvedValue([]),findFirst:jest.fn().mockResolvedValue(null),
@@ -32,6 +32,7 @@ describe('FinanceBillingService',()=>{
    booking:{findFirst:jest.fn().mockResolvedValue(null)},
    taxAssessment:{findUnique:jest.fn().mockResolvedValue({reviewStatus:TaxReviewStatus.APPROVED,gstAmount:18,basisNote:'Finance approved SAC classification'})},
    providerProfile:{findUnique:jest.fn().mockResolvedValue({id:'provider-1'})},
+   state:{findFirst:jest.fn().mockResolvedValue({id:'state-1'})},
    $transaction:jest.fn(),
   };
   db.$transaction.mockImplementation(async(fn:(tx:unknown)=>Promise<unknown>)=>fn(db));
@@ -80,25 +81,26 @@ describe('FinanceBillingService',()=>{
  });
  it('only issues when booking was completed',async()=>{
   db.billingInvoice.findUnique.mockResolvedValue({...existing,booking:{...existing.booking,status:BookingStatus.REQUESTED}});
-  await expect(billing.issue('invoice-1','admin',{placeOfSupplyStateCode:'27',verificationNote:'Verified'})).rejects.toThrow(ConflictException);
+  await expect(billing.issue('invoice-1','admin',{verificationNote:'Verified'})).rejects.toThrow(ConflictException);
  });
  it('only issues after a manually approved tax assessment',async()=>{
   db.taxAssessment.findUnique.mockResolvedValue(null);
-  await expect(billing.issue('invoice-1','admin',{placeOfSupplyStateCode:'27',verificationNote:'Verified'})).rejects.toThrow(ConflictException);
+  await expect(billing.issue('invoice-1','admin',{verificationNote:'Verified'})).rejects.toThrow(ConflictException);
  });
  it('refuses to issue when posted GST differs from booking quote',async()=>{
   db.taxAssessment.findUnique.mockResolvedValue({reviewStatus:TaxReviewStatus.APPROVED,gstAmount:17,basisNote:'Reviewed'});
-  await expect(billing.issue('invoice-1','admin',{placeOfSupplyStateCode:'27',verificationNote:'Verified'})).rejects.toThrow(ConflictException);
+  await expect(billing.issue('invoice-1','admin',{verificationNote:'Verified'})).rejects.toThrow(ConflictException);
  });
  it('checks intrastate vs interstate GST before issuance',async()=>{
-  await expect(billing.issue('invoice-1','admin',{placeOfSupplyStateCode:'29',verificationNote:'Verified'})).rejects.toThrow(ConflictException);
+  db.billingInvoice.findUnique.mockResolvedValue({...existing,snapshot:{...snapshot,taxes:[{component:'CGST',rateBps:900,amount:'9.00'},{component:'SGST',rateBps:900,amount:'9.00'}]}});
+  await expect(billing.issue('invoice-1','admin',{verificationNote:'Verified'})).rejects.toThrow(ConflictException);
  });
  it('refuses issuing from unverified supplier',async()=>{
   db.billingIssuer.findFirst.mockResolvedValue({...issuer,verified:false});
-  await expect(billing.issue('invoice-1','admin',{placeOfSupplyStateCode:'27',verificationNote:'Verified'})).rejects.toThrow(ConflictException);
+  await expect(billing.issue('invoice-1','admin',{verificationNote:'Verified'})).rejects.toThrow(ConflictException);
  });
  it('issues a unique FY serial and immutable tax invoice after validated review',async()=>{
-  await billing.issue('invoice-1','admin',{placeOfSupplyStateCode:'27',verificationNote:'Verified'});
+  await billing.issue('invoice-1','admin',{verificationNote:'Verified'});
   expect(db.billingInvoiceSequence.upsert).toHaveBeenCalledWith(expect.objectContaining({
    where:{key:expect.stringMatching(/^PR01:/)},
   }));
@@ -110,7 +112,7 @@ describe('FinanceBillingService',()=>{
  });
  it('cannot assign an invoice number twice',async()=>{
   db.billingInvoice.findUnique.mockResolvedValue({...existing,status:BillingInvoiceStatus.ISSUED});
-  await expect(billing.issue('invoice-1','admin',{placeOfSupplyStateCode:'27',verificationNote:'Reviewed'})).rejects.toThrow(ConflictException);
+  await expect(billing.issue('invoice-1','admin',{verificationNote:'Reviewed'})).rejects.toThrow(ConflictException);
   expect(db.billingInvoiceSequence.upsert).not.toHaveBeenCalled();
  });
 });
