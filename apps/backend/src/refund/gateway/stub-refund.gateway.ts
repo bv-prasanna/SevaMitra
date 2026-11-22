@@ -17,6 +17,7 @@ export class StubRefundGateway implements RefundGateway {
     bookingId: string,
     amount: number,
     currency: string,
+    _idempotencyKey?: string,
   ): Promise<{ refundReference: string }> {
     this.assertAllowed();
     const refundReference = `stub_refund_${randomUUID()}`;
