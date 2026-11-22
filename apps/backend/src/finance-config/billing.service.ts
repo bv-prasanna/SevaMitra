@@ -34,6 +34,8 @@ export class FinanceBillingService{
  async upsertIssuer(actorId:string,dto:UpsertIssuerDto){
   if(dto.verified&&(!dto.gstin||!dto.sacCode||!dto.authorizedSignatory))
    throw new BadRequestException('Verified issuer requires GSTIN, SAC and authorized signatory');
+  const validState=await this.prisma.state.findFirst({where:{gstStateCode:dto.stateCode,isActive:true},select:{id:true}});
+  if(!validState)throw new BadRequestException('Select a configured GST state code');
   if(dto.gstin&&dto.gstin.slice(0,2)!==dto.stateCode)
    throw new BadRequestException('Supplier GSTIN state code does not match supplied state');
   if(dto.providerId){
@@ -96,7 +98,7 @@ export class FinanceBillingService{
  async issue(id:string,actorId:string,dto:IssueInvoiceDto){
   return this.prisma.$transaction(async tx=>{
    const invoice=await tx.billingInvoice.findUnique({
-    where:{id},include:{booking:{include:{offering:true,priceSnapshot:true}}},
+    where:{id},include:{booking:{include:{offering:true,priceSnapshot:true,townVillage:{include:{taluk:{include:{district:{include:{state:true}}}}}}}}},
    });
    if(!invoice)throw new NotFoundException('Invoice not found');
    if(invoice.status!==BillingInvoiceStatus.PRO_FORMA)throw new ConflictException('Invoice was already issued or voided');
@@ -120,7 +122,11 @@ export class FinanceBillingService{
     throw new ConflictException('Statutory tax classification basis is required');
    const comps=new Set(old.taxes.filter(x=>Number(x.amount)>0).map(x=>x.component));
    if(comps.has('CESS'))throw new ConflictException('Cess invoicing requires additional finance review');
-   const intrastate=issuer.stateCode===dto.placeOfSupplyStateCode;
+   const placeOfSupplyStateCode=invoice.booking.townVillage.taluk.district.state.gstStateCode;
+   if(!/^\\d{2}$/.test(placeOfSupplyStateCode??''))
+    throw new ConflictException('Place-of-supply GST state code is not configured for this service area');
+   if(!dto.verificationNote?.trim())throw new BadRequestException('Finance verification note is required');
+   const intrastate=issuer.stateCode===placeOfSupplyStateCode;
    if(reviewed>0&&intrastate&&!(comps.has('CGST')&&comps.has('SGST'))||
       reviewed>0&&!intrastate&&!comps.has('IGST'))
     throw new ConflictException('Tax component classification conflicts with place of supply');
@@ -136,8 +142,8 @@ export class FinanceBillingService{
    const finalSnapshot:Snapshot={...old,status:BillingInvoiceStatus.ISSUED,invoiceNumber:num,
     issuedAt:now.toISOString(),supplierName:issuer.legalName,supplierAddress:issuer.address,
     supplierGstin:issuer.gstin,supplierStateCode:issuer.stateCode,sacCode:issuer.sacCode,
-    authorizedSignatory:issuer.authorizedSignatory,placeOfSupply:old.placeOfSupply+
-      ' (GST state '+dto.placeOfSupplyStateCode+')'};
+    authorizedSignatory:issuer.authorizedSignatory,verificationNote:dto.verificationNote.trim(),placeOfSupply:old.placeOfSupply+
+      ' (GST state '+placeOfSupplyStateCode+')'};
    return tx.billingInvoice.update({
     where:{id,status:BillingInvoiceStatus.PRO_FORMA},
     data:{status:BillingInvoiceStatus.ISSUED,invoiceNumber:num,
