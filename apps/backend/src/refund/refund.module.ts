@@ -16,6 +16,8 @@ import { CustomerRefundController } from './process/customer/customer-refund.con
 import { REFUND_GATEWAY } from './gateway/refund-gateway.interface';
 import { StubRefundGateway } from './gateway/stub-refund.gateway';
 import { DisabledRefundGateway } from './gateway/disabled-refund.gateway';
+import { RazorpayRefundGateway } from './gateway/razorpay-refund.gateway';
+import { PrismaService } from '../prisma/prisma.service';
 
 @Module({
   imports: [
@@ -41,9 +43,10 @@ import { DisabledRefundGateway } from './gateway/disabled-refund.gateway';
     RefundPolicyService,
     RefundService,
     {
-      provide: REFUND_GATEWAY, inject:[ConfigService],
-      useFactory:(cfg:ConfigService)=>{
+      provide: REFUND_GATEWAY, inject:[ConfigService,PrismaService],
+      useFactory:(cfg:ConfigService,prisma:PrismaService)=>{
         const provider=cfg.get<string>('REFUND_PROVIDER');
+        if(provider==='razorpay'&&cfg.get<string>('PAYMENT_PROVIDER')==='razorpay')return new RazorpayRefundGateway(cfg,prisma);
         return (provider==='stub' || (!provider&&['development','test'].includes(cfg.get<string>('NODE_ENV')||''))) &&
           !['production','staging'].includes(cfg.get<string>('NODE_ENV')||'')
           ? new StubRefundGateway():new DisabledRefundGateway();
