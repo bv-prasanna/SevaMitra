@@ -38,6 +38,58 @@ export class PaymentService {
     private readonly config: ConfigService,
   ) {}
 
+  /** Verify and reconcile Razorpay webhook events. The raw request body is required. */
+  async handleRazorpayWebhook(rawBody: Buffer | undefined, signature: string | undefined, eventId: string | undefined): Promise<{received:boolean;duplicate?:boolean;reconciled?:boolean}> {
+    const secret=this.config.get<string>('RAZORPAY_WEBHOOK_SECRET');
+    if(!rawBody || !secret || !signature || !eventId || eventId.length>255 || !/^[a-f0-9]{64}$/i.test(signature)) {
+      throw new ConflictException('Invalid payment webhook');
+    }
+    const expected=createHmac('sha256',secret).update(rawBody).digest();
+    const supplied=Buffer.from(signature,'hex');
+    if(expected.length!==supplied.length || !timingSafeEqual(expected,supplied)) {
+      throw new ConflictException('Invalid payment webhook signature');
+    }
+    let event:{event?:string;payload?:{payment?:{entity?:{id?:string;order_id?:string;amount?:number;currency?:string;status?:string}}}};
+    try { event=JSON.parse(rawBody.toString('utf8')); } catch { throw new ConflictException('Invalid payment webhook payload'); }
+    if(!event.event || !['payment.captured','order.paid'].includes(event.event)) {
+      return {received:true,reconciled:false};
+    }
+    const entity=event.payload?.payment?.entity;
+    if(!entity?.id || !entity.order_id || !Number.isSafeInteger(entity.amount) || entity.currency!=='INR') {
+      throw new ConflictException('Payment webhook is missing required payment details');
+    }
+    const payloadHash=createHash('sha256').update(rawBody).digest('hex');
+    try {
+      await this.prisma.gatewayWebhookEvent.create({data:{
+        provider:'razorpay',eventId,eventType:event.event,payloadHash,
+      }});
+    } catch(error) {
+      if(error instanceof Prisma.PrismaClientKnownRequestError && error.code==='P2002') {
+        return {received:true,duplicate:true};
+      }
+      throw error;
+    }
+    const payment=await this.prisma.payment.findFirst({where:{
+      gatewayOrderId:entity.order_id,method:PaymentMethod.ONLINE,currency:'INR',
+    }});
+    if(!payment) {
+      await this.prisma.gatewayWebhookEvent.update({where:{provider_eventId:{provider:'razorpay',eventId}},data:{failureCode:'PAYMENT_NOT_FOUND'}});
+      return {received:true,reconciled:false};
+    }
+    const expectedPaise=Math.round(Number(payment.amount)*100);
+    if(expectedPaise!==entity.amount || (entity.status && entity.status!=='captured')) {
+      await this.prisma.gatewayWebhookEvent.update({where:{provider_eventId:{provider:'razorpay',eventId}},data:{failureCode:'PAYMENT_AMOUNT_OR_STATUS_MISMATCH'}});
+      return {received:true,reconciled:false};
+    }
+    await this.prisma.$transaction(async tx=>{
+      await tx.payment.updateMany({where:{id:payment.id,status:PaymentStatus.INITIATED},data:{
+        status:PaymentStatus.SUCCEEDED,gatewayPaymentId:entity.id,settledAt:new Date(),
+      }});
+      await tx.gatewayWebhookEvent.update({where:{provider_eventId:{provider:'razorpay',eventId}},data:{processedAt:new Date(),failureCode:null}});
+    });
+    return {received:true,reconciled:true};
+  }
+
   // ---------------------------------------------------------------------
   // Customer-facing
   // ---------------------------------------------------------------------
