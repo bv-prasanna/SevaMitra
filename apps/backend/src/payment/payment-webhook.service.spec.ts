@@ -1,6 +1,6 @@
 import {createHmac} from 'node:crypto';
 import {ConflictException} from '@nestjs/common';
-import {PaymentMethod,PaymentStatus} from '@prisma/client';
+import {PaymentMethod,PaymentStatus,Prisma} from '@prisma/client';
 import {PaymentService} from './payment.service';
 
 describe('Razorpay webhook reconciliation',()=>{
@@ -33,7 +33,7 @@ describe('Razorpay webhook reconciliation',()=>{
   expect(prisma.payment.updateMany).not.toHaveBeenCalled();
  });
  it('returns duplicate for an already processed event',async()=>{
-  const duplicate=new Error('unique');Object.assign(duplicate,{code:'P2002',name:'PrismaClientKnownRequestError'});
+  const duplicate=new Prisma.PrismaClientKnownRequestError('unique',{code:'P2002',clientVersion:'7.10.0'});
   prisma.gatewayWebhookEvent.create.mockRejectedValue(duplicate);
   prisma.gatewayWebhookEvent.findUnique.mockResolvedValue({processedAt:new Date()});
   await expect(service.handleRazorpayWebhook(body,signature,'evt_1')).resolves.toEqual({received:true,duplicate:true});
