@@ -1,5 +1,5 @@
 import {IncidentStatus} from '@prisma/client';
-import {IsIn,IsNotEmpty,IsOptional,IsString,MaxLength,Matches} from 'class-validator';
+import {IsBoolean,IsEnum,IsIn,IsInt,IsNotEmpty,IsOptional,IsString,Max,MaxLength,Matches,Min} from 'class-validator';
 export const INCIDENT_CATEGORIES=['SERVICE_ISSUE','SAFETY','ACCOUNT','PROVIDER_ONBOARDING','OTHER'] as const;
 export class OpenIncidentDto {
  @IsIn(INCIDENT_CATEGORIES) category:(typeof INCIDENT_CATEGORIES)[number];
@@ -16,4 +16,12 @@ export class EscalateIncidentDto {
 }
 export class IncidentListDto {
  @IsOptional() @IsIn(Object.values(IncidentStatus)) status?:IncidentStatus;
+}
+
+export class UpsertIncidentSlaPolicyDto {
+ @IsEnum(IncidentSeverity) severity:IncidentSeverity;
+ @IsInt() @Min(1) @Max(10080) acknowledgeMinutes:number;
+ @IsInt() @Min(1) @Max(10080) resolveMinutes:number;
+ @IsInt() @Min(1) @Max(10080) escalationMinutes:number;
+ @IsOptional() @IsBoolean() isActive?:boolean;
 }
