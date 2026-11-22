@@ -60,7 +60,7 @@ async function main() {
       {
         name: 'INCIDENT_MANAGER',
         description: 'Review, assign, resolve and escalate support incidents',
-        permissions: ['incident.manage'],
+        permissions: ['incident.manage','incident.sla.manage'],
       },
       {
         name: 'OPERATIONS_MANAGER',
