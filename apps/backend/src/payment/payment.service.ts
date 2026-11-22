@@ -179,14 +179,19 @@ export class PaymentService {
     if (!verified) {
       throw new ConflictException('Gateway verification failed; payment remains pending reconciliation');
     }
-    return this.prisma.payment.update({
-      where: { id: payment.id, status: PaymentStatus.INITIATED },
-      data: {
-        status: PaymentStatus.SUCCEEDED,
-        gatewayPaymentId: dto.gatewayPaymentId,
-        settledAt: new Date(),
-      },
+    const changed=await this.prisma.payment.updateMany({
+      where:{id:payment.id,status:PaymentStatus.INITIATED,gatewayOrderId:payment.gatewayOrderId},
+      data:{status:PaymentStatus.SUCCEEDED,gatewayPaymentId:dto.gatewayPaymentId,settledAt:new Date()},
     });
+    if(changed.count===1){
+      const updated=await this.prisma.payment.findUnique({where:{id:payment.id}});
+      if(updated)return updated;
+    }
+    // A signed webhook can win the race with the browser callback. Treat the
+    // same captured gateway payment as success; never overwrite a different ID.
+    const current=await this.prisma.payment.findUnique({where:{id:payment.id}});
+    if(current?.status===PaymentStatus.SUCCEEDED&&current.gatewayPaymentId===dto.gatewayPaymentId)return current;
+    throw new ConflictException('Payment confirmation changed while processing; check the payment status before retrying');
   }
 
   // ---------------------------------------------------------------------
