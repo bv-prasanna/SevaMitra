@@ -99,6 +99,10 @@ class EnvironmentVariables {
   @IsOptional() @IsString() ENABLE_API_DOCS?: string;
   /** Private high-entropy key shared with the scheduled notification worker. */
   @IsOptional() @IsString() NOTIFICATION_CRON_SECRET?: string;
+  /** Dedicated high-entropy key shared with the incident SLA scheduled worker. */
+  @IsOptional() @IsString() INCIDENT_CRON_SECRET?: string;
+  /** Dedicated high-entropy key shared with the document-expiry scheduled worker. */
+  @IsOptional() @IsString() DOCUMENT_EXPIRY_CRON_SECRET?: string;
 
   @IsOptional() @IsIn(['true','false'])
   PILOT_DISABLE_COLLECTIONS?: string;
