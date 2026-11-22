@@ -4,7 +4,7 @@ import { BookingModule } from '../booking/booking.module';
 import { CustomerModule } from '../customer/customer.module';
 import { ProviderModule } from '../provider/provider.module';
 import { PaymentService } from './payment.service';
-import { CustomerPaymentController } from './customer/customer-payment.controller';
+import { CustomerPaymentController, RazorpayWebhookController } from './customer/customer-payment.controller';
 import { ProviderPaymentController } from './provider/provider-payment.controller';
 import { PAYMENT_GATEWAY } from './gateway/payment-gateway.interface';
 import { StubPaymentGateway } from './gateway/stub-payment.gateway';
@@ -13,7 +13,7 @@ import { DisabledPaymentGateway } from './gateway/disabled-payment.gateway';
 
 @Module({
   imports: [BookingModule, CustomerModule, ProviderModule],
-  controllers: [CustomerPaymentController, ProviderPaymentController],
+  controllers: [CustomerPaymentController, ProviderPaymentController, RazorpayWebhookController],
   providers: [
     PaymentService,
     {
