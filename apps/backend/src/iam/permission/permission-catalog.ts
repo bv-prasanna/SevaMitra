@@ -63,6 +63,10 @@ export const PERMISSION_CATALOG: readonly PermissionCatalogEntry[] = [
     description: 'Manage transparent geographic/service/time based pricing rules',
   },
   {
+    key: 'app.release.manage',
+    description: 'Publish, update and retire signed mobile app release metadata and download links',
+  },
+  {
     key: 'finance.billing.manage',
     description: 'Review supplier information and issue protected customer invoices',
   },
