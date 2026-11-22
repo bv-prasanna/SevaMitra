@@ -65,9 +65,11 @@ export class PaymentService {
       }});
     } catch(error) {
       if(error instanceof Prisma.PrismaClientKnownRequestError && error.code==='P2002') {
-        return {received:true,duplicate:true};
-      }
-      throw error;
+        const prior=await this.prisma.gatewayWebhookEvent.findUnique({where:{provider_eventId:{provider:'razorpay',eventId}}});
+        if(prior?.processedAt) return {received:true,duplicate:true};
+        // An earlier delivery may have arrived before the local payment row
+        // was visible. Permit safe reconciliation retry for unprocessed events.
+      } else throw error;
     }
     const payment=await this.prisma.payment.findFirst({where:{
       gatewayOrderId:entity.order_id,method:PaymentMethod.ONLINE,currency:'INR',
