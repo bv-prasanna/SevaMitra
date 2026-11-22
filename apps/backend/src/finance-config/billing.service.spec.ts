@@ -1,5 +1,6 @@
 import {BadRequestException,ConflictException,NotFoundException} from '@nestjs/common';
-import {BillingInvoiceStatus,BookingStatus,TaxReviewStatus} from '@prisma/client';
+import {BookingStatus,TaxReviewStatus} from '@prisma/client';
+import {BillingInvoiceStatus} from './finance.enums';
 import type {PrismaService} from '../prisma/prisma.service';
 import {FinanceBillingService} from './billing.service';
 import {invoicePdf} from './invoice-pdf';
