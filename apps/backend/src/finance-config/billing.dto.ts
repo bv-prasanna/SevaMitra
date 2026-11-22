@@ -11,6 +11,5 @@ export class UpsertIssuerDto {
  @IsBoolean() verified:boolean;
 }
 export class IssueInvoiceDto{
- @Matches(/^\d{2}$/) placeOfSupplyStateCode:string;
  @IsString() @IsNotEmpty() @MaxLength(100) verificationNote:string;
 }
