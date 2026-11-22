@@ -2008,3 +2008,18 @@ model BillingInvoiceSequence {
   @@map("invoice_sequences")
   @@schema("finance")
 }
+
+
+/// Durable deduplication inbox for verified Razorpay webhooks. The raw payload is
+/// deliberately not retained; only its SHA-256 digest and processing timestamps.
+model RazorpayWebhookEvent {
+  id String @id @default(uuid())
+  eventId String @unique @map("event_id")
+  eventType String @map("event_type")
+  payloadHash String @map("payload_hash")
+  receivedAt DateTime @default(now()) @map("received_at")
+  processedAt DateTime? @map("processed_at")
+  @@index([eventType,receivedAt])
+  @@map("razorpay_webhook_events")
+  @@schema("finance")
+}
