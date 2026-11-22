@@ -1,4 +1,4 @@
-import {FinanceGeoScope,FinanceTargetScope,FinancePriceAdjustment,FinanceTaxComponent} from '@prisma/client';
+import {FinanceGeoScope,FinanceTargetScope,FinancePriceAdjustment,FinanceTaxComponent} from './finance.enums';
 import {BadRequestException,ConflictException} from '@nestjs/common';
 
 export type RuleContext={
