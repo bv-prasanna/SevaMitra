@@ -3,11 +3,9 @@ import { randomUUID } from 'crypto';
 import { RefundGateway } from './refund-gateway.interface';
 
 /**
- * Placeholder refund gateway — logs and fabricates a refund reference
- * instead of calling a real payment gateway's refund API. Selected until
- * that real integration (docs/ARCHITECTURE.md §12.1) exists. Never use in
- * staging or production. Always succeeds — there is no real refund to
- * fail.
+ * Development-only fake refund gateway. Never use in staging or production.
+ * It deliberately simulates immediate completion and must not be used to
+ * validate Razorpay webhook, reconciliation or real-money behavior.
  */
 @Injectable()
 export class StubRefundGateway implements RefundGateway {
