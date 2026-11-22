@@ -109,8 +109,8 @@ export class RazorpayWebhookController {
   receive(@Req() request: RawBodyRequest<Request>) {
     return this.paymentService.handleRazorpayWebhook(
       request.rawBody,
-      request.headers['x-razorpay-signature'],
-      request.headers['x-razorpay-event-id'],
+      Array.isArray(request.headers['x-razorpay-signature']) ? request.headers['x-razorpay-signature'][0] : request.headers['x-razorpay-signature'],
+      Array.isArray(request.headers['x-razorpay-event-id']) ? request.headers['x-razorpay-event-id'][0] : request.headers['x-razorpay-event-id'],
     );
   }
 }
