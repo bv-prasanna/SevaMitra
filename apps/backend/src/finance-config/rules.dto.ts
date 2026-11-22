@@ -20,13 +20,13 @@ export class CreateTaxRuleDto extends RuleScopeDto{
 export class UpdateTaxRuleDto extends PartialType(CreateTaxRuleDto){}
 export class CreatePriceRuleDto extends RuleScopeDto{
  @IsEnum(FinancePriceAdjustment) adjustment:FinancePriceAdjustment;
- @IsOptional() @Matches(/^([01]\\d|2[0-3]):[0-5]\\d$/) startTime?:string|null;
- @IsOptional() @Matches(/^([01]\\d|2[0-3]):[0-5]\\d$/) endTime?:string|null;
+ @IsOptional() @Matches(/^([01]\d|2[0-3]):[0-5]\d$/) startTime?:string|null;
+ @IsOptional() @Matches(/^([01]\d|2[0-3]):[0-5]\d$/) endTime?:string|null;
  @IsOptional() @IsArray() @IsInt({each:true}) @Min(0,{each:true}) @Max(6,{each:true}) weekdays?:number[];
  @IsNumber({maxDecimalPlaces:2}) @Min(0) @Max(1000000) value:number;
 }
 export class UpdatePriceRuleDto extends PartialType(CreatePriceRuleDto){}
 
 export class UpdateGstStateCodeDto{
- @Matches(/^\\d{2}$/) gstStateCode:string;
+ @Matches(/^\d{2}$/) gstStateCode:string;
 }
