@@ -3,7 +3,7 @@ import {FinanceGeoScope as G,FinanceTargetScope as T,FinancePriceAdjustment as P
 import {calculateAmounts,matchingRules,rupees} from './pricing-calculator';
 const ctx={geo:{STATE:'KA',DISTRICT:'BENGALURU',TALUK:'SOUTH',TOWN:'560040'},
  target:{CATEGORY:'electric',SERVICE:'fan',VARIANT:'wall',OFFERING:'prov-1'}};
-const rule=(id:string,geoScope=G.ALL,geoId:string|null=null,targetScope=T=T.ALL,targetId:string|null=null,priority=0)=>({id,geoScope,geoId,targetScope,targetId,priority,createdAt:new Date('2026-10-01')});
+const rule=(id:string,geoScope=G.ALL,geoId:string|null=null,targetScope=T.ALL,targetId:string|null=null,priority=0)=>({id,geoScope,geoId,targetScope,targetId,priority,createdAt:new Date('2026-10-01')});
 describe('transparent finance rule engine',()=>{
  it('matches geographic + item dimensions together, ignoring other areas',()=>{
   const items=[
