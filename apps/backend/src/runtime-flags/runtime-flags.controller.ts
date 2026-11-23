@@ -22,7 +22,7 @@ export class RuntimeFlagsController {
   }
 
   @Put(':key')
-  @RequirePermissions('runtime-flags.manage')
+  @RequirePermissions('runtime-flags.view', 'runtime-flags.manage')
   set(@Param('key') key: string, @Body() dto: SetRuntimeFlagDto,
       @CurrentUser() actor: AuthenticatedUser) {
     return this.flags.set(key, dto.enabled, dto.reason, actor.id);
