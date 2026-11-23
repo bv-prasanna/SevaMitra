@@ -1,4 +1,4 @@
-import {BadRequestException,Injectable,NotFoundException} from '@nestjs/common';
+import {BadRequestException,ConflictException,Injectable,NotFoundException} from '@nestjs/common';
 import {FinanceGeoScope,FinanceTargetScope,FinancePriceAdjustment,Prisma,ProviderStatus,VerificationStatus} from '@prisma/client';
 import {PrismaService} from '../prisma/prisma.service';
 import {calculateAmounts,matchingRules,rupees,RuleContext} from './pricing-calculator';
@@ -38,6 +38,10 @@ export class FinanceQuoteService{
   const price=matches[0]??null;
   const taxes=matchingRules(taxRules,ctx).filter((r,i,a)=>a.findIndex(x=>x.component===r.component)===i);
   if(taxes.length>0){
+   const components=new Set(taxes.map(x=>x.component));
+   if(components.has('IGST')&&(components.has('CGST')||components.has('SGST')) ||
+      components.has('CGST')!==components.has('SGST'))
+    throw new ConflictException('Conflicting GST components: use IGST or a complete CGST/SGST pair');
    const issuer=await this.prisma.billingIssuer.findFirst({where:{providerId:offering.providerId,verified:true}});
    const pos=town.taluk.district.state.gstStateCode;
    if(!issuer?.gstin||!pos)
