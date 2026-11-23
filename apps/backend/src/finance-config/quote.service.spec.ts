@@ -9,7 +9,7 @@ describe('FinanceQuoteService',()=>{
   pricingModel:'FIXED',amount:100,visitFee:10,currency:'INR',
   provider:{status:ProviderStatus.ACTIVE,verificationStatus:VerificationStatus.VERIFIED,deletedAt:null},
   service:{id:'service-1',categoryId:'category-1',isActive:true}};
- const town={id:'town-1',isActive:true,talukId:'taluk-1',taluk:{districtId:'district-1',district:{stateId:'state-1',state:{id:'state-1',gstStateCode:'29',name:'Karnataka'}}}}};
+ const town={id:'town-1',isActive:true,talukId:'taluk-1',taluk:{districtId:'district-1',district:{stateId:'state-1',state:{id:'state-1',gstStateCode:'29',name:'Karnataka'}}}};
  const q={offeringId:'offering-1',townVillageId:'town-1',scheduledDate:'2026-11-07',scheduledStartTime:'10:00'};
  const pr={id:'pr-1',geoScope:G.ALL,geoId:null,targetScope:T.SERVICE,targetId:'service-1',
   priority:1,createdAt:date,adjustment:P.PERCENT_UP,value:10,weekdays:[],startTime:null,endTime:null};
