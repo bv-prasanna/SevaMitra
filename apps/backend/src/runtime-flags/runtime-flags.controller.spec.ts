@@ -10,6 +10,6 @@ describe('RuntimeFlagsController permissions', () => {
 
   it('requires the dedicated runtime flag manager to change controls', () => {
     expect(Reflect.getMetadata(PERMISSIONS_KEY, RuntimeFlagsController.prototype.set))
-      .toEqual(['runtime-flags.manage']);
+      .toEqual(['runtime-flags.view', 'runtime-flags.manage']);
   });
 });
