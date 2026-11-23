@@ -210,6 +210,38 @@ describe('PaymentService', () => {
       ).rejects.toThrow(ConflictException);
     });
 
+    it('uses the immutable tax-inclusive quote snapshot as the payment ceiling', async () => {
+      prisma.bookingPriceSnapshot.findUnique.mockResolvedValue({ totalAmount: '118.00' });
+      prisma.payment.findMany.mockResolvedValue([]);
+      prisma.payment.create.mockResolvedValue({ id: 'payment-tax-inclusive' });
+
+      await service.initiateAsCustomer('user-1', {
+        bookingId: 'booking-1',
+        method: PaymentMethod.CASH,
+        amount: 118,
+      });
+
+      expect(prisma.bookingPriceSnapshot.findUnique).toHaveBeenCalledWith({
+        where: { bookingId: 'booking-1' },
+      });
+      expect(prisma.payment.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({ amount: 118 }),
+      });
+    });
+
+    it('rejects collection above the immutable tax-inclusive quote snapshot', async () => {
+      prisma.bookingPriceSnapshot.findUnique.mockResolvedValue({ totalAmount: '118.00' });
+      prisma.payment.findMany.mockResolvedValue([]);
+
+      await expect(service.initiateAsCustomer('user-1', {
+        bookingId: 'booking-1',
+        method: PaymentMethod.CASH,
+        amount: 118.01,
+      })).rejects.toThrow(ConflictException);
+
+      expect(prisma.payment.create).not.toHaveBeenCalled();
+    });
+
     it('refuses payment against an unresolved quote with no approved price', async () => {
       bookingService.findAsCustomer.mockResolvedValue({
         ...booking,
