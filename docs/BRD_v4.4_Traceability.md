@@ -11,6 +11,7 @@ Commit target: develop, 2026-10-08. Labels: Implemented, Partial, Pending, Exter
 | Round robin | Atomic persisted cursor | Implemented for eligible-offering ordering, no auto-assignment |
 | Broadcast matching | Returns eligible shortlist | Partial: invitation/timeout/accept workflow pending |
 | Five notification channels | Live providers for SMS, WhatsApp template, email, Expo push and in-app; DB retry leasing and signed Cloudflare Cron Worker implemented | Partial: worker not provisioned, approved templates/token registration and transactional business-event outbox still pending |
+| Runtime flags and operational console | Server-side booking/discovery controls with dedicated `runtime-flags.view` and `runtime-flags.manage` permissions | Partial: two-person approval, immutable history, expiry, rollback and rollout audit still pending |
 | OTP | Secure RNG + MSG91 Flow provider, no console OTP in production | External provisioning: MSG91 authkey, DLT flow approval |
 | Provider documents | R2 private upload and reviewer-only read | Partial: malware scanning, expiry/version/retention and UI pending |
 | Tax safety | Finance user review, immutable ledger entries | Partial: statutory applicability and audit reconciliation |
