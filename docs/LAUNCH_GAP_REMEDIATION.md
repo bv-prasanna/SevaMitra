@@ -59,7 +59,7 @@ No percentage-complete claim is made without reproducible tests and runtime evid
 
 ## New pilot controls (partial implementation)
 
-The backend now reads `bookings.enabled`, `pilot.enabled`, `service.<UUID>.enabled` and `geography.<UUID>.enabled` on **new booking creation**. The admin interface at `/admin/runtime-flags` can view/create/update flags; server permission currently reuses `iam.role.manage`, intentionally restricted until a dedicated operations permission is introduced. With `pilot.enabled=true`, unspecified geographies are denied. Existing active bookings and payments are not cancelled by changing flags. Changes are recorded in the existing mutation audit feed, but approvals, full history and guaranteed audit atomicity are still pending.
+The backend reads `bookings.enabled`, `pilot.enabled`, `service.<UUID>.enabled` and `geography.<UUID>.enabled` on **new booking creation**. `/admin/runtime-flags` now uses dedicated `runtime-flags.view` and `runtime-flags.manage` permissions; `OPERATIONS_MANAGER` receives both, while the server remains the enforcement point. With `pilot.enabled=true`, unspecified geographies are denied. Existing active bookings and payments are not cancelled by changing flags. Changes are recorded in the existing mutation audit feed. Two-person approval, immutable flag history, automatic expiry and audited rollback are still pending.
 
 The mobile customer marketplace now securely saves a booking-request UUID prior to submitting and presents a manual retry of the same draft. This is not a full offline-first sync engine: provider/agent queues, conflict resolution, queued receipts, account-switch isolation and background sync remain pending.
 
