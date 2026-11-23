@@ -11,7 +11,7 @@ export class FinanceRulesService {
  async updateGstStateCode(stateId:string,gstStateCode:string){
   const current=await this.prisma.state.findUnique({where:{id:stateId}});
   if(!current)throw new NotFoundException('State not found');
-  if(!/^\\d{2}$/.test(gstStateCode))throw new BadRequestException('Invalid GST state code');
+  if(!/^\d{2}$/.test(gstStateCode))throw new BadRequestException('Invalid GST state code');
   return this.prisma.state.update({where:{id:stateId},data:{gstStateCode}});
  }
  private async validateScope(x:ScopeInput){
