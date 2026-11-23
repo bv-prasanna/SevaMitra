@@ -59,3 +59,33 @@ test('platform super-admin sees permitted tools and provider queue',async({page}
   await expect(page.getByRole('heading',{name:/Verification queue/})).toBeVisible();
   await expect(page.locator('.adminToolCard')).toHaveCount(6);
 });
+
+test('runtime flag viewer sees the emergency controls but cannot change them',async({page})=>{
+  await page.route(API+'/auth/workspaces',r=>r.fulfill({json:{
+    customer:true,provider:false,agent:false,admin:true,
+    adminPermissions:['runtime-flags.view'],
+    canJoinProvider:false,canJoinAgent:false,providerStatus:null,agentStatus:null,
+  }}));
+  await page.route(API+'/runtime-flags',r=>r.fulfill({json:[
+    {key:'bookings.enabled',enabled:false,reason:'Planned maintenance',updatedBy:'ops-1',updatedAt:'2026-11-23T10:00:00.000Z'},
+  ]}));
+  await page.goto('/admin/');
+  await expect(page.getByRole('link',{name:/Emergency controls/})).toBeVisible();
+  await page.goto('/admin/runtime-flags/');
+  await expect(page.getByRole('heading',{name:/Pilot and emergency controls/})).toBeVisible();
+  await expect(page.getByRole('status')).toContainText('Read-only access');
+  await expect(page.locator('#flag-key')).toHaveCount(0);
+  await expect(page.getByRole('button',{name:/Prepare opposite value/})).toHaveCount(0);
+});
+
+test('runtime flag manager receives the change form',async({page})=>{
+  await page.route(API+'/auth/workspaces',r=>r.fulfill({json:{
+    customer:true,provider:false,agent:false,admin:true,
+    adminPermissions:['runtime-flags.view','runtime-flags.manage'],
+    canJoinProvider:false,canJoinAgent:false,providerStatus:null,agentStatus:null,
+  }}));
+  await page.route(API+'/runtime-flags',r=>r.fulfill({json:[]}));
+  await page.goto('/admin/runtime-flags/');
+  await expect(page.locator('#flag-key')).toBeVisible();
+  await expect(page.getByRole('button',{name:/Review runtime flag change/})).toBeVisible();
+});
