@@ -11,17 +11,18 @@ import { SetRuntimeFlagDto } from './dto/set-runtime-flag.dto';
 @ApiTags('Runtime flags')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard, PermissionsGuard)
-@RequirePermissions('iam.role.manage')
 @Controller({ path: 'runtime-flags', version: '1' })
 export class RuntimeFlagsController {
   constructor(private readonly flags: RuntimeFlagsService) {}
 
   @Get()
+  @RequirePermissions('runtime-flags.view')
   list() {
     return this.flags.list();
   }
 
   @Put(':key')
+  @RequirePermissions('runtime-flags.manage')
   set(@Param('key') key: string, @Body() dto: SetRuntimeFlagDto,
       @CurrentUser() actor: AuthenticatedUser) {
     return this.flags.set(key, dto.enabled, dto.reason, actor.id);
