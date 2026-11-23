@@ -1,6 +1,6 @@
 # Launch hardening — implementation evidence and remaining work
 
-Updated: 2026-10-10. Target: `develop`. This document is a risk register, **not** release approval.
+Updated: 2026-11-24. Target: `develop`. This document is a risk register, **not** release approval.
 
 ## Verified implementation changes in this branch
 
@@ -28,7 +28,7 @@ Updated: 2026-10-10. Target: `develop`. This document is a risk register, **not*
 | SLA-based incidents/disputes | P0 | Case model, deadlines, escalation queue, notifications, operator ownership, breach and audit reporting |
 | Re-verification and document expiry | P0 | Category-specific expiry tracking and automated reminders/suspension without deleting financial history |
 | Privacy, financial retention, dispute evidence deletion/anonymization | P0 legal | Approved documented schedule, deletion requests, retention exceptions, access controls, tests |
-| Feature flags and operational console | P1 (P0 emergency override) | Partial: server-side pilot/maintenance flags, admin API and UI now available. Pending: dedicated permission, two-person approval, staged rollout, flag history/expiry, integration and browser tests |
+| Feature flags and operational console | P1 (P0 emergency override) | Partial: server-side pilot/maintenance flags, dedicated view/manage permissions, admin API and read-only UI are implemented. Pending: two-person approval, staged rollout, immutable flag history/expiry, audited rollback and operational integration |
 | Provider liability/insurance | P0 legal for high-risk services | Terms, exclusions, approved coverage requirement and claims escalation agreed by counsel/insurer |
 | Agent-assisted IVR/SMS/offline alternatives | P1 | Consent, identity verification, duplicate prevention, accessible confirmations and dispute support |
 | Duplicate identities, suspicious bookings, incentive fraud, human appeal | P1 | Risk signals with low false positives, hold incentives and provide supervised override |
