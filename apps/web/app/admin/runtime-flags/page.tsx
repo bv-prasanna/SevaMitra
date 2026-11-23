@@ -37,8 +37,9 @@ export default function RuntimeFlags(){
    const access=await api.get<WorkspaceAccess>("/auth/workspaces");
    const permissions=access.adminPermissions??[];
    const canView=access.admin&&(permissions.includes("*")||permissions.includes("runtime-flags.view"));
-   setCanManage(access.admin&&(permissions.includes("*")||permissions.includes("runtime-flags.manage")));
-   if(!canView){setFlags([]);setError("Your account does not have permission to view runtime flags.");return false}
+   const canManage=access.admin&&(permissions.includes("*")||(permissions.includes("runtime-flags.view")&&permissions.includes("runtime-flags.manage")));
+   setCanManage(canView&&canManage);
+   if(!canView){setCanManage(false);setFlags([]);setError("Your account does not have permission to view runtime flags.");return false}
    const rows=await api.get<Flag[]>("/runtime-flags");
    setFlags(Array.isArray(rows)?rows:[]);return true
   }catch(e){setFlags([]);setCanManage(false);setError(e instanceof Error?e.message:"Could not load runtime flags. Check permission and retry.");return false}
