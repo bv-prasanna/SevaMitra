@@ -138,7 +138,7 @@ describe('BookingService', () => {
           townVillageId: 'town-1',
           pricingModel: PricingModel.FIXED,
           amount: 500,
-          visitFee: null,
+          visitFee: 0,
           currency: 'INR',
         }),
       });
