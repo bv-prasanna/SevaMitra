@@ -69,6 +69,8 @@ async function main() {
           'provider.organization.manage',
           'audit.view',
           'incident.manage',
+          'runtime-flags.view',
+          'runtime-flags.manage',
         ],
       },
     ];
