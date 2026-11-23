@@ -16,6 +16,7 @@ describe('PaymentService', () => {
   let prisma: {
     $transaction: jest.Mock;
     booking: { findUnique: jest.Mock };
+    bookingPriceSnapshot:{findUnique:jest.Mock};
     payment: {
       create: jest.Mock;
       findMany: jest.Mock;
@@ -47,6 +48,7 @@ describe('PaymentService', () => {
     prisma = {
       $transaction: jest.fn(),
       booking: { findUnique: jest.fn().mockResolvedValue(booking) },
+      bookingPriceSnapshot:{findUnique:jest.fn().mockResolvedValue(null)},
       payment: {
         create: jest.fn(),
         findMany: jest.fn().mockResolvedValue([]),
@@ -56,7 +58,7 @@ describe('PaymentService', () => {
       },
     };
     prisma.$transaction.mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) =>
-      fn({ payment: prisma.payment, booking: prisma.booking, $queryRaw: jest.fn().mockResolvedValue([]) }));
+      fn({ payment: prisma.payment, booking: prisma.booking, bookingPriceSnapshot:prisma.bookingPriceSnapshot, $queryRaw: jest.fn().mockResolvedValue([]) }));
     bookingService = {
       findAsCustomer: jest.fn().mockResolvedValue(booking),
       findAsProvider: jest.fn().mockResolvedValue(booking),

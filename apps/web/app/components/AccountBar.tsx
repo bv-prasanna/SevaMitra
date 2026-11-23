@@ -50,6 +50,7 @@ export default function AccountBar(){
    <Link href="/" className="accountNavLink">Home</Link>
    <Link href="/marketplace" className="accountNavLink" aria-current={pathname.startsWith("/marketplace")?"page":undefined}>Find services</Link>
    {signed?<><Link href="/workspaces" className="accountNavLink" aria-current={pathname==="/workspaces"?"page":undefined}><LayoutDashboard size={15}/> Workspaces</Link>
+    <Link href="/billing" className="accountNavLink" aria-current={pathname==="/billing"?"page":undefined}>My billing</Link>
     {access?.admin&&<Link href="/admin" className="accountNavLink" aria-current={isAdmin?"page":undefined}>Admin console</Link>}
     <Link href="/profile" className="accountNavLink" aria-current={pathname==="/profile"?"page":undefined}>My profile</Link>
     <button type="button" onClick={logout} className="accountSignOut">Sign out</button></>:

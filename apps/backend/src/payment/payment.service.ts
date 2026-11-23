@@ -273,8 +273,11 @@ export class PaymentService {
     booking: Booking,
     newAmount: number,
   ): Promise<void> {
-    const totalDue =
-      Number(booking.amount ?? 0) + Number(booking.visitFee ?? 0);
+    // For newly-priced bookings, the immutable total includes GST/discounts.
+    // Never revert to the offering subtotal when calculating payment limits.
+    const snapshot=await tx.bookingPriceSnapshot.findUnique({where:{bookingId:booking.id}});
+    const totalDue=snapshot?Number(snapshot.totalAmount):
+      Number(booking.amount ?? 0)+Number(booking.visitFee ?? 0);
     if (totalDue === 0) {
       // Never charge an arbitrary amount against an unapproved quote.
       throw new ConflictException('A finalized quote or fixed amount is required before payment');

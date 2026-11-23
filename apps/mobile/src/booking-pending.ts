@@ -22,6 +22,7 @@ export type PendingBookingDraft = {
     scheduledEndTime: string;
     notes?: string;
     clientRequestId: string;
+    confirmedTotal?: string;
   };
   savedAt: number;
   ownerUserId: string;
@@ -36,7 +37,8 @@ export function isPendingBookingDraft(value: unknown): value is PendingBookingDr
     /^[a-f\d]{8}-[a-f\d]{4}-4[a-f\d]{3}-[89ab][a-f\d]{3}-[a-f\d]{12}$/i.test(p.clientRequestId) &&
     typeof p.offeringId === 'string' && typeof p.townVillageId === 'string' &&
     typeof p.scheduledDate === 'string' &&
-    typeof p.scheduledStartTime === 'string' && typeof p.scheduledEndTime === 'string';
+    typeof p.scheduledStartTime === 'string' && typeof p.scheduledEndTime === 'string' &&
+    (p.confirmedTotal===undefined || (typeof p.confirmedTotal==='string' && /^\\d{1,9}\\.\\d{2}$/.test(p.confirmedTotal)));
 }
 
 /** Never replay a stored booking in a different authenticated account. */
