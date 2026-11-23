@@ -1,8 +1,8 @@
 # Database schema catalogue — generated from Prisma
 
-> Generated file. Edit `apps/backend/prisma/schema.prisma` and versioned migrations, then run `node scripts/docs/generate-prisma-catalog.mjs`. CI verifies that the generated Markdown is current. This is a **schema inventory**, not proof these migrations have been applied to a particular database.
+ > Generated file. Edit `apps/backend/prisma/schema.prisma` and versioned migrations, then run `node scripts/docs/generate-prisma-catalog.mjs`. CI verifies that the generated Markdown is current. This is a **schema inventory**, not proof these migrations have been applied to a particular database.
 
-**Models:** 52 | **Enums:** 33 | **Versioned migrations:** 26 | **Namespaces:** auth, finance, marketplace, ops.
+**Models:** 58 | **Enums:** 38 | **Versioned migrations:** 27 | **Namespaces:** auth, finance, marketplace, ops.
 
 ## Physical table inventory
 
@@ -29,7 +29,7 @@
 | marketplace | services | Service | 12 | 1 |
 | marketplace | service_variants | ServiceVariant | 7 | 1 |
 | marketplace | provider_offerings | ProviderOffering | 13 | 3 |
-| marketplace | geo_states | State | 6 | 0 |
+| marketplace | geo_states | State | 7 | 0 |
 | marketplace | geo_districts | District | 6 | 1 |
 | marketplace | geo_taluks | Taluk | 6 | 1 |
 | marketplace | geo_town_villages | TownVillage | 9 | 1 |
@@ -60,10 +60,16 @@
 | ops | runtime_flags | RuntimeFlag | 5 | 0 |
 | ops | incident_cases | IncidentCase | 14 | 0 |
 | ops | incident_case_activity | IncidentCaseActivity | 6 | 1 |
+| finance | tax_rules | FinanceTaxRule | 16 | 0 |
+| finance | pricing_rules | FinancePriceRule | 19 | 0 |
+| finance | booking_price_snapshots | BookingPriceSnapshot | 12 | 1 |
+| finance | billing_issuers | BillingIssuer | 12 | 0 |
+| finance | billing_invoices | BillingInvoice | 8 | 1 |
+| finance | invoice_sequences | BillingInvoiceSequence | 2 | 0 |
 
 ## Complete scalar column definitions
 
-Physical column names respect Prisma `@map`. Types are Prisma source types (not a vendor-neutral SQL DDL translation). Nullable types end with `?`, array types end with `[]`. Constraints and indexes listed in the model's Prisma definition are authoritative.
+Physical column names respect Prisma `@map`. Types are Prisma source types. Nullable types end with `?`, array types end with `[]`. Constraints and indexes listed in the model's Prisma definition are authoritative.
 
 ### Namespace: `auth`
 
@@ -88,8 +94,6 @@ Physical column names respect Prisma `@map`. Types are Prisma source types (not 
 | 'created_at' | 'createdAt' | 'DateTime' | @default(now() |
 | 'updated_at' | 'updatedAt' | 'DateTime' | updatedAt |
 
-**Declared foreign-key fields:** `userId` → `User.id`
-
 #### `auth.oauth_identities` — `OauthIdentity`
 
 | Column | Prisma field | Type | Attributes |
@@ -101,8 +105,6 @@ Physical column names respect Prisma `@map`. Types are Prisma source types (not 
 | 'created_at' | 'createdAt' | 'DateTime' | @default(now() |
 
 **Composite keys/indexes:** `@@unique([provider, providerUserId])`
-
-**Declared foreign-key fields:** `userId` → `User.id`
 
 #### `auth.refresh_tokens` — `RefreshToken`
 
@@ -119,8 +121,6 @@ Physical column names respect Prisma `@map`. Types are Prisma source types (not 
 
 **Composite keys/indexes:** `@@index([userId])`
 
-**Declared foreign-key fields:** `userId` → `User.id`; `deviceId` → `TrustedDevice.id`
-
 #### `auth.trusted_devices` — `TrustedDevice`
 
 | Column | Prisma field | Type | Attributes |
@@ -134,8 +134,6 @@ Physical column names respect Prisma `@map`. Types are Prisma source types (not 
 | 'revoked_at' | 'revokedAt' | 'DateTime?' | — |
 
 **Composite keys/indexes:** `@@index([userId,revokedAt])`
-
-**Declared foreign-key fields:** `userId` → `User.id`
 
 #### `auth.otp_challenges` — `OtpChallenge`
 
@@ -154,8 +152,6 @@ Physical column names respect Prisma `@map`. Types are Prisma source types (not 
 | 'created_at' | 'createdAt' | 'DateTime' | @default(now() |
 
 **Composite keys/indexes:** `@@index([phoneNumber, purpose])`
-
-**Declared foreign-key fields:** `userId` → `User.id`
 
 #### `auth.permissions` — `Permission`
 
@@ -187,8 +183,6 @@ Physical column names respect Prisma `@map`. Types are Prisma source types (not 
 
 **Composite keys/indexes:** `@@id([roleId, permissionId])`
 
-**Declared foreign-key fields:** `roleId` → `Role.id`; `permissionId` → `Permission.id`
-
 #### `auth.user_role_assignments` — `UserRoleAssignment`
 
 | Column | Prisma field | Type | Attributes |
@@ -203,8 +197,6 @@ Physical column names respect Prisma `@map`. Types are Prisma source types (not 
 | 'revoked_at' | 'revokedAt' | 'DateTime?' | — |
 
 **Composite keys/indexes:** `@@index([userId])`; `@@index([roleId])`
-
-**Declared foreign-key fields:** `userId` → `User.id`; `roleId` → `Role.id`
 
 ### Namespace: `finance`
 
@@ -227,8 +219,6 @@ Physical column names respect Prisma `@map`. Types are Prisma source types (not 
 | 'updated_at' | 'updatedAt' | 'DateTime' | updatedAt |
 
 **Composite keys/indexes:** `@@index([bookingId])`; `@@unique([bookingId, clientRequestId])`
-
-**Declared foreign-key fields:** `bookingId` → `Booking.id`
 
 #### `finance.commission_rules` — `CommissionRule`
 
@@ -255,8 +245,6 @@ Physical column names respect Prisma `@map`. Types are Prisma source types (not 
 
 **Composite keys/indexes:** `@@index([scopeType])`; `@@index([categoryId])`; `@@index([serviceId])`; `@@index([providerId])`; `@@index([townVillageId])`; `@@index([stateId])`; `@@index([providerCompanyId])`; `@@index([providerGroupId])`; `@@index([scopeType, effectiveFrom, effectiveTo])`
 
-**Declared foreign-key fields:** `categoryId` → `ServiceCategory.id`; `serviceId` → `Service.id`; `providerId` → `ProviderProfile.id`; `townVillageId` → `TownVillage.id`
-
 #### `finance.commission_calculations` — `CommissionCalculation`
 
 | Column | Prisma field | Type | Attributes |
@@ -273,8 +261,6 @@ Physical column names respect Prisma `@map`. Types are Prisma source types (not 
 | 'settlement_id' | 'settlementId' | 'String?' | — |
 
 **Composite keys/indexes:** `@@index([appliedRuleId])`; `@@index([settlementId])`
-
-**Declared foreign-key fields:** `bookingId` → `Booking.id`; `appliedRuleId` → `CommissionRule.id`; `settlementId` → `Settlement.id`
 
 #### `finance.settlement_configs` — `SettlementConfig`
 
@@ -299,8 +285,6 @@ Physical column names respect Prisma `@map`. Types are Prisma source types (not 
 
 **Composite keys/indexes:** `@@index([scopeType])`; `@@index([scopeType, effectiveFrom, effectiveTo])`
 
-**Declared foreign-key fields:** `categoryId` → `ServiceCategory.id`; `serviceId` → `Service.id`; `providerId` → `ProviderProfile.id`; `townVillageId` → `TownVillage.id`
-
 #### `finance.settlements` — `Settlement`
 
 | Column | Prisma field | Type | Attributes |
@@ -317,8 +301,6 @@ Physical column names respect Prisma `@map`. Types are Prisma source types (not 
 | 'updated_at' | 'updatedAt' | 'DateTime' | updatedAt |
 
 **Composite keys/indexes:** `@@index([providerId])`
-
-**Declared foreign-key fields:** `providerId` → `ProviderProfile.id`
 
 #### `finance.refund_policies` — `RefundPolicy`
 
@@ -344,8 +326,6 @@ Physical column names respect Prisma `@map`. Types are Prisma source types (not 
 
 **Composite keys/indexes:** `@@index([scopeType])`; `@@index([scopeType, effectiveFrom, effectiveTo])`; `@@index([reason])`
 
-**Declared foreign-key fields:** `categoryId` → `ServiceCategory.id`; `serviceId` → `Service.id`; `providerId` → `ProviderProfile.id`; `townVillageId` → `TownVillage.id`
-
 #### `finance.refunds` — `Refund`
 
 | Column | Prisma field | Type | Attributes |
@@ -365,8 +345,6 @@ Physical column names respect Prisma `@map`. Types are Prisma source types (not 
 | 'updated_at' | 'updatedAt' | 'DateTime' | updatedAt |
 
 **Composite keys/indexes:** `@@index([appliedPolicyId])`
-
-**Declared foreign-key fields:** `bookingId` → `Booking.id`; `appliedPolicyId` → `RefundPolicy.id`
 
 #### `finance.provider_tax_profiles` — `ProviderTaxProfile`
 
@@ -414,7 +392,110 @@ Physical column names respect Prisma `@map`. Types are Prisma source types (not 
 
 **Composite keys/indexes:** `@@index([assessmentId])`
 
-**Declared foreign-key fields:** `assessmentId` → `TaxAssessment.id`
+#### `finance.tax_rules` — `FinanceTaxRule`
+
+| Column | Prisma field | Type | Attributes |
+| --- | --- | --- | --- |
+| 'id' | 'id' | 'String' | PK, @default(uuid() |
+| 'name' | 'name' | 'String' | — |
+| 'geo_scope' | 'geoScope' | 'FinanceGeoScope' | @default(ALL) |
+| 'geo_id' | 'geoId' | 'String?' | — |
+| 'target_scope' | 'targetScope' | 'FinanceTargetScope' | @default(ALL) |
+| 'target_id' | 'targetId' | 'String?' | — |
+| 'component' | 'component' | 'FinanceTaxComponent' | — |
+| 'rate_bps' | 'rateBps' | 'Int' | — |
+| 'priority' | 'priority' | 'Int' | @default(0) |
+| 'enabled' | 'enabled' | 'Boolean' | @default(false) |
+| 'valid_from' | 'validFrom' | 'DateTime?' | — |
+| 'valid_to' | 'validTo' | 'DateTime?' | — |
+| 'created_by' | 'createdBy' | 'String' | — |
+| 'updated_by' | 'updatedBy' | 'String' | — |
+| 'created_at' | 'createdAt' | 'DateTime' | @default(now() |
+| 'updated_at' | 'updatedAt' | 'DateTime' | updatedAt |
+
+**Composite keys/indexes:** `@@index([enabled,component])`; `@@index([geoScope,geoId])`; `@@index([targetScope,targetId])`
+
+#### `finance.pricing_rules` — `FinancePriceRule`
+
+| Column | Prisma field | Type | Attributes |
+| --- | --- | --- | --- |
+| 'id' | 'id' | 'String' | PK, @default(uuid() |
+| 'name' | 'name' | 'String' | — |
+| 'geo_scope' | 'geoScope' | 'FinanceGeoScope' | @default(ALL) |
+| 'geo_id' | 'geoId' | 'String?' | — |
+| 'target_scope' | 'targetScope' | 'FinanceTargetScope' | @default(ALL) |
+| 'target_id' | 'targetId' | 'String?' | — |
+| 'adjustment' | 'adjustment' | 'FinancePriceAdjustment' | — |
+| 'start_time' | 'startTime' | 'String?' | — |
+| 'end_time' | 'endTime' | 'String?' | — |
+| 'weekdays' | 'weekdays' | 'Int[]' | @default([]) |
+| 'value' | 'value' | 'Decimal' | @db.Decimal(12,2) |
+| 'priority' | 'priority' | 'Int' | @default(0) |
+| 'enabled' | 'enabled' | 'Boolean' | @default(false) |
+| 'valid_from' | 'validFrom' | 'DateTime?' | — |
+| 'valid_to' | 'validTo' | 'DateTime?' | — |
+| 'created_by' | 'createdBy' | 'String' | — |
+| 'updated_by' | 'updatedBy' | 'String' | — |
+| 'created_at' | 'createdAt' | 'DateTime' | @default(now() |
+| 'updated_at' | 'updatedAt' | 'DateTime' | updatedAt |
+
+**Composite keys/indexes:** `@@index([enabled,priority])`; `@@index([geoScope,geoId])`; `@@index([targetScope,targetId])`
+
+#### `finance.booking_price_snapshots` — `BookingPriceSnapshot`
+
+| Column | Prisma field | Type | Attributes |
+| --- | --- | --- | --- |
+| 'id' | 'id' | 'String' | PK, @default(uuid() |
+| 'booking_id' | 'bookingId' | 'String' | UNIQUE |
+| 'original_amount' | 'originalAmount' | 'Decimal' | @db.Decimal(12,2) |
+| 'service_amount' | 'serviceAmount' | 'Decimal' | @db.Decimal(12,2) |
+| 'visit_fee' | 'visitFee' | 'Decimal' | @db.Decimal(12,2) |
+| 'taxable_amount' | 'taxableAmount' | 'Decimal' | @db.Decimal(12,2) |
+| 'tax_total' | 'taxTotal' | 'Decimal' | @db.Decimal(12,2) |
+| 'total_amount' | 'totalAmount' | 'Decimal' | @db.Decimal(12,2) |
+| 'currency' | 'currency' | 'String' | @default("INR") |
+| 'price_rule_id' | 'priceRuleId' | 'String?' | — |
+| 'tax_breakdown' | 'taxBreakdown' | 'Json' | — |
+| 'created_at' | 'createdAt' | 'DateTime' | @default(now() |
+
+#### `finance.billing_issuers` — `BillingIssuer`
+
+| Column | Prisma field | Type | Attributes |
+| --- | --- | --- | --- |
+| 'id' | 'id' | 'String' | PK, @default(uuid() |
+| 'issuer_code' | 'issuerCode' | 'String' | UNIQUE |
+| 'provider_id' | 'providerId' | 'String?' | UNIQUE |
+| 'legal_name' | 'legalName' | 'String' | — |
+| 'address' | 'address' | 'String' | — |
+| 'state_code' | 'stateCode' | 'String' | — |
+| 'gstin' | 'gstin' | 'String?' | — |
+| 'sac_code' | 'sacCode' | 'String?' | — |
+| 'authorized_signatory' | 'authorizedSignatory' | 'String?' | — |
+| 'verified' | 'verified' | 'Boolean' | @default(false) |
+| 'updated_by' | 'updatedBy' | 'String' | — |
+| 'updated_at' | 'updatedAt' | 'DateTime' | updatedAt |
+
+#### `finance.billing_invoices` — `BillingInvoice`
+
+| Column | Prisma field | Type | Attributes |
+| --- | --- | --- | --- |
+| 'id' | 'id' | 'String' | PK, @default(uuid() |
+| 'booking_id' | 'bookingId' | 'String' | UNIQUE |
+| 'invoice_number' | 'invoiceNumber' | 'String?' | UNIQUE |
+| 'status' | 'status' | 'BillingInvoiceStatus' | @default(PRO_FORMA) |
+| 'snapshot' | 'snapshot' | 'Json' | — |
+| 'issued_by' | 'issuedBy' | 'String?' | — |
+| 'issued_at' | 'issuedAt' | 'DateTime?' | — |
+| 'created_at' | 'createdAt' | 'DateTime' | @default(now() |
+
+**Composite keys/indexes:** `@@index([status,createdAt])`
+
+#### `finance.invoice_sequences` — `BillingInvoiceSequence`
+
+| Column | Prisma field | Type | Attributes |
+| --- | --- | --- | --- |
+| 'key' | 'key' | 'String' | PK |
+| 'next_value' | 'nextValue' | 'Int' | @default(1) |
 
 ### Namespace: `marketplace`
 
@@ -431,8 +512,6 @@ Physical column names respect Prisma `@map`. Types are Prisma source types (not 
 | 'created_at' | 'createdAt' | 'DateTime' | @default(now() |
 | 'updated_at' | 'updatedAt' | 'DateTime' | updatedAt |
 | 'deleted_at' | 'deletedAt' | 'DateTime?' | — |
-
-**Declared foreign-key fields:** `userId` → `User.id`
 
 #### `marketplace.customer_addresses` — `CustomerAddress`
 
@@ -456,8 +535,6 @@ Physical column names respect Prisma `@map`. Types are Prisma source types (not 
 
 **Composite keys/indexes:** `@@index([customerId])`
 
-**Declared foreign-key fields:** `customerId` → `CustomerProfile.id`
-
 #### `marketplace.provider_profiles` — `ProviderProfile`
 
 | Column | Prisma field | Type | Attributes |
@@ -475,8 +552,6 @@ Physical column names respect Prisma `@map`. Types are Prisma source types (not 
 | 'created_at' | 'createdAt' | 'DateTime' | @default(now() |
 | 'updated_at' | 'updatedAt' | 'DateTime' | updatedAt |
 | 'deleted_at' | 'deletedAt' | 'DateTime?' | — |
-
-**Declared foreign-key fields:** `userId` → `User.id`
 
 #### `marketplace.agent_companies` — `AgentCompany`
 
@@ -506,8 +581,6 @@ Physical column names respect Prisma `@map`. Types are Prisma source types (not 
 | 'updated_at' | 'updatedAt' | 'DateTime' | updatedAt |
 | 'deleted_at' | 'deletedAt' | 'DateTime?' | — |
 
-**Declared foreign-key fields:** `userId` → `User.id`; `agentCompanyId` → `AgentCompany.id`
-
 #### `marketplace.onboarding_applications` — `OnboardingApplication`
 
 | Column | Prisma field | Type | Attributes |
@@ -524,8 +597,6 @@ Physical column names respect Prisma `@map`. Types are Prisma source types (not 
 | 'created_at' | 'createdAt' | 'DateTime' | @default(now() |
 | 'updated_at' | 'updatedAt' | 'DateTime' | updatedAt |
 
-**Declared foreign-key fields:** `providerId` → `ProviderProfile.id`; `referredByAgentId` → `AgentProfile.id`
-
 #### `marketplace.onboarding_documents` — `OnboardingDocument`
 
 | Column | Prisma field | Type | Attributes |
@@ -538,8 +609,6 @@ Physical column names respect Prisma `@map`. Types are Prisma source types (not 
 | 'created_at' | 'createdAt' | 'DateTime' | @default(now() |
 
 **Composite keys/indexes:** `@@index([applicationId])`
-
-**Declared foreign-key fields:** `applicationId` → `OnboardingApplication.id`
 
 #### `marketplace.service_categories` — `ServiceCategory`
 
@@ -571,8 +640,6 @@ Physical column names respect Prisma `@map`. Types are Prisma source types (not 
 
 **Composite keys/indexes:** `@@index([categoryId])`
 
-**Declared foreign-key fields:** `categoryId` → `ServiceCategory.id`
-
 #### `marketplace.service_variants` — `ServiceVariant`
 
 | Column | Prisma field | Type | Attributes |
@@ -586,8 +653,6 @@ Physical column names respect Prisma `@map`. Types are Prisma source types (not 
 | 'updated_at' | 'updatedAt' | 'DateTime' | updatedAt |
 
 **Composite keys/indexes:** `@@index([serviceId])`
-
-**Declared foreign-key fields:** `serviceId` → `Service.id`
 
 #### `marketplace.provider_offerings` — `ProviderOffering`
 
@@ -609,8 +674,6 @@ Physical column names respect Prisma `@map`. Types are Prisma source types (not 
 
 **Composite keys/indexes:** `@@index([providerId])`; `@@index([serviceId])`
 
-**Declared foreign-key fields:** `providerId` → `ProviderProfile.id`; `serviceId` → `Service.id`; `variantId` → `ServiceVariant.id`
-
 #### `marketplace.geo_states` — `State`
 
 | Column | Prisma field | Type | Attributes |
@@ -618,6 +681,7 @@ Physical column names respect Prisma `@map`. Types are Prisma source types (not 
 | 'id' | 'id' | 'String' | PK, @default(uuid() |
 | 'name' | 'name' | 'String' | UNIQUE |
 | 'code' | 'code' | 'String?' | — |
+| 'gst_state_code' | 'gstStateCode' | 'String?' | — |
 | 'is_active' | 'isActive' | 'Boolean' | @default(true) |
 | 'created_at' | 'createdAt' | 'DateTime' | @default(now() |
 | 'updated_at' | 'updatedAt' | 'DateTime' | updatedAt |
@@ -635,8 +699,6 @@ Physical column names respect Prisma `@map`. Types are Prisma source types (not 
 
 **Composite keys/indexes:** `@@unique([stateId, name])`; `@@index([stateId])`
 
-**Declared foreign-key fields:** `stateId` → `State.id`
-
 #### `marketplace.geo_taluks` — `Taluk`
 
 | Column | Prisma field | Type | Attributes |
@@ -649,8 +711,6 @@ Physical column names respect Prisma `@map`. Types are Prisma source types (not 
 | 'updated_at' | 'updatedAt' | 'DateTime' | updatedAt |
 
 **Composite keys/indexes:** `@@unique([districtId, name])`; `@@index([districtId])`
-
-**Declared foreign-key fields:** `districtId` → `District.id`
 
 #### `marketplace.geo_town_villages` — `TownVillage`
 
@@ -668,8 +728,6 @@ Physical column names respect Prisma `@map`. Types are Prisma source types (not 
 
 **Composite keys/indexes:** `@@unique([talukId, name])`; `@@index([talukId])`; `@@index([pincode])`
 
-**Declared foreign-key fields:** `talukId` → `Taluk.id`
-
 #### `marketplace.provider_coverage_profiles` — `ProviderCoverageProfile`
 
 | Column | Prisma field | Type | Attributes |
@@ -682,8 +740,6 @@ Physical column names respect Prisma `@map`. Types are Prisma source types (not 
 | 'radius_km' | 'radiusKm' | 'Float?' | — |
 | 'created_at' | 'createdAt' | 'DateTime' | @default(now() |
 | 'updated_at' | 'updatedAt' | 'DateTime' | updatedAt |
-
-**Declared foreign-key fields:** `providerId` → `ProviderProfile.id`; `primaryTownVillageId` → `TownVillage.id`
 
 #### `marketplace.provider_coverage_areas` — `ProviderCoverageArea`
 
@@ -700,8 +756,6 @@ Physical column names respect Prisma `@map`. Types are Prisma source types (not 
 
 **Composite keys/indexes:** `@@unique([providerId, townVillageId])`; `@@index([providerId])`; `@@index([townVillageId])`
 
-**Declared foreign-key fields:** `providerId` → `ProviderProfile.id`; `townVillageId` → `TownVillage.id`
-
 #### `marketplace.availability_schedules` — `AvailabilitySchedule`
 
 | Column | Prisma field | Type | Attributes |
@@ -712,8 +766,6 @@ Physical column names respect Prisma `@map`. Types are Prisma source types (not 
 | 'max_concurrent_bookings' | 'maxConcurrentBookings' | 'Int?' | — |
 | 'created_at' | 'createdAt' | 'DateTime' | @default(now() |
 | 'updated_at' | 'updatedAt' | 'DateTime' | updatedAt |
-
-**Declared foreign-key fields:** `providerId` → `ProviderProfile.id`
 
 #### `marketplace.working_hours` — `WorkingHours`
 
@@ -729,8 +781,6 @@ Physical column names respect Prisma `@map`. Types are Prisma source types (not 
 | 'updated_at' | 'updatedAt' | 'DateTime' | updatedAt |
 
 **Composite keys/indexes:** `@@index([providerId])`; `@@index([providerId, dayOfWeek])`
-
-**Declared foreign-key fields:** `providerId` → `ProviderProfile.id`
 
 #### `marketplace.availability_exceptions` — `AvailabilityException`
 
@@ -748,8 +798,6 @@ Physical column names respect Prisma `@map`. Types are Prisma source types (not 
 | 'updated_at' | 'updatedAt' | 'DateTime' | updatedAt |
 
 **Composite keys/indexes:** `@@index([providerId])`; `@@index([providerId, startDate, endDate])`
-
-**Declared foreign-key fields:** `providerId` → `ProviderProfile.id`
 
 #### `marketplace.bookings` — `Booking`
 
@@ -781,8 +829,6 @@ Physical column names respect Prisma `@map`. Types are Prisma source types (not 
 
 **Composite keys/indexes:** `@@index([customerId])`; `@@unique([customerId, clientRequestId])`; `@@index([offeringId])`; `@@index([townVillageId])`
 
-**Declared foreign-key fields:** `customerId` → `CustomerProfile.id`; `offeringId` → `ProviderOffering.id`; `townVillageId` → `TownVillage.id`
-
 #### `marketplace.provider_companies` — `ProviderCompany`
 
 | Column | Prisma field | Type | Attributes |
@@ -807,8 +853,6 @@ Physical column names respect Prisma `@map`. Types are Prisma source types (not 
 
 **Composite keys/indexes:** `@@unique([companyId, name])`
 
-**Declared foreign-key fields:** `companyId` → `ProviderCompany.id`
-
 #### `marketplace.provider_staff` — `ProviderStaff`
 
 | Column | Prisma field | Type | Attributes |
@@ -824,8 +868,6 @@ Physical column names respect Prisma `@map`. Types are Prisma source types (not 
 
 **Composite keys/indexes:** `@@index([companyId])`
 
-**Declared foreign-key fields:** `companyId` → `ProviderCompany.id`; `groupId` → `ProviderGroup.id`
-
 #### `marketplace.provider_memberships` — `ProviderMembership`
 
 | Column | Prisma field | Type | Attributes |
@@ -838,8 +880,6 @@ Physical column names respect Prisma `@map`. Types are Prisma source types (not 
 | 'joined_at' | 'joinedAt' | 'DateTime' | @default(now() |
 
 **Composite keys/indexes:** `@@index([companyId])`; `@@index([groupId])`
-
-**Declared foreign-key fields:** `providerId` → `ProviderProfile.id`; `companyId` → `ProviderCompany.id`; `groupId` → `ProviderGroup.id`
 
 #### `marketplace.matching_cursors` — `MatchingCursor`
 
@@ -873,8 +913,6 @@ Physical column names respect Prisma `@map`. Types are Prisma source types (not 
 
 **Composite keys/indexes:** `@@index([actorUserId])`; `@@index([routePath])`
 
-**Declared foreign-key fields:** `actorUserId` → `User.id`
-
 #### `ops.notifications` — `Notification`
 
 | Column | Prisma field | Type | Attributes |
@@ -896,8 +934,6 @@ Physical column names respect Prisma `@map`. Types are Prisma source types (not 
 
 **Composite keys/indexes:** `@@index([userId])`; `@@index([status, nextAttemptAt])`
 
-**Declared foreign-key fields:** `userId` → `User.id`
-
 #### `ops.push_devices` — `PushDevice`
 
 | Column | Prisma field | Type | Attributes |
@@ -910,8 +946,6 @@ Physical column names respect Prisma `@map`. Types are Prisma source types (not 
 | 'updated_at' | 'updatedAt' | 'DateTime' | updatedAt |
 
 **Composite keys/indexes:** `@@index([userId])`
-
-**Declared foreign-key fields:** `userId` → `User.id`
 
 #### `ops.runtime_flags` — `RuntimeFlag`
 
@@ -944,8 +978,6 @@ Physical column names respect Prisma `@map`. Types are Prisma source types (not 
 
 **Composite keys/indexes:** `@@index([status,createdAt])`; `@@index([reporterId,createdAt])`; `@@index([assignedToId,status])`
 
-**Declared foreign-key fields:** `reporterId` → `User.id`; `assignedToId` → `User.id`
-
 #### `ops.incident_case_activity` — `IncidentCaseActivity`
 
 | Column | Prisma field | Type | Attributes |
@@ -959,11 +991,9 @@ Physical column names respect Prisma `@map`. Types are Prisma source types (not 
 
 **Composite keys/indexes:** `@@index([incidentId,createdAt])`
 
-**Declared foreign-key fields:** `incidentId` → `IncidentCase.id`; `actorId` → `User.id`
-
 ## Enumerations
 
-Enums are PostgreSQL schema-qualified in Prisma; use migration SQL for the actual database DDL.
+Enums are PostgreSQL schema-qualified in Prisma; use migration SQL for actual DDL.
 
 | Namespace | Enum | Allowed values |
 | --- | --- | --- |
@@ -1000,10 +1030,15 @@ Enums are PostgreSQL schema-qualified in Prisma; use migration SQL for the actua
 | finance | TaxEntryType | GST_OUTPUT, GST_9_5, GST_TCS, INCOME_TDS_194O, ADJUSTMENT, REVERSAL |
 | ops | IncidentStatus | OPEN, ACKNOWLEDGED, IN_PROGRESS, RESOLVED, CLOSED |
 | ops | IncidentSeverity | P0, P1, P2, P3 |
+| finance | FinanceGeoScope | ALL, STATE, DISTRICT, TALUK, TOWN |
+| finance | FinanceTargetScope | ALL, CATEGORY, SERVICE, VARIANT, OFFERING |
+| finance | FinanceTaxComponent | CGST, SGST, IGST, CESS |
+| finance | FinancePriceAdjustment | PERCENT_UP, PERCENT_DOWN, AMOUNT_UP, AMOUNT_DOWN |
+| finance | BillingInvoiceStatus | PRO_FORMA, ISSUED, VOID |
 
 ## Committed migration history
 
-These directories are already versioned in `apps/backend/prisma/migrations/`. Apply them **in order** through `prisma migrate deploy`, not by copying SQL fragments into a SQL editor.
+Apply migrations in order through `prisma migrate deploy`. Do not paste fragments manually.
 
 - `20260917041821_init/migration.sql`
 - `20260917122728_add_iam_roles_permissions/migration.sql`
@@ -1031,11 +1066,11 @@ These directories are already versioned in `apps/backend/prisma/migrations/`. Ap
 - `20261010103000_notification_delivery_outbox/migration.sql`
 - `20261010104000_ops_runtime_flags/migration.sql`
 - `20261028192000_incident_case_management/migration.sql`
+- `20261101101500_finance_rules_invoicing/migration.sql`
 
 ## Important limits
 
-- This catalog does **not** include tables proposed by unmerged PR #37 (finance rules, billing/invoices).
-- `prisma migrate status` compares migration history with the **target** database. A schema file alone cannot verify a remote deployment.
-- Database-level triggers, check constraints and hand-written indexes may exist exclusively in migration SQL; examine those files before any change. In particular, payment gateway indexes and the append-only audit trigger are migrations.
-- Do not regard generated names, enum types or FK declarations as authorization to patch production DDL manually.
+- This catalogue is a schema inventory, not evidence migrations were applied to any specific database.
+- `prisma migrate status` compares migration history with the target database.
+- Triggers and hand-written constraints may exist only in migration SQL; inspect those before changes.
 
