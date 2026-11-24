@@ -49,6 +49,20 @@ export class SettlementService {
         ...WITH_LINE_ITEMS,
       });
       if (inFlight) {
+        const stalePending =
+          inFlight.status === SettlementStatus.PENDING &&
+          inFlight.updatedAt.getTime() <= Date.now() - 5 * 60_000;
+        if (stalePending) {
+          const unknown = await tx.settlement.update({
+            where: { id: inFlight.id },
+            data: {
+              status: SettlementStatus.UNKNOWN,
+              failureReason: 'No confirmed payout outcome within five minutes; manual reconciliation is required',
+            },
+            ...WITH_LINE_ITEMS,
+          });
+          return { settlement: unknown, shouldInitiate: false };
+        }
         return { settlement: inFlight, shouldInitiate: false };
       }
 
