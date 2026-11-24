@@ -125,8 +125,8 @@ export class RefundService {
         booking.currency,
         refund.idempotencyKey,
       );
-      const updated = await this.prisma.refund.update({
-        where: { id: refund.id },
+      await this.prisma.refund.updateMany({
+        where: { id: refund.id, status: RefundStatus.PENDING },
         data: {
           status: RefundStatus.REFUNDED,
           refundReference,
@@ -134,11 +134,13 @@ export class RefundService {
           failureReason: null,
         },
       });
+      const updated = await this.prisma.refund.findUnique({ where: { id: refund.id } });
+      if (!updated) throw new NotFoundException('Refund disappeared after gateway response');
       return this.toResponse(updated);
     } catch (error) {
       const definitelyNotSubmitted = error instanceof RefundNotConfiguredException;
-      const updated = await this.prisma.refund.update({
-        where: { id: refund.id },
+      await this.prisma.refund.updateMany({
+        where: { id: refund.id, status: RefundStatus.PENDING },
         data: {
           status: definitelyNotSubmitted ? RefundStatus.FAILED : RefundStatus.UNKNOWN,
           failureReason: error instanceof Error
@@ -146,6 +148,8 @@ export class RefundService {
             : 'Refund outcome is unknown; manual reconciliation is required',
         },
       });
+      const updated = await this.prisma.refund.findUnique({ where: { id: refund.id } });
+      if (!updated) throw new NotFoundException('Refund disappeared during recovery');
       return this.toResponse(updated);
     }
   }
