@@ -24,6 +24,12 @@ export class SettlementDto {
   failureReason: string | null;
 
   @ApiProperty({ required: false, nullable: true })
+  manualResolutionNote: string | null;
+
+  @ApiProperty({ required: false, nullable: true })
+  manualResolvedAt: Date | null;
+
+  @ApiProperty({ required: false, nullable: true })
   paidAt: Date | null;
 
   @ApiProperty({
