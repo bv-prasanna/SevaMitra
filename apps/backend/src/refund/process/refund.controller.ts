@@ -1,4 +1,7 @@
 import { Body, Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
+import { CurrentUser } from '../../auth/decorators/current-user.decorator';
+import type { AuthenticatedUser } from '../../auth/token/jwt-payload.interface';
+import { ResolveRefundDto } from './dto/resolve-refund.dto';
 import {
   ApiBearerAuth,
   ApiConflictResponse,
@@ -40,6 +43,19 @@ export class RefundController {
   })
   process(@Body() dto: ProcessRefundDto) {
     return this.refundService.process(dto.bookingId);
+  }
+
+  @Post(':id/resolve')
+  @RequirePermissions('refund.manage')
+  @ApiOperation({ summary: 'Manually resolve an UNKNOWN refund after checking gateway/bank evidence' })
+  @ApiOkResponse({ type: RefundDto })
+  @ApiConflictResponse({ description: 'Only UNKNOWN refunds can be manually resolved', type: ErrorResponseDto })
+  resolve(
+    @Param('id') id: string,
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() dto: ResolveRefundDto,
+  ) {
+    return this.refundService.resolveManual(id, user.id, dto.outcome, dto.note);
   }
 
   @Get()
