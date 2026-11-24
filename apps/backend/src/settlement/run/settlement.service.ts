@@ -78,6 +78,11 @@ export class SettlementService {
         where: { idempotencyKey },
         ...WITH_LINE_ITEMS,
       });
+      if (previous && previous.status === SettlementStatus.PAID) {
+        throw new ConflictException(
+          'A previously paid settlement has unlinked commission rows; manual reconciliation is required',
+        );
+      }
       if (previous && previous.status !== SettlementStatus.FAILED) {
         return { settlement: previous, shouldInitiate: false };
       }
@@ -237,7 +242,7 @@ export class SettlementService {
       orderBy: { createdAt: 'desc' },
       ...WITH_LINE_ITEMS,
     });
-    return settlements.map((settlement) => this.toResponse(settlement));
+    return settlements.map((settlement) => this.toProviderResponse(settlement));
   }
 
   async findAsProvider(userId: string, id: string): Promise<SettlementResponse> {
@@ -249,7 +254,17 @@ export class SettlementService {
     if (!settlement || settlement.providerId !== provider.id) {
       throw new NotFoundException('Settlement not found');
     }
-    return this.toResponse(settlement);
+    return this.toProviderResponse(settlement);
+  }
+
+  private toProviderResponse(settlement: SettlementWithLineItems): SettlementResponse {
+    const response = this.toResponse(settlement);
+    return {
+      ...response,
+      manualResolutionNote: null,
+      manualResolvedBy: null,
+      manualResolvedAt: null,
+    };
   }
 
   private toResponse(settlement: SettlementWithLineItems): SettlementResponse {
