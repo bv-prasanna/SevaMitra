@@ -174,6 +174,7 @@ export class RefundService {
       });
       return this.toResponse(updated);
     });
+    return updated;
   }
 
   async list(): Promise<RefundResponse[]> {
