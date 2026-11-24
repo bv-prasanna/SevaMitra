@@ -22,13 +22,14 @@ describe('PaymentService', () => {
       findMany: jest.Mock;
       findUnique: jest.Mock;
       update: jest.Mock;
+      updateMany: jest.Mock;
       findFirst: jest.Mock;
     };
   };
   let bookingService: { findAsCustomer: jest.Mock; findAsProvider: jest.Mock };
   let customerService: { getActiveProfileOrThrow: jest.Mock };
   let providerService: { getActiveProfileOrThrow: jest.Mock };
-  let paymentGateway: { createOrder: jest.Mock; verifyPayment: jest.Mock };
+  let paymentGateway: { createOrder: jest.Mock; verifyPayment: jest.Mock; fetchOrderPayments: jest.Mock };
   let config: {get: jest.Mock};
   let service: PaymentService;
 
@@ -54,6 +55,7 @@ describe('PaymentService', () => {
         findMany: jest.fn().mockResolvedValue([]),
         findUnique: jest.fn(),
         update: jest.fn(),
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
         findFirst: jest.fn().mockResolvedValue(null),
       },
     };
@@ -74,6 +76,7 @@ describe('PaymentService', () => {
         .fn()
         .mockResolvedValue({ gatewayOrderId: 'stub_order_1' }),
       verifyPayment: jest.fn().mockReturnValue(true),
+      fetchOrderPayments: jest.fn().mockResolvedValue([]),
     };
 
     config = {get: jest.fn().mockReturnValue(undefined)};
@@ -324,11 +327,13 @@ describe('PaymentService', () => {
     };
 
     it('marks the payment SUCCEEDED when the gateway verifies it', async () => {
-      prisma.payment.findUnique.mockResolvedValue(initiatedOnlinePayment);
-      prisma.payment.update.mockResolvedValue({
-        id: 'payment-1',
-        status: PaymentStatus.SUCCEEDED,
-      });
+      prisma.payment.findUnique
+        .mockResolvedValueOnce(initiatedOnlinePayment)
+        .mockResolvedValueOnce(initiatedOnlinePayment)
+        .mockResolvedValueOnce({
+          ...initiatedOnlinePayment, status: PaymentStatus.SUCCEEDED,
+          gatewayPaymentId: 'pay_1',
+        });
 
       await service.verifyAsCustomer('user-1', 'payment-1', {
         gatewayPaymentId: 'pay_1',
@@ -342,8 +347,12 @@ describe('PaymentService', () => {
         300,
         'INR',
       );
-      expect(prisma.payment.update).toHaveBeenCalledWith({
-        where: { id: 'payment-1', status: PaymentStatus.INITIATED },
+      expect(prisma.payment.updateMany).toHaveBeenCalledWith({
+        where: {
+          id: 'payment-1',
+          status: { in: [PaymentStatus.INITIATED, PaymentStatus.FAILED] },
+          gatewayPaymentId: null,
+        },
         data: expect.objectContaining({
           status: PaymentStatus.SUCCEEDED,
           gatewayPaymentId: 'pay_1',
@@ -425,6 +434,118 @@ describe('PaymentService', () => {
       await expect(
         service.findAsProvider('user-1', 'payment-1'),
       ).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe('idempotent gateway capture reconciliation', () => {
+    const online = {
+      id: 'payment-1',
+      method: PaymentMethod.ONLINE,
+      status: PaymentStatus.INITIATED,
+      gatewayOrderId: 'order_12345',
+      gatewayPaymentId: null,
+      amount: 300,
+      currency: 'INR',
+    };
+
+    it('records a captured Razorpay payment exactly once', async () => {
+      prisma.payment.findUnique
+        .mockResolvedValueOnce(online)
+        .mockResolvedValueOnce({ ...online, status: PaymentStatus.SUCCEEDED, gatewayPaymentId: 'pay_12345' });
+      prisma.payment.updateMany.mockResolvedValue({ count: 1 });
+
+      const result = await service.confirmCapturedFromGateway('order_12345', 'pay_12345', 30000, 'INR');
+
+      expect(prisma.payment.updateMany).toHaveBeenCalledWith({
+        where: {
+          id: 'payment-1',
+          status: { in: [PaymentStatus.INITIATED, PaymentStatus.FAILED] },
+          gatewayPaymentId: null,
+        },
+        data: expect.objectContaining({
+          status: PaymentStatus.SUCCEEDED,
+          gatewayPaymentId: 'pay_12345',
+          failureReason: null,
+        }),
+      });
+      expect(result.gatewayPaymentId).toBe('pay_12345');
+    });
+
+    it('recovers a late capture after a failed or delayed browser callback', async () => {
+      prisma.payment.findUnique
+        .mockResolvedValueOnce({ ...online, status: PaymentStatus.FAILED })
+        .mockResolvedValueOnce({ ...online, status: PaymentStatus.SUCCEEDED, gatewayPaymentId: 'pay_12345' });
+      prisma.payment.updateMany.mockResolvedValue({ count: 1 });
+
+      const result = await service.confirmCapturedFromGateway('order_12345', 'pay_12345', 30000, 'INR');
+
+      expect(result.status).toBe(PaymentStatus.SUCCEEDED);
+    });
+
+    it('treats the same capture as idempotent without another database update', async () => {
+      const succeeded = { ...online, status: PaymentStatus.SUCCEEDED, gatewayPaymentId: 'pay_12345' };
+      prisma.payment.findUnique.mockResolvedValue(succeeded);
+
+      await expect(service.confirmCapturedFromGateway('order_12345', 'pay_12345', 30000, 'INR'))
+        .resolves.toEqual(succeeded);
+      expect(prisma.payment.updateMany).not.toHaveBeenCalled();
+    });
+
+    it('rejects amount or currency mismatches before updating payment state', async () => {
+      prisma.payment.findUnique.mockResolvedValue(online);
+
+      await expect(service.confirmCapturedFromGateway('order_12345', 'pay_12345', 29999, 'INR'))
+        .rejects.toThrow(ConflictException);
+      await expect(service.confirmCapturedFromGateway('order_12345', 'pay_12345', 30000, 'USD'))
+        .rejects.toThrow(ConflictException);
+      expect(prisma.payment.updateMany).not.toHaveBeenCalled();
+    });
+
+    it('does not overwrite a different successful capture', async () => {
+      prisma.payment.findUnique.mockResolvedValue({
+        ...online, status: PaymentStatus.SUCCEEDED, gatewayPaymentId: 'pay_other',
+      });
+
+      await expect(service.confirmCapturedFromGateway('order_12345', 'pay_12345', 30000, 'INR'))
+        .rejects.toThrow(ConflictException);
+      expect(prisma.payment.updateMany).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('pending payment reconciliation', () => {
+    it('checks old online intents and confirms only an exact captured order payment', async () => {
+      const pending = { id: 'payment-1', method: PaymentMethod.ONLINE,
+        status: PaymentStatus.INITIATED, gatewayOrderId: 'order_12345',
+        amount: 300, currency: 'INR' };
+      prisma.payment.findMany.mockResolvedValue([pending]);
+      paymentGateway.fetchOrderPayments.mockResolvedValue([
+        { id: 'pay_12345', orderId: 'order_12345', status: 'captured', amount: 30000, currency: 'INR' },
+      ]);
+      const confirm = jest.spyOn(service, 'confirmCapturedFromGateway').mockResolvedValue({
+        ...pending, status: PaymentStatus.SUCCEEDED, gatewayPaymentId: 'pay_12345',
+      } as never);
+
+      const result = await service.reconcilePendingOnlinePayments();
+
+      expect(confirm).toHaveBeenCalledWith('order_12345', 'pay_12345', 30000, 'INR');
+      expect(result).toEqual({ checked: 1, captured: 1, stillPending: 0, manualReview: 0, errors: 0 });
+    });
+
+    it('does not mark an order failed when the gateway has no captured payment', async () => {
+      prisma.payment.findMany.mockResolvedValue([{
+        id: 'payment-1', method: PaymentMethod.ONLINE,
+        status: PaymentStatus.INITIATED, gatewayOrderId: 'order_12345',
+        amount: 300, currency: 'INR',
+      }]);
+      paymentGateway.fetchOrderPayments.mockResolvedValue([
+        { id: 'pay_12345', orderId: 'order_12345', status: 'authorized', amount: 30000, currency: 'INR' },
+      ]);
+
+      const result = await service.reconcilePendingOnlinePayments();
+
+      expect(result.stillPending).toBe(1);
+      expect(prisma.payment.update).not.toHaveBeenCalled();
+      expect(prisma.payment.updateMany).not.toHaveBeenCalled();
     });
   });
 
