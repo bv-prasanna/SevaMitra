@@ -268,6 +268,8 @@ export class SettlementService {
 
   private toResponse(settlement: SettlementWithLineItems): SettlementResponse {
     const { commissionCalculations, idempotencyKey, manualResolvedBy, ...rest } = settlement;
+    void idempotencyKey;
+    void manualResolvedBy;
     return {
       ...rest,
       commissionCalculationIds: commissionCalculations.map((item) => item.id),
