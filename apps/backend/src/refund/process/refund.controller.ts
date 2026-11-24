@@ -38,7 +38,7 @@ export class RefundController {
   })
   @ApiConflictResponse({
     description:
-      'Booking is not in a refund-eligible status, already has a REFUNDED/PENDING refund, nothing was paid, or no refund policy (not even a PLATFORM default) applies',
+      'Booking is not in a refund-eligible status, already has a REFUNDED/PENDING/UNKNOWN refund, nothing was paid, or no refund policy (not even a PLATFORM default) applies',
     type: ErrorResponseDto,
   })
   process(@Body() dto: ProcessRefundDto) {
