@@ -181,7 +181,7 @@ export class RefundService {
     return this.prisma.refund.findMany({ orderBy: { createdAt: 'desc' } });
   }
 
-  async findOne(id: string): Promise<Refund> {
+  async findOne(id: string): Promise<RefundResponse> {
     const refund = await this.prisma.refund.findUnique({ where: { id } });
     if (!refund) {
       throw new NotFoundException('Refund not found');
@@ -221,7 +221,6 @@ export class RefundService {
     return {
       ...refund,
       manualResolutionNote: null,
-      manualResolvedBy: null,
       manualResolvedAt: null,
     };
   }
