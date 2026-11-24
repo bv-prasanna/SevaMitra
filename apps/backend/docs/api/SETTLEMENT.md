@@ -18,7 +18,7 @@
 - A provider-scoped PostgreSQL advisory transaction lock serializes concurrent settlement attempts.
 - The service selects unlinked commission calculations in stable id order and rejects mixed-currency batches.
 - It creates a unique SHA-256 idempotency key from the provider id and the exact calculation-id set, then claims those rows in the same transaction before calling the payout gateway.
-- An existing PENDING or UNKNOWN settlement is returned without another gateway call. A FAILED settlement can be retried only because the gateway has proven that no payout was submitted; the same idempotency key is reused.
+- An existing PENDING or UNKNOWN settlement is returned without another gateway call. A PENDING row older than five minutes is moved to UNKNOWN on the next settlement-run request. A FAILED settlement can be retried only because the gateway has proven that no payout was submitted; the same idempotency key is reused.
 - A successful payout marks the settlement PAID. A known disabled-gateway response marks it FAILED and releases the commission rows. A timeout or unclassified error becomes UNKNOWN and keeps the rows linked so they cannot be paid twice.
 - Idempotency keys and internal resolver identities are not included in API responses. Provider-facing responses also redact manual resolution notes.
 
