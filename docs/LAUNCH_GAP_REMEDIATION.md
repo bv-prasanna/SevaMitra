@@ -73,11 +73,11 @@ The mobile customer marketplace now securely saves a booking-request UUID prior 
 - GCP deployment script requires exact green commit, clean worktree, verified backup, a separate direct-URL migration job, minimum-zero API instances, real OTP, private R2 and an explicit deployment approval. AWS deployment remains available.
 
 
-## 2026-11-25 payment recovery implementation (this branch)
+## 2026-11-25 payment recovery implementation (PR #41 merged)
 
-- Added `finance.payment_webhook_events` with unique provider/event identity, sanitized payload, attempt counter, lease, retry schedule and DEAD state.
-- Added raw-body Razorpay HMAC verification and strict event-id validation. Browser verification and webhook/reconciliation now share an atomic, idempotent capture transition.
-- Added a signed internal reconciliation endpoint and five-minute Cloudflare Worker. It retries due webhook rows and checks older pending Razorpay orders. No capture leaves the payment pending; multiple captures are surfaced for manual review.
+- PR #41 added `finance.payment_webhook_events` with unique provider/event identity, sanitized payload, attempt counter, lease, retry schedule and DEAD state.
+- PR #41 added raw-body Razorpay HMAC verification and strict event-id validation. Browser verification and webhook/reconciliation now share an atomic, idempotent capture transition.
+- PR #41 added a signed internal reconciliation endpoint and five-minute Cloudflare Worker. It retries due webhook rows and checks older pending Razorpay orders. No capture leaves the payment pending; multiple captures are surfaced for manual review.
 - Staging/production with `PAYMENT_PROVIDER=razorpay` now requires the dedicated 32+ character cron secret as well as API and webhook credentials.
 - CI verifies the payment Worker TypeScript, Prisma migration, backend build/tests, frontend build/E2E and Cloudflare Pages. This is code-level implementation only: the Worker is not provisioned/deployed by the PR, actual Razorpay sandbox receipts are not available in CI, and refunds/payouts/manual-review UI remain open. Keep `PILOT_DISABLE_COLLECTIONS=true` until launch gates are signed off.
 
