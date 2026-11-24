@@ -1,6 +1,6 @@
 # Launch hardening — implementation evidence and remaining work
 
-Updated: 2026-11-25. Target: `develop` after reviewed payment recovery merge. This document is a risk register, **not** release approval.
+Updated: 2026-11-25. Payment recovery PR #41 is merged; this branch contains additional refund/payout hardening pending review. This document is a risk register, **not** release approval.
 
 ## Verified implementation changes in this branch
 
@@ -9,7 +9,7 @@ Updated: 2026-11-25. Target: `develop` after reviewed payment recovery merge. Th
 | Duplicate booking requests | Optional `clientRequestId` (UUID), DB uniqueness per customer, serialized provider/day slot reservation, serializable retry, payload consistency checks | Mobile now persists a retryable booking draft; still needs live device tests, user-scoped draft isolation and mandatory client-key enforcement |
 | Provider self-booking | Reject booking when offering owner is the same logged-in account | Device/phone/payment/household/collusion analysis and case handling remain pending |
 | Agent referral abuse | Reject a same-user referral | Duplicate-account heuristics, risk scores, human review, false-positive appeals and incentive hold needed |
-| Payment amount and gateway recovery | Booking-scoped PostgreSQL advisory lock and serializable reservation; immutable tax-inclusive quote snapshot; signed Razorpay webhook inbox with unique event IDs; one idempotent capture transition; signed five-minute order/webhook reconciliation worker | CI and unit tests pass in this branch; still requires deployed worker/secrets, actual Razorpay sandbox receipts, concurrent/race E2E, multiple-capture manual resolution, refund/payout ledger and finance sign-off |
+| Payment amount and gateway recovery | Booking-scoped PostgreSQL advisory lock and serializable reservation; immutable tax-inclusive quote snapshot; signed Razorpay webhook inbox with unique event IDs; one idempotent capture transition; signed five-minute order/webhook reconciliation worker | PR #41 merged; still requires deployed worker/secrets, actual Razorpay sandbox receipts, concurrent/race E2E, multiple-capture manual resolution and finance sign-off |
 | Duplicate gateway IDs | Database unique indexes on gateway order and payment reference | Verify gateway refunds, retries and webhooks, reconcile orphaned gateway orders |
 | Reliable notifications | DB-first outbox rows, retry leases, exponential backoff, bounded retries, dead-letter state, authorized `POST /v1/notifications/retry-due` | Scheduler must call endpoint with authorized token at least every minute, test delivery in production-like connectivity, add transactional event producers from booking/payment |
 | Audit integrity | Database trigger rejects application-level UPDATE/DELETE of `ops.audit_log` | Export to independent tamper-evident storage, guard DB administrative credentials, synchronize transactionally for financial/permission changes |
@@ -21,7 +21,7 @@ Updated: 2026-11-25. Target: `develop` after reviewed payment recovery merge. Th
 | Workstream | Priority | Acceptance criteria |
 |---|---|---|
 | Razorpay webhook and order reconciliation | P0 for taking payments | Partial in this branch: raw-body HMAC verification, event-id dedupe, bounded retry/dead-letter state, atomic capture transition and signed scheduled reconciliation. Still required: provision worker/secrets, run real sandbox E2E, manual-review UI/alerts and finance sign-off |
-| Refund ledger, partial refunds and payouts | P0 for taking payments | Not complete: real gateway refund/payout adapters, partial-refund ledger, webhook recovery, idempotent payout state machine and audited manual overrides remain required |
+| Refund and payout state safety | P0 for taking payments | Partial in this branch: booking-scoped refund lock and deterministic key; UNKNOWN state and audited manual resolution; provider-scoped settlement lock, stable payout key, claimed commission rows and audited UNKNOWN resolution. Still required: real gateway adapters/status lookup, partial-refund/payment allocation ledger, refund webhooks, two-person controls, sandbox E2E and finance sign-off |
 | Cash/online double collection, quote-based booking payment limits | P0 | Prevent collection beyond finalized quote; require customer approval, handle settlement reversals |
 | Provider/agent/customer offline queue and conflict handling | P0 for rural offline launch | Persist secure encrypted local drafts; retry idempotent non-financial mutations only; never silently replay an unconfirmed payment charge; reconcile after reconnect; device-level E2E |
 | Business event outbox | P0 | Booking/payment transaction inserts event atomically, notifications are eventually delivered and deduplicated by event key |
@@ -80,3 +80,11 @@ The mobile customer marketplace now securely saves a booking-request UUID prior 
 - Added a signed internal reconciliation endpoint and five-minute Cloudflare Worker. It retries due webhook rows and checks older pending Razorpay orders. No capture leaves the payment pending; multiple captures are surfaced for manual review.
 - Staging/production with `PAYMENT_PROVIDER=razorpay` now requires the dedicated 32+ character cron secret as well as API and webhook credentials.
 - CI verifies the payment Worker TypeScript, Prisma migration, backend build/tests, frontend build/E2E and Cloudflare Pages. This is code-level implementation only: the Worker is not provisioned/deployed by the PR, actual Razorpay sandbox receipts are not available in CI, and refunds/payouts/manual-review UI remain open. Keep `PILOT_DISABLE_COLLECTIONS=true` until launch gates are signed off.
+
+
+## 2026-11-25 refund/payout idempotency hardening (this branch)
+
+- Refund claims are serialized per booking and use a deterministic idempotency key. PENDING/REFUNDED/UNKNOWN cannot be submitted again; only a FAILED attempt proven not submitted can be retried with the same key.
+- Payout claims are serialized per provider. Commission rows are linked before the external call, and the stable key is derived from the exact calculation set. PENDING/UNKNOWN blocks a second payout; uncertain outcomes keep commission rows linked.
+- Manual UNKNOWN resolution requires `refund.manage` or `settlement.manage`, an evidence note, and a transactionally written audit-log row. Provider/customer responses do not expose idempotency keys or internal resolver identities.
+- The real refund/payout adapters remain disabled in staging/production. This branch does not implement partial refunds, payment-level cash/online allocation, provider status lookup, refund webhook processing or dual-control approval. Do not enable live money movement.
