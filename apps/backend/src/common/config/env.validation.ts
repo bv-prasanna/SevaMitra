@@ -6,6 +6,7 @@ import {
   IsNotEmpty,
   IsOptional,
   IsString,
+  MinLength,
   Matches,
   Max,
   Min,
@@ -112,7 +113,8 @@ class EnvironmentVariables {
 
   @IsOptional() @IsString() RAZORPAY_KEY_ID?: string;
   @IsOptional() @IsString() RAZORPAY_KEY_SECRET?: string;
-  @IsOptional() @IsString() RAZORPAY_WEBHOOK_SECRET?: string;
+  @IsOptional() @IsString() @MinLength(32) RAZORPAY_WEBHOOK_SECRET?: string;
+  @IsOptional() @IsString() @MinLength(32) PAYMENT_RECONCILIATION_CRON_SECRET?: string;
 }
 
 /** Fails fast on startup if required config is missing/malformed. */
@@ -141,6 +143,11 @@ export function validateEnv(config: Record<string, unknown>) {
         (!validated.RAZORPAY_KEY_ID || !validated.RAZORPAY_KEY_SECRET ||
          !validated.RAZORPAY_WEBHOOK_SECRET)) {
       throw new Error('Razorpay credentials and webhook secret are required');
+    }
+    if (validated.PAYMENT_PROVIDER === 'razorpay' &&
+        (!validated.PAYMENT_RECONCILIATION_CRON_SECRET ||
+         validated.PAYMENT_RECONCILIATION_CRON_SECRET.length < 32)) {
+      throw new Error('Payment reconciliation cron secret (minimum 32 characters) is required when Razorpay is enabled');
     }
     const demoPhones = (validated.DEMO_OTP_ALLOWED_PHONES ?? '').split(',').map(p => p.trim()).filter(Boolean);
     const demo = validated.OTP_PROVIDER === 'console' && validated.NOTIFICATION_PROVIDER === 'console'
