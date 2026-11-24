@@ -187,7 +187,8 @@ describe('RefundService', () => {
       refundGateway.initiateRefund.mockRejectedValue(new RefundNotConfiguredException());
       prisma.refund.findUnique.mockResolvedValue({ ...refund, status: RefundStatus.FAILED });
       await service.process('booking-1');
-      expect(prisma.refund.update).toHaveBeenCalledWith(expect.objectContaining({
+      expect(prisma.refund.updateMany).toHaveBeenCalledWith(expect.objectContaining({
+        where: { id: 'refund-1', status: RefundStatus.PENDING },
         data: expect.objectContaining({ status: RefundStatus.FAILED }),
       }));
     });
@@ -196,7 +197,8 @@ describe('RefundService', () => {
       refundGateway.initiateRefund.mockRejectedValue(new Error('network timeout'));
       prisma.refund.findUnique.mockResolvedValue({ ...refund, status: RefundStatus.UNKNOWN });
       await service.process('booking-1');
-      expect(prisma.refund.update).toHaveBeenCalledWith(expect.objectContaining({
+      expect(prisma.refund.updateMany).toHaveBeenCalledWith(expect.objectContaining({
+        where: { id: 'refund-1', status: RefundStatus.PENDING },
         data: expect.objectContaining({ status: RefundStatus.UNKNOWN }),
       }));
     });
