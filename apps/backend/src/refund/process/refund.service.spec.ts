@@ -14,6 +14,7 @@ import type { CustomerService } from '../../customer/customer.service';
 describe('RefundService', () => {
   let prisma: {
     refund: { update: jest.Mock; findUnique: jest.Mock; findMany: jest.Mock };
+    refundPolicy: { findFirst: jest.Mock };
     $transaction: jest.Mock;
   };
   let tx: {
@@ -57,6 +58,7 @@ describe('RefundService', () => {
         findUnique: jest.fn().mockResolvedValue(null),
         findMany: jest.fn().mockResolvedValue([]),
       },
+      refundPolicy: { findFirst: jest.fn().mockResolvedValue(null) },
       $transaction: jest.fn(async (callback: (client: unknown) => unknown) => callback(tx)),
     };
     bookingService = { findByIdOrThrow: jest.fn().mockResolvedValue(cancelledBooking) };
@@ -87,10 +89,7 @@ describe('RefundService', () => {
     it('resolves CUSTOMER_CANCELLED and uses the platform policy', async () => {
       const percentage = platformPolicy(50);
       const policy = { id: 'policy-1', refundPercentage: percentage };
-      const findFirst = jest.spyOn(prisma as never, 'refundPolicy' as never);
-      findFirst.mockImplementation?.(() => policy);
-      // The actual policy resolver is backed by PrismaService; provide it on the mock.
-      (service as unknown as { prisma: { refundPolicy: { findFirst: jest.Mock } } }).prisma.refundPolicy.findFirst
+      prisma.refundPolicy.findFirst
         .mockImplementation(({ where }: { where: { scopeType: string } }) =>
           where.scopeType === CommissionScopeType.PLATFORM ? Promise.resolve(policy) : Promise.resolve(null));
       await service.process('booking-1');
@@ -107,7 +106,7 @@ describe('RefundService', () => {
       ] as const;
       for (const [booking, reason] of cases) {
         bookingService.findByIdOrThrow.mockResolvedValue(booking);
-        (service as unknown as { prisma: { refundPolicy: { findFirst: jest.Mock } } }).prisma.refundPolicy.findFirst
+        prisma.refundPolicy.findFirst
           .mockImplementation(({ where }: { where: { scopeType: string } }) =>
             where.scopeType === CommissionScopeType.PLATFORM
               ? Promise.resolve({ id: 'policy-1', refundPercentage: 100 }) : Promise.resolve(null));
