@@ -233,6 +233,7 @@ describe('RefundService', () => {
       }]);
       const result = await service.listAsCustomer('user-1');
       expect(result[0].manualResolutionNote).toBeNull();
+      expect(result[0]).not.toHaveProperty('idempotencyKey');
       expect(result[0]).not.toHaveProperty('manualResolvedBy');
     });
 
