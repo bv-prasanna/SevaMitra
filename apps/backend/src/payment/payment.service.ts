@@ -160,33 +160,144 @@ export class PaymentService {
     if (payment.method !== PaymentMethod.ONLINE) {
       throw new ConflictException('Only ONLINE payments require verification');
     }
-    if (payment.status !== PaymentStatus.INITIATED) {
+    if (payment.status === PaymentStatus.SUCCEEDED) {
+      if (payment.gatewayPaymentId === dto.gatewayPaymentId) return payment;
+      throw new ConflictException('A different gateway payment is already recorded');
+    }
+    if (![PaymentStatus.INITIATED, PaymentStatus.FAILED].includes(payment.status) ||
+        !payment.gatewayOrderId) {
       throw new ConflictException(
         `Payment cannot be verified from its current status (${payment.status})`,
       );
     }
 
     const verified = await this.paymentGateway.verifyPayment(
-      payment.gatewayOrderId!,
+      payment.gatewayOrderId,
       dto.gatewayPaymentId,
       dto.gatewaySignature,
       Number(payment.amount),
       payment.currency,
     );
 
-    // An attacker can submit a forged callback. Invalid signatures must not
-    // change an otherwise valid order to FAILED (payment-confirmation DoS).
+    // An invalid browser callback never mutates the financial state. A valid
+    // capture is applied through the same idempotent transition as webhooks.
     if (!verified) {
       throw new ConflictException('Gateway verification failed; payment remains pending reconciliation');
     }
-    return this.prisma.payment.update({
-      where: { id: payment.id, status: PaymentStatus.INITIATED },
+    return this.confirmCapturedFromGateway(
+      payment.gatewayOrderId,
+      dto.gatewayPaymentId,
+      Math.round(Number(payment.amount) * 100),
+      payment.currency,
+    );
+  }
+
+  /**
+   * Applies a gateway-confirmed capture once, regardless of whether the
+   * browser verification or signed webhook/reconciliation arrives first.
+   * A late capture may recover a FAILED intent; it can never overwrite a
+   * different successful gateway payment.
+   */
+  async confirmCapturedFromGateway(
+    gatewayOrderId: string,
+    gatewayPaymentId: string,
+    amountPaise: number,
+    currency: string,
+  ): Promise<Payment> {
+    if (!gatewayOrderId || !gatewayPaymentId ||
+        !Number.isSafeInteger(amountPaise) || amountPaise <= 0) {
+      throw new ConflictException('Gateway capture details are invalid');
+    }
+    const payment = await this.prisma.payment.findUnique({
+      where: { gatewayOrderId },
+    });
+    if (!payment) throw new NotFoundException('Payment order is not registered');
+    if (payment.method !== PaymentMethod.ONLINE) {
+      throw new ConflictException('Gateway order is not an ONLINE payment');
+    }
+    const expectedPaise = Math.round(Number(payment.amount) * 100);
+    if (expectedPaise !== amountPaise || payment.currency !== currency) {
+      throw new ConflictException('Captured amount or currency does not match the payment intent');
+    }
+    if (payment.status === PaymentStatus.SUCCEEDED) {
+      if (payment.gatewayPaymentId === gatewayPaymentId) return payment;
+      throw new ConflictException('A different captured payment is already recorded; manual reconciliation is required');
+    }
+
+    const changed = await this.prisma.payment.updateMany({
+      where: {
+        id: payment.id,
+        status: { in: [PaymentStatus.INITIATED, PaymentStatus.FAILED] },
+        gatewayPaymentId: null,
+      },
       data: {
         status: PaymentStatus.SUCCEEDED,
-        gatewayPaymentId: dto.gatewayPaymentId,
+        gatewayPaymentId,
         settledAt: new Date(),
+        failureReason: null,
       },
     });
+    if (changed.count === 1) {
+      const updated = await this.prisma.payment.findUnique({ where: { id: payment.id } });
+      if (updated) return updated;
+    }
+
+    // Another webhook/browser request may have won the race. Only the exact
+    // same captured payment is an idempotent success.
+    const latest = await this.prisma.payment.findUnique({ where: { id: payment.id } });
+    if (latest?.status === PaymentStatus.SUCCEEDED &&
+        latest.gatewayPaymentId === gatewayPaymentId) return latest;
+    throw new ConflictException('Payment state changed during capture reconciliation');
+  }
+
+  /**
+   * Re-checks old INITIATED Razorpay orders after client disconnects or lost
+   * webhooks. Pending orders stay pending; absence of a capture is not proof
+   * that a payment failed. Multiple captures are surfaced for manual review.
+   */
+  async reconcilePendingOnlinePayments(limit = 50): Promise<{
+    checked: number; captured: number; stillPending: number;
+    manualReview: number; errors: number;
+  }> {
+    const fetchOrderPayments = this.paymentGateway.fetchOrderPayments;
+    if (!fetchOrderPayments) {
+      return { checked: 0, captured: 0, stillPending: 0, manualReview: 0, errors: 0 };
+    }
+    const cutoff = new Date(Date.now() - 2 * 60 * 1000);
+    const pending = await this.prisma.payment.findMany({
+      where: {
+        method: PaymentMethod.ONLINE,
+        status: PaymentStatus.INITIATED,
+        gatewayOrderId: { not: null },
+        createdAt: { lt: cutoff },
+      },
+      orderBy: { createdAt: 'asc' },
+      take: Math.min(Math.max(limit, 1), 100),
+    });
+    const result = { checked: 0, captured: 0, stillPending: 0, manualReview: 0, errors: 0 };
+    for (const payment of pending) {
+      if (!payment.gatewayOrderId) continue;
+      result.checked++;
+      try {
+        const records = await fetchOrderPayments.call(this.paymentGateway, payment.gatewayOrderId);
+        const captures = records.filter(record =>
+          record.status === 'captured' && record.orderId === payment.gatewayOrderId,
+        );
+        if (captures.length > 1) {
+          result.manualReview++;
+        } else if (captures.length === 1) {
+          await this.confirmCapturedFromGateway(
+            payment.gatewayOrderId, captures[0].id, captures[0].amount, captures[0].currency,
+          );
+          result.captured++;
+        } else {
+          result.stillPending++;
+        }
+      } catch {
+        result.errors++;
+      }
+    }
+    return result;
   }
 
   // ---------------------------------------------------------------------
