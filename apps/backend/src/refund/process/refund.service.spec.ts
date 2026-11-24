@@ -132,7 +132,7 @@ describe('RefundService', () => {
 
   describe('idempotent process', () => {
     beforeEach(() => {
-      (service as unknown as { prisma: { refundPolicy: { findFirst: jest.Mock } } }).prisma.refundPolicy.findFirst
+      prisma.refundPolicy.findFirst
         .mockImplementation(({ where }: { where: { scopeType: string } }) =>
           where.scopeType === CommissionScopeType.PLATFORM
             ? Promise.resolve({ id: 'policy-1', refundPercentage: 50 }) : Promise.resolve(null));
