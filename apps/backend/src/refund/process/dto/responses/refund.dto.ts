@@ -33,6 +33,12 @@ export class RefundDto {
   failureReason: string | null;
 
   @ApiProperty({ required: false, nullable: true })
+  manualResolutionNote: string | null;
+
+  @ApiProperty({ required: false, nullable: true })
+  manualResolvedAt: Date | null;
+
+  @ApiProperty({ required: false, nullable: true })
   refundedAt: Date | null;
 
   @ApiProperty()
