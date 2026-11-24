@@ -1,4 +1,11 @@
+import { ServiceUnavailableException } from '@nestjs/common';
 export const REFUND_GATEWAY = Symbol('REFUND_GATEWAY');
+
+export class RefundNotConfiguredException extends ServiceUnavailableException {
+  constructor() {
+    super('Automatic refunds are disabled until reconciliation is approved');
+  }
+}
 
 /**
  * RefundService only needs to initiate one refund per booking — actual
@@ -13,5 +20,6 @@ export interface RefundGateway {
     bookingId: string,
     amount: number,
     currency: string,
+    idempotencyKey: string,
   ): Promise<{ refundReference: string }>;
 }
