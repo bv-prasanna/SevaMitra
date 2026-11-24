@@ -1402,6 +1402,7 @@ enum SettlementStatus {
   PENDING
   PAID
   FAILED
+  UNKNOWN
 
   @@schema("finance")
 }
@@ -1425,8 +1426,12 @@ model Settlement {
 
   status SettlementStatus @default(PENDING)
 
+  idempotencyKey String @unique @map("idempotency_key")
   payoutReference String? @map("payout_reference")
   failureReason   String? @map("failure_reason")
+  manualResolutionNote String? @map("manual_resolution_note")
+  manualResolvedBy String? @map("manual_resolved_by")
+  manualResolvedAt DateTime? @map("manual_resolved_at")
 
   paidAt DateTime? @map("paid_at")
 
