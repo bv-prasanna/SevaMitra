@@ -18,7 +18,7 @@
 - Only a rejected, cancelled or no-show booking is eligible. The refund percentage is resolved through the configured refund-policy precedence.
 - A booking-scoped PostgreSQL advisory transaction lock prevents two concurrent requests from submitting a refund for the same booking.
 - The refund has a deterministic SHA-256 idempotency key derived from the booking, reason, policy, amount and currency.
-- PENDING, REFUNDED and UNKNOWN records cannot be submitted again. FAILED can be retried with the same idempotency key because the disabled gateway has proved that no external request was sent.
+- PENDING, REFUNDED and UNKNOWN records cannot be submitted again. A PENDING row older than five minutes is moved to UNKNOWN on the next process request without another gateway call. FAILED can be retried with the same idempotency key because the disabled gateway has proved that no external request was sent.
 - A timeout or unclassified error becomes UNKNOWN; it is never automatically retried because the provider may already have processed it.
 - Idempotency keys and internal resolver identities are not returned by the API. Customer endpoints redact internal manual-resolution notes.
 
