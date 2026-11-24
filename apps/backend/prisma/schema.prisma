@@ -1469,6 +1469,7 @@ enum RefundStatus {
   PENDING
   REFUNDED
   FAILED
+  UNKNOWN
 
   @@schema("finance")
 }
@@ -1575,8 +1576,12 @@ model Refund {
 
   status RefundStatus @default(PENDING)
 
+  idempotencyKey String @unique @map("idempotency_key")
   refundReference String? @map("refund_reference")
   failureReason   String? @map("failure_reason")
+  manualResolutionNote String? @map("manual_resolution_note")
+  manualResolvedBy String? @map("manual_resolved_by")
+  manualResolvedAt DateTime? @map("manual_resolved_at")
 
   refundedAt DateTime? @map("refunded_at")
 
