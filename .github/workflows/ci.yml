@@ -63,6 +63,9 @@ jobs:
       - name: Cloudflare notification Cron worker typecheck
         working-directory: apps/backend
         run: npx tsc -p infra/cloudflare/notification-cron/tsconfig.json --noEmit
+      - name: Cloudflare payment reconciliation Cron worker typecheck
+        working-directory: apps/backend
+        run: npx tsc -p infra/cloudflare/payment-reconciliation-cron/tsconfig.json --noEmit
       - name: Validate Prisma schema and all migrations against real PostgreSQL
         working-directory: apps/backend
         env:
