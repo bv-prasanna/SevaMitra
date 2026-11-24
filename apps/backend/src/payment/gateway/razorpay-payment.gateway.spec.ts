@@ -29,6 +29,25 @@ describe('RazorpayPaymentGateway: server-side payment confirmation',()=>{
   jest.spyOn(global,'fetch').mockResolvedValue({ok:true,json:async()=>({id:'order_1234',amount:1,currency:'INR'})} as Response);
   await expect(gateway.createOrder(20,'INR','booking')).rejects.toThrow('did not match');
  });
+ it('fetches captured and pending payment records for order reconciliation',async()=>{
+  const api=jest.spyOn(global,'fetch').mockResolvedValue({ok:true,json:async()=>({
+   items:[
+    {id:'pay_12345',order_id:'order_1234',status:'captured',amount:12550,currency:'INR'},
+    {id:'pay_67890',order_id:'order_1234',status:'authorized',amount:12550,currency:'INR'},
+    {id:'pay_other',order_id:'order_other',status:'captured',amount:1,currency:'INR'},
+   ],
+  })} as Response);
+  await expect(gateway.fetchOrderPayments('order_1234')).resolves.toEqual([
+   {id:'pay_12345',orderId:'order_1234',status:'captured',amount:12550,currency:'INR'},
+   {id:'pay_67890',orderId:'order_1234',status:'authorized',amount:12550,currency:'INR'},
+  ]);
+  expect(api.mock.calls[0][0]).toBe('https://api.razorpay.com/v1/orders/order_1234/payments');
+ });
+ it('rejects malformed order ids before calling Razorpay',async()=>{
+  const api=jest.spyOn(global,'fetch');
+  await expect(gateway.fetchOrderPayments('bad-order')).rejects.toThrow(BadRequestException);
+  expect(api).not.toHaveBeenCalled();
+ });
  it('rejects forged signature without requesting payment status',async()=>{
   const api=jest.spyOn(global,'fetch');
   await expect(gateway.verifyPayment('order_1234','pay_12345','0'.repeat(64),20,'INR')).resolves.toBe(false);
