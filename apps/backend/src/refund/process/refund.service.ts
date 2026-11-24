@@ -42,9 +42,9 @@ const PRECEDENCE: {
   { scopeType: CommissionScopeType.PLATFORM, field: null },
 ];
 
-@Injectable()
 export type RefundResponse = Omit<Refund, 'idempotencyKey' | 'manualResolvedBy'>;
 
+@Injectable()
 export class RefundService {
   constructor(
     private readonly prisma: PrismaService,
@@ -173,12 +173,13 @@ export class RefundService {
           outcome: 'SUCCESS',
         },
       });
-      return updated;
+      return this.toResponse(updated);
     });
   }
 
-  list(): Promise<Refund[]> {
-    return this.prisma.refund.findMany({ orderBy: { createdAt: 'desc' } });
+  async list(): Promise<RefundResponse[]> {
+    const refunds = await this.prisma.refund.findMany({ orderBy: { createdAt: 'desc' } });
+    return refunds.map((refund) => this.toResponse(refund));
   }
 
   async findOne(id: string): Promise<RefundResponse> {
@@ -186,7 +187,7 @@ export class RefundService {
     if (!refund) {
       throw new NotFoundException('Refund not found');
     }
-    return refund;
+    return this.toResponse(refund);
   }
 
   async listAsCustomer(userId: string): Promise<RefundResponse[]> {
