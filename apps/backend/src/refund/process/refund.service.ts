@@ -20,8 +20,7 @@ import { PaymentService } from '../../payment/payment.service';
 import { OfferingService } from '../../provider-offering/offering.service';
 import { ServiceService } from '../../catalogue/service/service.service';
 import { CustomerService } from '../../customer/customer.service';
-import { REFUND_GATEWAY } from '../gateway/refund-gateway.interface';
-import { RefundNotConfiguredException } from '../gateway/refund-gateway.interface';
+import { REFUND_GATEWAY, RefundNotConfiguredException } from '../gateway/refund-gateway.interface';
 import type { RefundGateway } from '../gateway/refund-gateway.interface';
 
 interface ResolvedScope {
