@@ -39,7 +39,7 @@ describe('RefundService', () => {
   const catalogueService = { id: 'service-1', categoryId: 'category-1' };
   const refund = {
     id: 'refund-1', bookingId: 'booking-1', idempotencyKey: 'a'.repeat(64),
-    status: RefundStatus.PENDING, refundAmount: 250, currency: 'INR',
+    status: RefundStatus.PENDING, refundAmount: 250, currency: 'INR', updatedAt: new Date(),
   };
 
   beforeEach(() => {
