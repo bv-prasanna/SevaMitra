@@ -81,9 +81,20 @@ export class RefundService {
     // A booking-scoped lock prevents concurrent admin retries from both
     // submitting a refund. FAILED means the adapter proved no request was
     // submitted; UNKNOWN must be reconciled manually and is never retried.
-    const refund = await this.prisma.$transaction(async (tx) => {
+    const claim = await this.prisma.$transaction(async (tx) => {
       await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`refund:${bookingId}`}))`;
       const existing = await tx.refund.findUnique({ where: { bookingId } });
+      if (existing?.status === RefundStatus.PENDING &&
+          existing.updatedAt.getTime() <= Date.now() - 5 * 60_000) {
+        const unknown = await tx.refund.update({
+          where: { id: existing.id },
+          data: {
+            status: RefundStatus.UNKNOWN,
+            failureReason: 'No confirmed refund outcome within five minutes; manual reconciliation is required',
+          },
+        });
+        return { refund: unknown, shouldInitiate: false };
+      }
       if (existing && existing.status !== RefundStatus.FAILED) {
         throw new ConflictException(
           'Refund is already processed or has an uncertain outcome; reconcile it before retrying',
@@ -99,10 +110,13 @@ export class RefundService {
         status: RefundStatus.PENDING,
         failureReason: null,
       };
-      return existing
-        ? tx.refund.update({ where: { id: existing.id }, data })
-        : tx.refund.create({ data: { bookingId, ...data } });
+      const refund = existing
+        ? await tx.refund.update({ where: { id: existing.id }, data })
+        : await tx.refund.create({ data: { bookingId, ...data } });
+      return { refund, shouldInitiate: true };
     });
+    if (!claim.shouldInitiate) return this.toResponse(claim.refund);
+    const refund = claim.refund;
 
     try {
       const { refundReference } = await this.refundGateway.initiateRefund(
