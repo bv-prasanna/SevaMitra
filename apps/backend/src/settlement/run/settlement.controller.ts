@@ -1,4 +1,7 @@
 import { Body, Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
+import { CurrentUser } from '../../auth/decorators/current-user.decorator';
+import type { AuthenticatedUser } from '../../auth/token/jwt-payload.interface';
+import { ResolveSettlementDto } from './dto/resolve-settlement.dto';
 import {
   ApiBearerAuth,
   ApiConflictResponse,
@@ -39,6 +42,19 @@ export class SettlementController {
   })
   run(@Body() dto: RunSettlementDto) {
     return this.settlementService.run(dto.providerId);
+  }
+
+  @Post(':id/resolve')
+  @RequirePermissions('settlement.manage')
+  @ApiOperation({ summary: 'Manually resolve an UNKNOWN payout after checking provider evidence' })
+  @ApiOkResponse({ type: SettlementDto })
+  @ApiConflictResponse({ description: 'Only UNKNOWN settlements can be manually resolved', type: ErrorResponseDto })
+  resolve(
+    @Param('id') id: string,
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() dto: ResolveSettlementDto,
+  ) {
+    return this.settlementService.resolveManual(id, user.id, dto.outcome, dto.note);
   }
 
   @Get()

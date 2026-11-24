@@ -19,8 +19,8 @@ describe('Simulated money gateways cannot run in staging or production', () => {
     process.env.NODE_ENV = env;
     expect(() => gateways.payment.verifyPayment('order','payment','anything')).toThrow(ServiceUnavailableException);
     expect(() => gateways.payment.createOrder(999,'INR','receipt')).toThrow(ServiceUnavailableException);
-    expect(() => gateways.refund.initiateRefund('booking',999,'INR')).toThrow(ServiceUnavailableException);
-    expect(() => gateways.payout.initiatePayout('provider',999,'INR')).toThrow(ServiceUnavailableException);
+    expect(() => gateways.refund.initiateRefund('booking',999,'INR','test-refund-key')).toThrow(ServiceUnavailableException);
+    expect(() => gateways.payout.initiatePayout('provider',999,'INR','test-payout-key')).toThrow(ServiceUnavailableException);
   });
 
   it('never produces real payment reference in development', async () => {
@@ -32,14 +32,14 @@ describe('Simulated money gateways cannot run in staging or production', () => {
 
   it('marks refunded transactions as simulated in local mode', async () => {
     process.env.NODE_ENV='test';
-    await expect(gateways.refund.initiateRefund('booking',100,'INR')).resolves.toEqual({
+    await expect(gateways.refund.initiateRefund('booking',100,'INR','test-refund-key')).resolves.toEqual({
       refundReference: expect.stringMatching(/^stub_refund_/),
     });
   });
 
   it('marks payout transactions as simulated in local mode', async () => {
     process.env.NODE_ENV='test';
-    await expect(gateways.payout.initiatePayout('provider',100,'INR')).resolves.toEqual({
+    await expect(gateways.payout.initiatePayout('provider',100,'INR','test-payout-key')).resolves.toEqual({
       payoutReference: expect.stringMatching(/^stub_payout_/),
     });
   });

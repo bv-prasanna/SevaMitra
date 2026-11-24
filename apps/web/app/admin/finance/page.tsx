@@ -9,6 +9,8 @@ type Row={id:string;name:string;geoScope:string;geoId:string|null;targetScope:st
 type Option={id:string;name:string;isActive?:boolean};
 type Invoice={id:string;bookingId:string;invoiceNumber:string|null;status:string;createdAt:string};
 type Issuer={issuerCode:string;providerId?:string|null;legalName:string;address:string;stateCode:string;gstin?:string;verified:boolean;sacCode?:string;authorizedSignatory?:string};
+type RefundRow={id:string;bookingId:string;refundAmount:string;currency:string;status:string;failureReason?:string|null;updatedAt:string};
+type SettlementRow={id:string;providerId:string;totalAmount:string;currency:string;status:string;failureReason?:string|null;updatedAt:string};
 const geoLevels=["ALL","STATE","DISTRICT","TALUK","TOWN"],targetLevels=["ALL","CATEGORY","SERVICE","VARIANT","OFFERING"];
 const emptyScope={geoScope:"ALL",geoId:"",targetScope:"ALL",targetId:"",name:"",priority:0,enabled:false,validFrom:"",validTo:""};
 function GeoPicker({level,value,onChange}:{level:string;value:string;onChange:(x:string)=>void}){
@@ -44,16 +46,17 @@ function TargetPicker({level,value,onChange}:{level:string;value:string;onChange
  </div>;
 }
 export default function FinanceAdmin(){
- const[taxes,setTaxes]=useState<Row[]>([]),[prices,setPrices]=useState<Row[]>([]),[invoices,setInvoices]=useState<Invoice[]>([]),[issuers,setIssuers]=useState<Issuer[]>([]);
+ const[taxes,setTaxes]=useState<Row[]>([]),[prices,setPrices]=useState<Row[]>([]),[invoices,setInvoices]=useState<Invoice[]>([]),[issuers,setIssuers]=useState<Issuer[]>([]),[refunds,setRefunds]=useState<RefundRow[]>([]),[settlements,setSettlements]=useState<SettlementRow[]>([]);
  const[type,setType]=useState<"taxes"|"pricing">("taxes"),[editing,setEditing]=useState(""),[scope,setScope]=useState({...emptyScope});
  const[component,setComponent]=useState("CGST"),[bps,setBps]=useState("0"),[adjustment,setAdjustment]=useState("PERCENT_UP"),[value,setValue]=useState("0"),[start,setStart]=useState(""),[end,setEnd]=useState(""),[weekdays,setWeekdays]=useState("");
  const[issuer,setIssuer]=useState<Issuer>({issuerCode:"",legalName:"",address:"",stateCode:"29",verified:false});
  const[pos,setPos]=useState("29"),[verificationNote,setVerificationNote]=useState(""),[message,setMessage]=useState("Loading…"),[busy,setBusy]=useState(false);
  async function load(){
-  try{const [t,p,i,u]=await Promise.all([
+  try{const [t,p,i,u,r,s]=await Promise.all([
    api.get<Row[]>("/finance/config/taxes"),api.get<Row[]>("/finance/config/pricing"),
-   api.get<Invoice[]>("/billing/admin/invoices"),api.get<Issuer[]>("/billing/admin/issuers")]);
-   setTaxes(t);setPrices(p);setInvoices(i);setIssuers(u);setMessage("");
+   api.get<Invoice[]>("/billing/admin/invoices"),api.get<Issuer[]>("/billing/admin/issuers"),
+   api.get<RefundRow[]>("/refund").catch(()=>[]),api.get<SettlementRow[]>("/settlement").catch(()=>[])]);
+   setTaxes(t);setPrices(p);setInvoices(i);setIssuers(u);setRefunds(r);setSettlements(s);setMessage("");
   }catch(e){setMessage(e instanceof Error?e.message:"Finance access required")}
  }
  useEffect(()=>{void load()},[]);
@@ -91,6 +94,20 @@ export default function FinanceAdmin(){
  async function saveIssuer(){
   setBusy(true);try{await api.post("/billing/admin/issuers",issuer);await load();setMessage("Supplier configuration saved")}
   catch(e){setMessage(e instanceof Error?e.message:"Unable to save supplier")}finally{setBusy(false)}
+ }
+ async function resolveRefund(x:RefundRow,outcome:"REFUNDED"|"FAILED"){
+  const note=window.prompt("Enter the evidence checked (minimum 12 characters). This note is retained in the audit record.");
+  if(note===null)return;
+  if(note.trim().length<12){setMessage("Add a meaningful evidence note of at least 12 characters.");return}
+  setBusy(true);try{await api.post("/refund/"+x.id+"/resolve",{outcome,note:note.trim()});await load();setMessage("Refund exception resolved and audited")}
+  catch(e){setMessage(e instanceof Error?e.message:"Unable to resolve refund")}finally{setBusy(false)}
+ }
+ async function resolveSettlement(x:SettlementRow,outcome:"PAID"|"FAILED"){
+  const note=window.prompt("Enter the bank/provider evidence checked (minimum 12 characters). This note is retained in the audit record.");
+  if(note===null)return;
+  if(note.trim().length<12){setMessage("Add a meaningful evidence note of at least 12 characters.");return}
+  setBusy(true);try{await api.post("/settlement/"+x.id+"/resolve",{outcome,note:note.trim()});await load();setMessage("Payout exception resolved and audited")}
+  catch(e){setMessage(e instanceof Error?e.message:"Unable to resolve payout")}finally{setBusy(false)}
  }
  async function issue(x:Invoice){
   if(!window.confirm("Issue immutable tax invoice for "+x.bookingId+"? Finance review must already be approved."))return;
@@ -142,6 +159,20 @@ export default function FinanceAdmin(){
   <h3>Configured suppliers</h3><div className="adminModules">{issuers.map(x=><article key={x.issuerCode}>
    <b>{x.issuerCode} · {x.legalName}</b><p>{x.providerId||"Platform"}</p><p>{x.verified?"Verified":"Not verified"}</p>
    <button onClick={()=>setIssuer(x)}>Edit</button></article>)}</div>
+  <h2>Refund exceptions ({refunds.filter(x=>x.status==="UNKNOWN").length})</h2>
+  <p>UNKNOWN means the gateway outcome is uncertain. Check gateway and bank evidence before resolving; do not infer failure from a timeout.</p>
+  <div className="adminModules">{refunds.map(x=><article key={x.id}>
+   <h3>Refund · {x.status}</h3><p>Booking: {x.bookingId}</p><p>Amount: {x.refundAmount} {x.currency}</p>
+   {!!x.failureReason&&<p role="status">{x.failureReason}</p>}
+   {x.status==="UNKNOWN"&&<><button disabled={busy} onClick={()=>void resolveRefund(x,"REFUNDED")}>Confirm refunded</button> <button disabled={busy} onClick={()=>void resolveRefund(x,"FAILED")}>Confirm not refunded</button></>}
+  </article>)}</div>
+  <h2>Payout exceptions ({settlements.filter(x=>x.status==="UNKNOWN").length})</h2>
+  <p>UNKNOWN payouts keep their commission rows reserved. Confirm the provider/bank outcome before resolving.</p>
+  <div className="adminModules">{settlements.map(x=><article key={x.id}>
+   <h3>Provider payout · {x.status}</h3><p>Provider: {x.providerId}</p><p>Amount: {x.totalAmount} {x.currency}</p>
+   {!!x.failureReason&&<p role="status">{x.failureReason}</p>}
+   {x.status==="UNKNOWN"&&<><button disabled={busy} onClick={()=>void resolveSettlement(x,"PAID")}>Confirm paid</button> <button disabled={busy} onClick={()=>void resolveSettlement(x,"FAILED")}>Confirm not paid</button></>}
+  </article>)}</div>
   <h2>Invoices awaiting finance review</h2>
   <label>Place-of-supply GST state code<input maxLength={2} value={pos} onChange={e=>setPos(e.target.value)}/></label>
   <label>Verification note<input maxLength={100} value={verificationNote} onChange={e=>setVerificationNote(e.target.value)}/></label>

@@ -2,7 +2,7 @@
 
 > Generated file. Edit `apps/backend/prisma/schema.prisma` and versioned migrations, then run `node scripts/docs/generate-prisma-catalog.mjs`. CI verifies that the generated Markdown is current. This is a **schema inventory**, not proof these migrations have been applied to a particular database.
 
-**Models:** 59 | **Enums:** 39 | **Versioned migrations:** 28 | **Namespaces:** auth, finance, marketplace, ops.
+**Models:** 59 | **Enums:** 39 | **Versioned migrations:** 29 | **Namespaces:** auth, finance, marketplace, ops.
 
 ## Physical table inventory
 
@@ -43,10 +43,10 @@
 | finance | commission_rules | CommissionRule | 18 | 4 |
 | finance | commission_calculations | CommissionCalculation | 10 | 3 |
 | finance | settlement_configs | SettlementConfig | 16 | 4 |
-| finance | settlements | Settlement | 10 | 1 |
+| finance | settlements | Settlement | 14 | 1 |
 | finance | payment_webhook_events | PaymentWebhookEvent | 14 | 0 |
 | finance | refund_policies | RefundPolicy | 17 | 4 |
-| finance | refunds | Refund | 13 | 2 |
+| finance | refunds | Refund | 17 | 2 |
 | ops | audit_log | AuditLog | 14 | 1 |
 | ops | notifications | Notification | 14 | 1 |
 | marketplace | provider_companies | ProviderCompany | 6 | 0 |
@@ -317,8 +317,12 @@ Physical column names respect Prisma `@map`. Types are Prisma source types (not 
 | 'total_amount' | 'totalAmount' | 'Decimal' | @db.Decimal(10, 2) |
 | 'currency' | 'currency' | 'String' | — |
 | 'status' | 'status' | 'SettlementStatus' | @default(PENDING) |
+| 'idempotency_key' | 'idempotencyKey' | 'String' | UNIQUE |
 | 'payout_reference' | 'payoutReference' | 'String?' | — |
 | 'failure_reason' | 'failureReason' | 'String?' | — |
+| 'manual_resolution_note' | 'manualResolutionNote' | 'String?' | — |
+| 'manual_resolved_by' | 'manualResolvedBy' | 'String?' | — |
+| 'manual_resolved_at' | 'manualResolvedAt' | 'DateTime?' | — |
 | 'paid_at' | 'paidAt' | 'DateTime?' | — |
 | 'created_at' | 'createdAt' | 'DateTime' | @default(now() |
 | 'updated_at' | 'updatedAt' | 'DateTime' | updatedAt |
@@ -386,8 +390,12 @@ Physical column names respect Prisma `@map`. Types are Prisma source types (not 
 | 'refund_amount' | 'refundAmount' | 'Decimal' | @db.Decimal(10, 2) |
 | 'currency' | 'currency' | 'String' | — |
 | 'status' | 'status' | 'RefundStatus' | @default(PENDING) |
+| 'idempotency_key' | 'idempotencyKey' | 'String' | UNIQUE |
 | 'refund_reference' | 'refundReference' | 'String?' | — |
 | 'failure_reason' | 'failureReason' | 'String?' | — |
+| 'manual_resolution_note' | 'manualResolutionNote' | 'String?' | — |
+| 'manual_resolved_by' | 'manualResolvedBy' | 'String?' | — |
+| 'manual_resolved_at' | 'manualResolvedAt' | 'DateTime?' | — |
 | 'refunded_at' | 'refundedAt' | 'DateTime?' | — |
 | 'created_at' | 'createdAt' | 'DateTime' | @default(now() |
 | 'updated_at' | 'updatedAt' | 'DateTime' | updatedAt |
@@ -1129,9 +1137,9 @@ Enums are PostgreSQL schema-qualified in Prisma; use migration SQL for the actua
 | finance | PaymentStatus | INITIATED, SUCCEEDED, FAILED |
 | finance | CommissionScopeType | PLATFORM, CATEGORY, SERVICE, PROVIDER, GEOGRAPHY, STATE, PROVIDER_COMPANY, PROVIDER_GROUP |
 | finance | CommissionType | PERCENTAGE, FIXED_AMOUNT |
-| finance | SettlementStatus | PENDING, PAID, FAILED |
+| finance | SettlementStatus | PENDING, PAID, FAILED, UNKNOWN |
 | finance | RefundReason | CUSTOMER_CANCELLED, PROVIDER_CANCELLED, CUSTOMER_NO_SHOW, PROVIDER_NO_SHOW, BOOKING_REJECTED |
-| finance | RefundStatus | PENDING, REFUNDED, FAILED |
+| finance | RefundStatus | PENDING, REFUNDED, FAILED, UNKNOWN |
 | ops | NotificationChannel | SMS, WHATSAPP, PUSH, EMAIL, IN_APP |
 | ops | NotificationStatus | PENDING, SENDING, SENT, FAILED, DEAD |
 | marketplace | OrganizationStatus | PENDING, ACTIVE, SUSPENDED |
@@ -1177,6 +1185,7 @@ These directories are already versioned in `apps/backend/prisma/migrations/`. Ap
 - `20261028192000_incident_case_management/migration.sql`
 - `20261101101500_finance_rules_invoicing/migration.sql`
 - `20261125090000_add_payment_webhook_events/migration.sql`
+- `20261125100000_settlement_payout_idempotency/migration.sql`
 
 ## Important limits
 

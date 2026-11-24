@@ -142,7 +142,7 @@ export const PERMISSION_CATALOG: readonly PermissionCatalogEntry[] = [
   },
   {
     key: 'settlement.manage',
-    description: 'Run a settlement payout for a provider',
+    description: 'Run provider settlements and resolve UNKNOWN payout outcomes with audited evidence',
   },
   {
     key: 'settlement.view',

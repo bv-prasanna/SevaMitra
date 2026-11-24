@@ -1,5 +1,5 @@
 # SevaMitra BRD 4.4.2 → Development Traceability
-Commit target: develop, 2026-11-25 (pending payment recovery merge). Labels: Implemented, Partial, Pending, External provisioning.
+Commit target: develop, 2026-11-25 (payment recovery PR #41 merged; refund/payout hardening pending review). Labels: Implemented, Partial, Pending, External provisioning.
 
 | Requirement | Current action | Status / acceptance evidence |
 |---|---|---|
@@ -16,6 +16,7 @@ Commit target: develop, 2026-11-25 (pending payment recovery merge). Labels: Imp
 | Provider documents | R2 private upload and reviewer-only read | Partial: malware scanning, expiry/version/retention and UI pending |
 | Tax safety | Finance user review, immutable ledger entries | Partial: statutory applicability and audit reconciliation |
 | Payment gateway recovery | Signed Razorpay raw-body webhook, provider/event idempotency, atomic capture transition, bounded retry/dead-letter inbox and signed scheduled order reconciliation | Partial: deploy/provision Worker, real sandbox E2E, multiple-capture review, refund/payout ledger and finance sign-off pending |
+| Refund/payout idempotency | Booking/provider scoped transaction locks, deterministic idempotency keys, UNKNOWN outcome state, commission claim protection and audited manual resolution | Partial: real refund/payout adapters, provider status lookup/webhooks, partial-refund ledger/payment allocation, dual-control review, sandbox E2E and finance sign-off pending |
 | Build coverage | Added unit tests and Prisma migration validation to consolidated CI | Partial: end-to-end/integration coverage and target thresholds pending |
 | Mobile & web | Existing role routes | Partial: comprehensive role journeys and device testing pending |
 

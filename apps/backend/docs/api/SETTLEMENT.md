@@ -1,126 +1,55 @@
 # Settlement API Reference
 
-Covers the Settlement module (`src/settlement/`) — Phase 1b's second
-module: "providers must actually get paid out" (`docs/ARCHITECTURE.md`
-§5.3), the last link in the pricing chain (§6.3: Provider Earning →
-Settlement). Configurable settlement-cycle metadata plus admin-triggered
-payout runs that pay a provider their accumulated commission earnings.
+## Routes
 
-**Canonical source:** this document is hand-written for readability, but the
-actual contract is generated straight from the NestJS controller/DTO
-decorators — never hand-maintained separately. If this file and the spec
-ever disagree, the spec wins.
+| Method | Route | Permission | Description |
+|---|---|---|---|
+| POST | `/api/v1/settlement/run` | `settlement.manage` | Claim all currently unsettled commission calculations for one provider and request a payout |
+| GET | `/api/v1/settlement` | `settlement.view` | Admin list |
+| GET | `/api/v1/settlement/:id` | `settlement.view` | Admin detail |
+| POST | `/api/v1/settlement/:id/resolve` | `settlement.manage` | Audited manual resolution of an UNKNOWN payout |
+| GET | `/api/v1/provider/me/settlements` | Provider workspace | Provider's own settlement history |
+| GET | `/api/v1/provider/me/settlements/:id` | Provider workspace | Provider's own settlement detail |
 
-- **Interactive UI:** `GET /api/docs` on any running environment (Swagger UI)
-- **Machine-readable spec:** [`docs/api/openapi.json`](./openapi.json) — regenerate with `npm run docs:openapi`
+## Payout claim and idempotency
 
-## Conventions
+`POST /settlement/run` accepts `{ "providerId": "uuid" }`.
 
-| | |
-|---|---|
-| Base path | `/api/v1` |
-| Auth header | `Authorization: Bearer <accessToken>` |
-| Content type | `application/json` |
-| Error shape | same envelope as Auth (`src/common/filters/http-exception.filter.ts`) |
-| Authorization | config management/viewing and settlement running/viewing are **all IAM-gated** — same posture as Commission |
-| Ownership | a provider can see their own settlements; another provider's 404s, never 403s |
-| Gateway | **stubbed.** `StubPayoutGateway` fabricates a payout reference and always succeeds — see `docs/modules/SETTLEMENT_IMPLEMENTATION.md` §1. Never wired to real money movement. |
+- A provider-scoped PostgreSQL advisory transaction lock serializes concurrent settlement attempts.
+- The service selects unlinked commission calculations in stable id order and rejects mixed-currency batches.
+- It creates a unique SHA-256 idempotency key from the provider id and the exact calculation-id set, then claims those rows in the same transaction before calling the payout gateway.
+- An existing PENDING or UNKNOWN settlement is returned without another gateway call. A PENDING row older than five minutes is moved to UNKNOWN on the next settlement-run request. A FAILED settlement can be retried only because the gateway has proven that no payout was submitted; the same idempotency key is reused.
+- A successful payout marks the settlement PAID. A known disabled-gateway response marks it FAILED and releases the commission rows. A timeout or unclassified error becomes UNKNOWN and keeps the rows linked so they cannot be paid twice.
+- Idempotency keys and internal resolver identities are not included in API responses. Provider-facing responses also redact manual resolution notes.
 
-## Settlement cycle config (`/settlement/config`)
+## Manual resolution
 
-### `POST /settlement/config` — 🔒 `settlement.config.manage`
-```json
-{ "scopeType": "PLATFORM", "cycleDays": 7 }
-```
-`scopeType`: `PLATFORM` | `CATEGORY` | `SERVICE` | `PROVIDER` |
-`GEOGRAPHY` — the exact same enum Commission uses, since "at what
-level is this business rule scoped" is the same question. Same
-required-matching-entity-field rules as Commission's rule creation.
-`cycleDays` is any positive integer (e.g. `7` for weekly, `30` for
-monthly) — there's no preset frequency enum, since BRD §36 just says
-"configurable" without listing specific cadences.
-
-**409** on a duplicate active config at the same exact scope, same as
-Commission rules. **Nothing currently reads this automatically** — see
-Known gaps.
-
-### `GET /settlement/config` — 🔒 `settlement.config.view`
-Optional `?scopeType=` filter.
-
-### `GET /settlement/config/:id` — 🔒 `settlement.config.view`
-
-### `PATCH /settlement/config/:id` — 🔒 `settlement.config.manage`
-Updates `cycleDays` and/or `isActive`. No `DELETE` — same
-deactivate-only pattern as Commission rules.
-
-## Settlement runs (`/settlement`)
-
-### `POST /settlement/run` — 🔒 `settlement.manage`
-```json
-{ "providerId": "a1b2c3d4-..." }
-```
-Pays out a provider's accumulated, not-yet-settled commission earnings
-in one run. Finds every `CommissionCalculation` for that provider's
-bookings with no `settlementId` yet, sums their
-`providerEarningAmount`, and initiates one payout for the total.
-
-**404** if the provider doesn't exist. **409** if there's nothing
-unsettled for them (including immediately after a successful run — a
-settlement never includes anything twice).
+`POST /settlement/:id/resolve`
 
 ```json
 {
-  "id": "084d937e-...",
-  "providerId": "ac70e58d-...",
-  "totalAmount": "85.00",
-  "currency": "INR",
-  "status": "PAID",
-  "payoutReference": "stub_payout_...",
-  "failureReason": null,
-  "paidAt": "2026-09-18T06:36:43.401Z",
-  "commissionCalculationIds": ["df1e6c0b-..."]
+  "outcome": "PAID",
+  "note": "Provider bank statement and transfer reference independently verified"
 }
 ```
 
-`status`: `PAID` or `FAILED` — **this endpoint does not error on a
-failed payout**, it returns `201` with `status: "FAILED"` and
-`failureReason` set, since the request itself (attempting a payout)
-succeeded even if the money didn't move. A `FAILED` settlement's
-`commissionCalculationIds` is always empty — nothing gets linked to a
-settlement that didn't actually pay, so those calculations remain
-eligible for the next run.
+- `outcome` must be `PAID` or `FAILED`; `note` must contain 12–500 characters.
+- Only UNKNOWN settlements can be resolved.
+- PAID keeps the commission calculations linked. FAILED releases them for a later settlement run.
+- The state change and an audit-log row are committed in the same database transaction.
+- This is a privileged manual operation. Check the bank/provider evidence before resolving; do not infer a failure from a timeout.
 
-### `GET /settlement` — 🔒 `settlement.view`
-Lists every settlement, newest first.
+## Statuses
 
-### `GET /settlement/:id` — 🔒 `settlement.view`
+| Status | Meaning |
+|---|---|
+| PENDING | Commission rows claimed; payout is being attempted or its request has not yet completed |
+| PAID | Gateway or audited manual evidence confirms payment |
+| FAILED | Gateway proves no payout was submitted, or an authorized operator confirms no transfer |
+| UNKNOWN | External outcome cannot be proven; rows remain claimed pending manual reconciliation |
 
-### `GET /settlement/provider/me`
-Self-service, login-only, no permission needed — the current
-provider's own settlement history.
+## Gateway and launch limits
 
-### `GET /settlement/provider/me/:id`
+The stub gateway is development/test only and fabricates references. Staging/production uses the disabled gateway until a real payout provider, provider bank-account verification, payout-status lookup, reconciliation and finance approval are implemented. A successful stub test is not evidence of money movement.
 
-## Known gaps
-
-- **Settlement cycle config is inert.** Nothing runs settlement
-  automatically on the configured `cycleDays` — every run is admin-
-  triggered per provider via `POST /settlement/run`. Belongs to the
-  not-yet-built Scheduler module (Phase 1b, `docs/ARCHITECTURE.md`
-  §11) once it exists.
-- **No refund/adjustment/cashback netting.** BRD §36 says settlement
-  should reflect "commission, refunds, adjustments, cashback reversal"
-  — this module only nets commission (via `providerEarningAmount`);
-  Refund and cashback modules don't exist yet.
-- **Single-currency assumption.** A settlement's `currency` is taken
-  from the first unsettled calculation found; nothing validates that
-  all of a provider's unsettled calculations share one currency.
-- **No concurrency guard** on a settlement run — two simultaneous runs
-  for the same provider could both read the same "unsettled" set before
-  either links them, double-paying. Same class of read-then-write race
-  already documented for Commission and Payment.
-- **No reconciliation export/report.** BRD §36 asks that settlements be
-  "suitable for reconciliation and business reporting" —
-  `commissionCalculationIds` on each settlement supports manual
-  reconciliation, but there's no dedicated report/export endpoint. That
-  belongs to the Reporting module (Phase 1b).
+Still open: real Razorpay Route/RazorpayX integration, payout-status reconciliation, dual-control approval for manual resolution, bank account validation, and complete finance ledger reconciliation.

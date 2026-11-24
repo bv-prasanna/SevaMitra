@@ -55,7 +55,7 @@ async function main() {
       {
         name: 'FINANCE_MANAGER',
         description: 'Maintain tax/pricing rules and issue validated billing documents',
-        permissions: ['finance.tax.manage','finance.pricing.manage','finance.billing.manage','tax.assessment.manage'],
+        permissions: ['finance.tax.manage','finance.pricing.manage','finance.billing.manage','tax.assessment.manage','refund.manage','refund.view','refund.policy.manage','refund.policy.view','settlement.manage','settlement.view','settlement.config.manage','settlement.config.view'],
       },
       {
         name: 'INCIDENT_MANAGER',

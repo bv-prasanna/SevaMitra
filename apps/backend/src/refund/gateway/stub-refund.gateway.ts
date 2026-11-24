@@ -1,5 +1,4 @@
 import { Injectable, Logger, ServiceUnavailableException } from '@nestjs/common';
-import { randomUUID } from 'crypto';
 import { RefundGateway } from './refund-gateway.interface';
 
 /**
@@ -17,11 +16,12 @@ export class StubRefundGateway implements RefundGateway {
     bookingId: string,
     amount: number,
     currency: string,
+    idempotencyKey: string,
   ): Promise<{ refundReference: string }> {
     this.assertAllowed();
-    const refundReference = `stub_refund_${randomUUID()}`;
+    const refundReference = `stub_refund_${idempotencyKey.slice(0, 24)}`;
     this.logger.warn(
-      `[STUB] Refunded ${amount} ${currency} for booking ${bookingId} (reference ${refundReference}) — no real refund gateway configured`,
+      `[STUB] Refunded ${amount} ${currency} for booking ${bookingId} (reference ${refundReference}, idempotency ${idempotencyKey}) — no real refund gateway configured`,
     );
     return Promise.resolve({ refundReference });
   }

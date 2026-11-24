@@ -13,13 +13,14 @@ import {
   RefundReason,
   RefundStatus,
 } from '@prisma/client';
+import { createHash } from 'node:crypto';
 import { PrismaService } from '../../prisma/prisma.service';
 import { BookingService } from '../../booking/booking.service';
 import { PaymentService } from '../../payment/payment.service';
 import { OfferingService } from '../../provider-offering/offering.service';
 import { ServiceService } from '../../catalogue/service/service.service';
 import { CustomerService } from '../../customer/customer.service';
-import { REFUND_GATEWAY } from '../gateway/refund-gateway.interface';
+import { REFUND_GATEWAY, RefundNotConfiguredException } from '../gateway/refund-gateway.interface';
 import type { RefundGateway } from '../gateway/refund-gateway.interface';
 
 interface ResolvedScope {
@@ -40,6 +41,8 @@ const PRECEDENCE: {
   { scopeType: CommissionScopeType.PLATFORM, field: null },
 ];
 
+export type RefundResponse = Omit<Refund, 'idempotencyKey' | 'manualResolvedBy'>;
+
 @Injectable()
 export class RefundService {
   constructor(
@@ -52,116 +55,169 @@ export class RefundService {
     @Inject(REFUND_GATEWAY) private readonly refundGateway: RefundGateway,
   ) {}
 
-  async process(bookingId: string): Promise<Refund> {
+  async process(bookingId: string): Promise<RefundResponse> {
     const booking = await this.bookingService.findByIdOrThrow(bookingId);
     const reason = this.resolveReason(booking);
-
-    const existing = await this.prisma.refund.findUnique({
-      where: { bookingId },
-    });
-    if (existing && existing.status !== RefundStatus.FAILED) {
-      throw new ConflictException(
-        'Refund has already been processed or is in progress for this booking',
-      );
-    }
-
-    const grossPaidAmount =
-      await this.paymentService.sumSucceededAmount(bookingId);
+    const grossPaidAmount = await this.paymentService.sumSucceededAmount(bookingId);
     if (grossPaidAmount === 0) {
-      throw new ConflictException(
-        'Nothing was paid for this booking — no refund to process',
-      );
+      throw new ConflictException('Nothing was paid for this booking — no refund to process');
     }
 
-    const offering = await this.offeringService.findOneActive(
-      booking.offeringId,
-    );
+    const offering = await this.offeringService.findOneActive(booking.offeringId);
     const service = await this.serviceService.findOne(offering.serviceId);
-
     const policy = await this.resolveApplicablePolicy(reason, {
       providerId: offering.providerId,
       serviceId: offering.serviceId,
       categoryId: service.categoryId,
       townVillageId: booking.townVillageId,
     });
+    const refundAmount = Math.round(
+      grossPaidAmount * (Number(policy.refundPercentage) / 100) * 100,
+    ) / 100;
+    const idempotencyKey = createHash('sha256')
+      .update([bookingId, reason, policy.id, refundAmount.toFixed(2), booking.currency].join(':'))
+      .digest('hex');
 
-    const refundAmount =
-      Math.round(
-        grossPaidAmount * (Number(policy.refundPercentage) / 100) * 100,
-      ) / 100;
-
-    const refund = existing
-      ? await this.prisma.refund.update({
-          where: { bookingId },
+    // A booking-scoped lock prevents concurrent admin retries from both
+    // submitting a refund. FAILED means the adapter proved no request was
+    // submitted; UNKNOWN must be reconciled manually and is never retried.
+    const claim = await this.prisma.$transaction(async (tx) => {
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`refund:${bookingId}`}))`;
+      const existing = await tx.refund.findUnique({ where: { bookingId } });
+      if (existing?.status === RefundStatus.PENDING &&
+          existing.updatedAt.getTime() <= Date.now() - 5 * 60_000) {
+        const unknown = await tx.refund.update({
+          where: { id: existing.id },
           data: {
-            reason,
-            appliedPolicyId: policy.id,
-            grossPaidAmount,
-            refundAmount,
-            currency: booking.currency,
-            status: RefundStatus.PENDING,
-            failureReason: null,
-          },
-        })
-      : await this.prisma.refund.create({
-          data: {
-            bookingId,
-            reason,
-            appliedPolicyId: policy.id,
-            grossPaidAmount,
-            refundAmount,
-            currency: booking.currency,
-            status: RefundStatus.PENDING,
+            status: RefundStatus.UNKNOWN,
+            failureReason: 'No confirmed refund outcome within five minutes; manual reconciliation is required',
           },
         });
+        return { refund: unknown, shouldInitiate: false };
+      }
+      if (existing && existing.status !== RefundStatus.FAILED) {
+        throw new ConflictException(
+          'Refund is already processed or has an uncertain outcome; reconcile it before retrying',
+        );
+      }
+      const data = {
+        reason,
+        appliedPolicyId: policy.id,
+        grossPaidAmount,
+        refundAmount,
+        currency: booking.currency,
+        idempotencyKey,
+        status: RefundStatus.PENDING,
+        failureReason: null,
+      };
+      const refund = existing
+        ? await tx.refund.update({ where: { id: existing.id }, data })
+        : await tx.refund.create({ data: { bookingId, ...data } });
+      return { refund, shouldInitiate: true };
+    });
+    if (!claim.shouldInitiate) return this.toResponse(claim.refund);
+    const refund = claim.refund;
 
     try {
       const { refundReference } = await this.refundGateway.initiateRefund(
         bookingId,
         refundAmount,
         booking.currency,
+        refund.idempotencyKey,
       );
-      return this.prisma.refund.update({
-        where: { id: refund.id },
+      await this.prisma.refund.updateMany({
+        where: { id: refund.id, status: RefundStatus.PENDING },
         data: {
           status: RefundStatus.REFUNDED,
           refundReference,
           refundedAt: new Date(),
+          failureReason: null,
         },
       });
-    } catch (err) {
-      return this.prisma.refund.update({
-        where: { id: refund.id },
+      const updated = await this.prisma.refund.findUnique({ where: { id: refund.id } });
+      if (!updated) throw new NotFoundException('Refund disappeared after gateway response');
+      return this.toResponse(updated);
+    } catch (error) {
+      const definitelyNotSubmitted = error instanceof RefundNotConfiguredException;
+      await this.prisma.refund.updateMany({
+        where: { id: refund.id, status: RefundStatus.PENDING },
         data: {
-          status: RefundStatus.FAILED,
-          failureReason:
-            err instanceof Error ? err.message : 'Unknown refund failure',
+          status: definitelyNotSubmitted ? RefundStatus.FAILED : RefundStatus.UNKNOWN,
+          failureReason: error instanceof Error
+            ? error.message.slice(0, 300)
+            : 'Refund outcome is unknown; manual reconciliation is required',
         },
       });
+      const updated = await this.prisma.refund.findUnique({ where: { id: refund.id } });
+      if (!updated) throw new NotFoundException('Refund disappeared during recovery');
+      return this.toResponse(updated);
     }
   }
 
-  list(): Promise<Refund[]> {
-    return this.prisma.refund.findMany({ orderBy: { createdAt: 'desc' } });
+  async resolveManual(
+    id: string,
+    actorUserId: string,
+    outcome: 'REFUNDED' | 'FAILED',
+    note: string,
+  ): Promise<RefundResponse> {
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const current = await tx.refund.findUnique({ where: { id } });
+      if (!current) throw new NotFoundException('Refund not found');
+      if (current.status !== RefundStatus.UNKNOWN) {
+        throw new ConflictException('Only UNKNOWN refunds can be manually resolved');
+      }
+      const now = new Date();
+      const updated = await tx.refund.update({
+        where: { id },
+        data: {
+          status: outcome === 'REFUNDED' ? RefundStatus.REFUNDED : RefundStatus.FAILED,
+          manualResolutionNote: note,
+          manualResolvedBy: actorUserId,
+          manualResolvedAt: now,
+          ...(outcome === 'REFUNDED'
+            ? { refundedAt: now, failureReason: null }
+            : { refundedAt: null, failureReason: 'Refund manually confirmed as not completed' }),
+        },
+      });
+      await tx.auditLog.create({
+        data: {
+          actorUserId,
+          httpMethod: 'POST',
+          routePath: '/api/v1/refund/:id/resolve',
+          entityId: id,
+          statusCode: 200,
+          ipAddress: null,
+          outcome: 'SUCCESS',
+        },
+      });
+      return this.toResponse(updated);
+    });
+    return updated;
   }
 
-  async findOne(id: string): Promise<Refund> {
+  async list(): Promise<RefundResponse[]> {
+    const refunds = await this.prisma.refund.findMany({ orderBy: { createdAt: 'desc' } });
+    return refunds.map((refund) => this.toResponse(refund));
+  }
+
+  async findOne(id: string): Promise<RefundResponse> {
     const refund = await this.prisma.refund.findUnique({ where: { id } });
     if (!refund) {
       throw new NotFoundException('Refund not found');
     }
-    return refund;
+    return this.toResponse(refund);
   }
 
-  async listAsCustomer(userId: string): Promise<Refund[]> {
+  async listAsCustomer(userId: string): Promise<RefundResponse[]> {
     const customer = await this.customerService.getActiveProfileOrThrow(userId);
-    return this.prisma.refund.findMany({
+    const refunds = await this.prisma.refund.findMany({
       where: { booking: { customerId: customer.id } },
       orderBy: { createdAt: 'desc' },
     });
+    return refunds.map((refund) => this.redactCustomerResolution(this.toResponse(refund)));
   }
 
-  async findAsCustomer(userId: string, id: string): Promise<Refund> {
+  async findAsCustomer(userId: string, id: string): Promise<RefundResponse> {
     const customer = await this.customerService.getActiveProfileOrThrow(userId);
     const refund = await this.prisma.refund.findUnique({
       where: { id },
@@ -170,7 +226,22 @@ export class RefundService {
     if (!refund || refund.booking.customerId !== customer.id) {
       throw new NotFoundException('Refund not found');
     }
-    return refund;
+    return this.redactCustomerResolution(this.toResponse(refund));
+  }
+
+  private toResponse(refund: Refund): RefundResponse {
+    const { idempotencyKey, manualResolvedBy, ...response } = refund;
+    void idempotencyKey;
+    void manualResolvedBy;
+    return response;
+  }
+
+  private redactCustomerResolution(refund: RefundResponse): RefundResponse {
+    return {
+      ...refund,
+      manualResolutionNote: null,
+      manualResolvedAt: null,
+    };
   }
 
   /**
