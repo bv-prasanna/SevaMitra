@@ -141,7 +141,9 @@ describe('RefundService', () => {
 
     it('claims a booking once and passes a stable idempotency key to the gateway', async () => {
       tx.refund.findUnique.mockResolvedValue(null);
-      await service.process('booking-1');
+      const result = await service.process('booking-1');
+      expect(result.status).toBe(RefundStatus.REFUNDED);
+      expect(result).not.toHaveProperty('idempotencyKey');
       expect(tx.$executeRaw).toHaveBeenCalled();
       expect(refundGateway.initiateRefund).toHaveBeenCalledWith(
         'booking-1', 250, 'INR', expect.stringMatching(/^[a-f0-9]{64}$/),
