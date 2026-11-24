@@ -14,6 +14,7 @@ Commit target: develop, 2026-10-08. Labels: Implemented, Partial, Pending, Exter
 | OTP | Secure RNG + MSG91 Flow provider, no console OTP in production | External provisioning: MSG91 authkey, DLT flow approval |
 | Provider documents | R2 private upload and reviewer-only read | Partial: malware scanning, expiry/version/retention and UI pending |
 | Tax safety | Finance user review, immutable ledger entries | Partial: statutory applicability and audit reconciliation |
+| Payment gateway recovery | Signed Razorpay raw-body webhook, provider/event idempotency, atomic capture transition, bounded retry/dead-letter inbox and signed scheduled order reconciliation | Partial: deploy/provision Worker, real sandbox E2E, multiple-capture review, refund/payout ledger and finance sign-off pending |
 | Build coverage | Added unit tests and Prisma migration validation to consolidated CI | Partial: end-to-end/integration coverage and target thresholds pending |
 | Mobile & web | Existing role routes | Partial: comprehensive role journeys and device testing pending |
 
