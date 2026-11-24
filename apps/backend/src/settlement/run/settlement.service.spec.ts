@@ -90,6 +90,7 @@ describe('SettlementService', () => {
         'provider-1', 800, 'INR', expect.stringMatching(/^[a-f0-9]{64}$/),
       );
       expect(result.status).toBe(SettlementStatus.PAID);
+      expect(result).not.toHaveProperty('idempotencyKey');
       expect(result.commissionCalculationIds).toEqual(['calc-1', 'calc-2']);
     });
 
