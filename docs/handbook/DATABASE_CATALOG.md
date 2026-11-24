@@ -2,7 +2,7 @@
 
 > Generated file. Edit `apps/backend/prisma/schema.prisma` and versioned migrations, then run `node scripts/docs/generate-prisma-catalog.mjs`. CI verifies that the generated Markdown is current. This is a **schema inventory**, not proof these migrations have been applied to a particular database.
 
-**Models:** 58 | **Enums:** 38 | **Versioned migrations:** 27 | **Namespaces:** auth, finance, marketplace, ops.
+**Models:** 59 | **Enums:** 39 | **Versioned migrations:** 28 | **Namespaces:** auth, finance, marketplace, ops.
 
 ## Physical table inventory
 
@@ -44,6 +44,7 @@
 | finance | commission_calculations | CommissionCalculation | 10 | 3 |
 | finance | settlement_configs | SettlementConfig | 16 | 4 |
 | finance | settlements | Settlement | 10 | 1 |
+| finance | payment_webhook_events | PaymentWebhookEvent | 14 | 0 |
 | finance | refund_policies | RefundPolicy | 17 | 4 |
 | finance | refunds | Refund | 13 | 2 |
 | ops | audit_log | AuditLog | 14 | 1 |
@@ -325,6 +326,27 @@ Physical column names respect Prisma `@map`. Types are Prisma source types (not 
 **Composite keys/indexes:** `@@index([providerId])`
 
 **Declared foreign-key fields:** `providerId` → `ProviderProfile.id`
+
+#### `finance.payment_webhook_events` — `PaymentWebhookEvent`
+
+| Column | Prisma field | Type | Attributes |
+| --- | --- | --- | --- |
+| 'id' | 'id' | 'String' | PK, @default(uuid() |
+| 'provider' | 'provider' | 'String' | — |
+| 'event_id' | 'eventId' | 'String' | — |
+| 'event_type' | 'eventType' | 'String' | — |
+| 'payload' | 'payload' | 'Json' | — |
+| 'status' | 'status' | 'PaymentWebhookEventStatus' | @default(RECEIVED) |
+| 'attempts' | 'attempts' | 'Int' | @default(0) |
+| 'last_attempt_at' | 'lastAttemptAt' | 'DateTime?' | — |
+| 'lease_until' | 'leaseUntil' | 'DateTime?' | — |
+| 'next_attempt_at' | 'nextAttemptAt' | 'DateTime?' | — |
+| 'processed_at' | 'processedAt' | 'DateTime?' | — |
+| 'last_error' | 'lastError' | 'String?' | — |
+| 'created_at' | 'createdAt' | 'DateTime' | @default(now() |
+| 'updated_at' | 'updatedAt' | 'DateTime' | updatedAt |
+
+**Composite keys/indexes:** `@@unique([provider, eventId])`; `@@index([status, nextAttemptAt])`; `@@index([status, leaseUntil])`
 
 #### `finance.refund_policies` — `RefundPolicy`
 
@@ -1102,6 +1124,7 @@ Enums are PostgreSQL schema-qualified in Prisma; use migration SQL for the actua
 | marketplace | ExceptionType | UNAVAILABLE, CUSTOM_HOURS |
 | marketplace | BookingStatus | REQUESTED, ACCEPTED, REJECTED, CANCELLED, NO_SHOW, COMPLETED |
 | marketplace | BookingParty | CUSTOMER, PROVIDER |
+| finance | PaymentWebhookEventStatus | RECEIVED, PROCESSING, RETRYABLE, PROCESSED, DEAD |
 | finance | PaymentMethod | ONLINE, CASH |
 | finance | PaymentStatus | INITIATED, SUCCEEDED, FAILED |
 | finance | CommissionScopeType | PLATFORM, CATEGORY, SERVICE, PROVIDER, GEOGRAPHY, STATE, PROVIDER_COMPANY, PROVIDER_GROUP |
@@ -1153,6 +1176,7 @@ These directories are already versioned in `apps/backend/prisma/migrations/`. Ap
 - `20261010104000_ops_runtime_flags/migration.sql`
 - `20261028192000_incident_case_management/migration.sql`
 - `20261101101500_finance_rules_invoicing/migration.sql`
+- `20261125090000_add_payment_webhook_events/migration.sql`
 
 ## Important limits
 
