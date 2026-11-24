@@ -151,6 +151,13 @@ describe('RazorpayWebhookService', () => {
         amount: 30000, currency: 'INR', status: 'failed' } } },
     }));
     const failedSignature = createHmac('sha256', secret).update(failed).digest('hex');
+    const failedEvent = {
+      ...stored,
+      eventType: 'payment.failed',
+      payload: { eventType: 'payment.failed' },
+    };
+    prisma.paymentWebhookEvent.create.mockResolvedValue(failedEvent);
+    prisma.paymentWebhookEvent.findUnique.mockResolvedValue(failedEvent);
 
     await service.receive(failed, failedSignature, 'evt_failed_123456');
 
