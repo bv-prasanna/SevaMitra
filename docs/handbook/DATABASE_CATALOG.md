@@ -1,6 +1,6 @@
 # Database schema catalogue — generated from Prisma
 
- > Generated file. Edit `apps/backend/prisma/schema.prisma` and versioned migrations, then run `node scripts/docs/generate-prisma-catalog.mjs`. CI verifies that the generated Markdown is current. This is a **schema inventory**, not proof these migrations have been applied to a particular database.
+> Generated file. Edit `apps/backend/prisma/schema.prisma` and versioned migrations, then run `node scripts/docs/generate-prisma-catalog.mjs`. CI verifies that the generated Markdown is current. This is a **schema inventory**, not proof these migrations have been applied to a particular database.
 
 **Models:** 59 | **Enums:** 39 | **Versioned migrations:** 29 | **Namespaces:** auth, finance, marketplace, ops.
 
