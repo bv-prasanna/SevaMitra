@@ -218,7 +218,7 @@ describe('RefundService', () => {
       }]);
       const result = await service.listAsCustomer('user-1');
       expect(result[0].manualResolutionNote).toBeNull();
-      expect(result[0].manualResolvedBy).toBeNull();
+      expect(result[0]).not.toHaveProperty('manualResolvedBy');
     });
 
     it("throws NotFoundException for another customer's refund", async () => {
