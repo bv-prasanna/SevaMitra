@@ -225,6 +225,22 @@ describe('SettlementService', () => {
     });
   });
 
+  describe('provider response privacy', () => {
+    it('omits payout idempotency keys and internal resolution evidence', async () => {
+      prisma.settlement.findMany.mockResolvedValue([{
+        ...claimed,
+        manualResolutionNote: 'internal finance evidence',
+        manualResolvedBy: 'admin-1',
+        manualResolvedAt: new Date(),
+      }]);
+      const result = await service.listAsProvider('user-1');
+      expect(result[0].manualResolutionNote).toBeNull();
+      expect(result[0].manualResolvedAt).toBeNull();
+      expect(result[0]).not.toHaveProperty('manualResolvedBy');
+      expect(result[0]).not.toHaveProperty('idempotencyKey');
+    });
+  });
+
   describe('findAsProvider', () => {
     it("throws NotFoundException for another provider's settlement", async () => {
       prisma.settlement.findUnique.mockResolvedValue({
