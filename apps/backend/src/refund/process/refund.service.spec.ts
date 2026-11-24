@@ -123,7 +123,7 @@ describe('RefundService', () => {
       bookingService.findByIdOrThrow.mockResolvedValue({ ...cancelledBooking, status: BookingStatus.ACCEPTED });
       await expect(service.process('booking-1')).rejects.toThrow(ConflictException);
       bookingService.findByIdOrThrow.mockResolvedValue(cancelledBooking);
-      (service as unknown as { prisma: { refundPolicy: { findFirst: jest.Mock } } }).prisma.refundPolicy.findFirst
+      prisma.refundPolicy.findFirst
         .mockResolvedValue(null);
       await expect(service.process('booking-1')).rejects.toThrow(ConflictException);
       expect(tx.refund.create).not.toHaveBeenCalled();
