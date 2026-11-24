@@ -1,0 +1,7 @@
+name = "sevamitra-staging-payment-reconciliation"
+main = "worker.ts"
+compatibility_date = "2026-10-01"
+
+# Reconcile old online intents and retry verified webhook inbox rows.
+[triggers]
+crons = ["*/5 * * * *"]

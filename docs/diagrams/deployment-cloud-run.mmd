@@ -1,0 +1,25 @@
+flowchart LR
+    U["Customer / Provider / Agent / Admin"]
+    W["Next.js static web\nCloudflare Pages"]
+    M["Expo React Native\nAndroid preview / iOS internal"]
+    API["NestJS REST API /api/v1\nCloud Run staging (option A)"]
+    DB[("Neon PostgreSQL\nSchemas: auth, marketplace, finance, ops")]
+    R2[("Private R2 storage\nKYC evidence")]
+    MSG["MSG91\nOTP / optional SMS"]
+    CRON["Cloudflare Worker Cron\n5-minute retry, signed HMAC"]
+    PRISMA["Isolated migration job\nPrisma migrate deploy"]
+    CI["GitHub Actions CI"]
+    EAS["Expo EAS Build"]
+    U --> W
+    U --> M
+    W -->|"HTTPS + Bearer JWT"| API
+    M -->|"HTTPS + Bearer JWT"| API
+    API -->|"pooled runtime connection"| DB
+    API -->|"private object API"| R2
+    API -->|"approved OTP / delivery"| MSG
+    CRON -->|"signed HTTPS POST"| API
+    PRISMA -->|"direct DB URL"| DB
+    CI -.->|"approved deploy"| API
+    CI -.->|"web build"| W
+    EAS -.->|"reviewed mobile binary"| M
+

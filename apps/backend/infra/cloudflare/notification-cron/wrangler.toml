@@ -1,0 +1,7 @@
+name = "sevamitra-staging-notification-retry"
+main = "worker.ts"
+compatibility_date = "2026-10-01"
+
+# Every five minutes; DB leases and retry backoff are enforced by the API.
+[triggers]
+crons = ["*/5 * * * *"]

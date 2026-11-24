@@ -1,0 +1,25 @@
+sequenceDiagram
+    autonumber
+    actor C as Customer
+    participant F as Web / Expo
+    participant A as NestJS API
+    participant D as PostgreSQL
+    participant P as Provider
+    C->>F: Select service, town and slot
+    F->>A: GET discovery offerings (JWT)
+    A->>D: Verify provider, coverage and runtime flags
+    D-->>A: Eligible verified offerings
+    A-->>F: Available options
+    C->>F: Confirm request
+    F->>F: Persist clientRequestId (mobile retry draft)
+    F->>A: POST booking with clientRequestId
+    A->>D: Check authorization, flags, availability, idempotency
+    A->>D: Serialize reservation/commit request
+    D-->>A: Original or new booking row
+    A-->>F: Booking ID + REQUESTED
+    F-->>C: Request submitted, not automatically confirmed
+    P->>A: Accept / reject booking
+    A->>D: Validate transition + persist
+    A-->>F: Updated status after refresh
+    Note over C,D: Production payment capture is NOT implied by a booking request.
+
