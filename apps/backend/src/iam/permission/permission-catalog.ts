@@ -108,6 +108,14 @@ export const PERMISSION_CATALOG: readonly PermissionCatalogEntry[] = [
     description: 'Send an operational or promotional notification to a user',
   },
   {
+    key: 'runtime-flags.view',
+    description: 'View runtime flag values and operational status',
+  },
+  {
+    key: 'runtime-flags.manage',
+    description: 'Change pilot and emergency runtime flags with an audit reason',
+  },
+  {
     key: 'commission.rule.manage',
     description: 'Create, update, and deactivate commission rules',
   },

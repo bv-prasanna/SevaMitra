@@ -1,6 +1,6 @@
 # Launch hardening — implementation evidence and remaining work
 
-Updated: 2026-10-10. Target: `develop`. This document is a risk register, **not** release approval.
+Updated: 2026-11-24. Target: `develop`. This document is a risk register, **not** release approval.
 
 ## Verified implementation changes in this branch
 
@@ -28,7 +28,7 @@ Updated: 2026-10-10. Target: `develop`. This document is a risk register, **not*
 | SLA-based incidents/disputes | P0 | Case model, deadlines, escalation queue, notifications, operator ownership, breach and audit reporting |
 | Re-verification and document expiry | P0 | Category-specific expiry tracking and automated reminders/suspension without deleting financial history |
 | Privacy, financial retention, dispute evidence deletion/anonymization | P0 legal | Approved documented schedule, deletion requests, retention exceptions, access controls, tests |
-| Feature flags and operational console | P1 (P0 emergency override) | Partial: server-side pilot/maintenance flags, admin API and UI now available. Pending: dedicated permission, two-person approval, staged rollout, flag history/expiry, integration and browser tests |
+| Feature flags and operational console | P1 (P0 emergency override) | Partial: server-side pilot/maintenance flags, dedicated view/manage permissions, admin API and read-only UI are implemented. Pending: two-person approval, staged rollout, immutable flag history/expiry, audited rollback and operational integration |
 | Provider liability/insurance | P0 legal for high-risk services | Terms, exclusions, approved coverage requirement and claims escalation agreed by counsel/insurer |
 | Agent-assisted IVR/SMS/offline alternatives | P1 | Consent, identity verification, duplicate prevention, accessible confirmations and dispute support |
 | Duplicate identities, suspicious bookings, incentive fraud, human appeal | P1 | Risk signals with low false positives, hold incentives and provide supervised override |
@@ -59,7 +59,7 @@ No percentage-complete claim is made without reproducible tests and runtime evid
 
 ## New pilot controls (partial implementation)
 
-The backend now reads `bookings.enabled`, `pilot.enabled`, `service.<UUID>.enabled` and `geography.<UUID>.enabled` on **new booking creation**. The admin interface at `/admin/runtime-flags` can view/create/update flags; server permission currently reuses `iam.role.manage`, intentionally restricted until a dedicated operations permission is introduced. With `pilot.enabled=true`, unspecified geographies are denied. Existing active bookings and payments are not cancelled by changing flags. Changes are recorded in the existing mutation audit feed, but approvals, full history and guaranteed audit atomicity are still pending.
+The backend reads `bookings.enabled`, `pilot.enabled`, `service.<UUID>.enabled` and `geography.<UUID>.enabled` on **new booking creation**. `/admin/runtime-flags` now uses dedicated `runtime-flags.view` and `runtime-flags.manage` permissions; `OPERATIONS_MANAGER` receives both, while the server remains the enforcement point. With `pilot.enabled=true`, unspecified geographies are denied. Existing active bookings and payments are not cancelled by changing flags. Changes are recorded in the existing mutation audit feed. Two-person approval, immutable flag history, automatic expiry and audited rollback are still pending.
 
 The mobile customer marketplace now securely saves a booking-request UUID prior to submitting and presents a manual retry of the same draft. This is not a full offline-first sync engine: provider/agent queues, conflict resolution, queued receipts, account-switch isolation and background sync remain pending.
 
