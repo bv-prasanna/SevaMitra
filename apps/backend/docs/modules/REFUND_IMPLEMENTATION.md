@@ -10,7 +10,7 @@ The stub refund gateway is development/test only. Staging/production uses the di
 
 Before calling the gateway, the service calculates the policy amount and derives a deterministic SHA-256 key from booking id, reason, policy id, amount and currency. A booking-scoped PostgreSQL advisory transaction lock serializes claims.
 
-- PENDING, REFUNDED and UNKNOWN records cannot be submitted again.
+- PENDING, REFUNDED and UNKNOWN records cannot be submitted again. A PENDING row older than five minutes is moved to UNKNOWN on the next process request without another gateway call.
 - FAILED can be retried only when the disabled adapter proved that no external request was submitted; the same idempotency key is reused.
 - A timeout or unclassified exception becomes UNKNOWN. It is never automatically retried because the provider may have processed the refund even when the client did not receive a response.
 
