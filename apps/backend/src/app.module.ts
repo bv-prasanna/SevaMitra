@@ -4,6 +4,7 @@ import { APP_FILTER, APP_GUARD } from '@nestjs/core';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { validateEnv } from './common/config/env.validation';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
+import { FinanceConfigModule } from './finance-config/finance-config.module';
 import { IncidentModule } from './incident/incident.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { HealthModule } from './health/health.module';
@@ -46,6 +47,7 @@ import { RuntimeFlagsModule } from './runtime-flags/runtime-flags.module';
     ProviderModule,
     OrganizationModule,
     TaxAssessmentModule,
+    FinanceConfigModule,
     AgentModule,
     ProviderOnboardingModule,
     CatalogueModule,

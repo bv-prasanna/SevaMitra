@@ -64,6 +64,7 @@ export default function Admin(){
     {title:"Operations & reports",description:"Booking activity, trends and reporting",href:"/admin/operations",permissions:["agent.review","provider.onboarding.review"],icon:BarChart3},
     {title:"Service catalogue",description:"Categories and live services",href:"/admin/catalogue",permissions:["catalogue.manage"],icon:Layers3},
     {title:"Agent approvals",description:"Onboarding and agent verification",href:"/admin/agents",permissions:["agent.review"],icon:UsersRound},
+    {title:"Tax, pricing & billing",description:"Geographic tax rules, dynamic pricing and invoices",href:"/admin/finance",permissions:["finance.tax.manage","finance.pricing.manage","finance.billing.manage"],icon:Building2},
     {title:"Roles & permissions",description:"Access controls and role matrix",href:"/admin/roles",permissions:["iam.role.view"],icon:ShieldCheck},
     {title:"Provider organizations",description:"Companies, groups and employees",href:"/admin/organizations",permissions:["provider.organization.manage"],icon:Building2},
     {title:"Emergency controls",description:"Pilot flags and booking restrictions",href:"/admin/runtime-flags",permissions:["iam.role.manage"],icon:ToggleRight},

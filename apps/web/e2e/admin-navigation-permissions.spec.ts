@@ -57,5 +57,6 @@ test('platform super-admin sees permitted tools and provider queue',async({page}
   await page.route(API+'/provider-onboarding/applications',r=>r.fulfill({json:[]}));
   await page.goto('/admin/');
   await expect(page.getByRole('heading',{name:/Verification queue/})).toBeVisible();
-  await expect(page.locator('.adminToolCard')).toHaveCount(6);
+  await expect(page.locator('.adminToolCard')).toHaveCount(7);
+  await expect(page.getByRole('link',{name:/Tax, pricing & billing/})).toBeVisible();
 });

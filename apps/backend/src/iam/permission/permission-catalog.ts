@@ -55,6 +55,18 @@ export const PERMISSION_CATALOG: readonly PermissionCatalogEntry[] = [
     description: 'Administer provider companies, groups, staff and provider memberships',
   },
   {
+    key: 'finance.tax.manage',
+    description: 'Create, edit, activate and retire geographic/service tax rules',
+  },
+  {
+    key: 'finance.pricing.manage',
+    description: 'Manage transparent geographic/service/time based pricing rules',
+  },
+  {
+    key: 'finance.billing.manage',
+    description: 'Review supplier information and issue protected customer invoices',
+  },
+  {
     key: 'tax.assessment.manage',
     description: 'Review statutory tax classification and post auditable tax entries',
   },
