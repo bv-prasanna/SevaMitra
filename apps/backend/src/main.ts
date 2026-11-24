@@ -7,7 +7,7 @@ import { allowedBrowserOrigins } from './common/config/cors-origins';
 import { CORS_ALLOWED_REQUEST_HEADERS } from './common/config/http-headers';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create(AppModule, { rawBody: true });
   const config = app.get(ConfigService);
 
   app.setGlobalPrefix('api');
