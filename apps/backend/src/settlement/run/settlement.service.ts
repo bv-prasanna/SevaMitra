@@ -142,16 +142,20 @@ export class SettlementService {
         claim.settlement.currency,
         claim.settlement.idempotencyKey,
       );
-      const paid = await this.prisma.settlement.update({
-        where: { id: claim.settlement.id },
+      await this.prisma.settlement.updateMany({
+        where: { id: claim.settlement.id, status: SettlementStatus.PENDING },
         data: {
           status: SettlementStatus.PAID,
           payoutReference,
           paidAt: new Date(),
           failureReason: null,
         },
+      });
+      const paid = await this.prisma.settlement.findUnique({
+        where: { id: claim.settlement.id },
         ...WITH_LINE_ITEMS,
       });
+      if (!paid) throw new NotFoundException('Settlement disappeared after payout response');
       return this.toResponse(paid);
     } catch (error) {
       // Only the disabled gateway can prove that no payout request was sent.
@@ -160,22 +164,26 @@ export class SettlementService {
       // again until an operator reconciles the provider outcome.
       const definitelyNotSubmitted = error instanceof PayoutNotConfiguredException;
       const updated = await this.prisma.$transaction(async (tx) => {
-        const result = await tx.settlement.update({
-          where: { id: claim.settlement.id },
+        const changed = await tx.settlement.updateMany({
+          where: { id: claim.settlement.id, status: SettlementStatus.PENDING },
           data: {
             status: definitelyNotSubmitted ? SettlementStatus.FAILED : SettlementStatus.UNKNOWN,
             failureReason: error instanceof Error
               ? error.message.slice(0, 300)
               : 'Payout outcome is unknown; manual reconciliation is required',
           },
-          ...WITH_LINE_ITEMS,
         });
-        if (definitelyNotSubmitted) {
+        if (definitelyNotSubmitted && changed.count === 1) {
           await tx.commissionCalculation.updateMany({
             where: { settlementId: claim.settlement.id },
             data: { settlementId: null },
           });
         }
+        const result = await tx.settlement.findUnique({
+          where: { id: claim.settlement.id },
+          ...WITH_LINE_ITEMS,
+        });
+        if (!result) throw new NotFoundException('Settlement disappeared during payout recovery');
         return result;
       });
       return this.toResponse(updated);
