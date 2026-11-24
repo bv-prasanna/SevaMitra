@@ -54,7 +54,7 @@ export class RazorpayPaymentGateway implements PaymentGateway{
   async fetchOrderPayments(gatewayOrderId: string): Promise<Array<{
     id: string; orderId: string; status: string; amount: number; currency: string;
   }>> {
-    if (!/^order_[\\w-]{3,100}$/.test(gatewayOrderId)) {
+    if (!/^order_[\w-]{3,100}$/.test(gatewayOrderId)) {
       throw new BadRequestException('Invalid Razorpay order identifier');
     }
     const response = await this.call<{ items?: Array<{
