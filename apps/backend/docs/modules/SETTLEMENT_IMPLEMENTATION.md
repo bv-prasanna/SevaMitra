@@ -8,7 +8,7 @@ The module creates a settlement from unlinked commission calculations and asks t
 
 A provider-scoped PostgreSQL advisory transaction lock serializes concurrent settlement runs. Inside the same transaction the service:
 
-1. returns any existing PENDING/UNKNOWN settlement without issuing another payout;
+1. returns any existing PENDING/UNKNOWN settlement without issuing another payout; a PENDING row older than five minutes is moved to UNKNOWN on the next run;
 2. selects the provider's unlinked commission calculations in stable id order;
 3. rejects a mixed-currency batch;
 4. derives a stable SHA-256 idempotency key from the provider id and exact calculation-id set;
@@ -24,7 +24,7 @@ The gateway call happens only after the claim transaction commits. A second requ
 - FAILED: the disabled adapter proves no payout request was sent, or an operator confirms no transfer. Commission rows are released.
 - UNKNOWN: a timeout/unclassified error may have happened after provider submission. Commission rows stay linked and automatic retry is blocked.
 
-A FAILED retry reuses the same idempotency key. An UNKNOWN or PENDING settlement is returned to callers without another payout call. The idempotency key is unique in the database and is not exposed in API responses.
+A FAILED retry reuses the same idempotency key. An UNKNOWN or fresh PENDING settlement is returned to callers without another payout call. A PENDING row older than five minutes is moved to UNKNOWN for manual review. The idempotency key is unique in the database and is not exposed in API responses.
 
 ## 4. Manual resolution
 
