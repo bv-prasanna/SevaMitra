@@ -117,7 +117,7 @@ describe('SettlementService', () => {
         ...claimed, status: SettlementStatus.PENDING,
         updatedAt: new Date(Date.now() - 6 * 60_000),
       });
-      tx.settlement.findUnique.mockResolvedValueOnce(null).mockResolvedValueOnce(claimed).mockResolvedValueOnce({
+      tx.settlement.update.mockResolvedValue({
         ...claimed, status: SettlementStatus.UNKNOWN,
       });
 
