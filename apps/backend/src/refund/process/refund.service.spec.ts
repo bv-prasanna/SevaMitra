@@ -159,6 +159,21 @@ describe('RefundService', () => {
       );
     });
 
+    it('moves a stale PENDING refund to UNKNOWN instead of blindly resubmitting it', async () => {
+      tx.refund.findUnique.mockResolvedValue({
+        ...refund, status: RefundStatus.PENDING,
+        updatedAt: new Date(Date.now() - 6 * 60_000),
+      });
+      tx.refund.update.mockResolvedValue({
+        ...refund, status: RefundStatus.UNKNOWN,
+      });
+
+      const result = await service.process('booking-1');
+
+      expect(result.status).toBe(RefundStatus.UNKNOWN);
+      expect(refundGateway.initiateRefund).not.toHaveBeenCalled();
+    });
+
     it('rejects PENDING, REFUNDED and UNKNOWN refunds instead of submitting again', async () => {
       for (const status of [RefundStatus.PENDING, RefundStatus.REFUNDED, RefundStatus.UNKNOWN]) {
         tx.refund.findUnique.mockResolvedValue({ ...refund, status });
