@@ -27,7 +27,7 @@ describe('SettlementService', () => {
   const claimed = {
     id: 'settlement-1', providerId: 'provider-1', totalAmount: 800,
     currency: 'INR', status: SettlementStatus.PENDING,
-    idempotencyKey: 'a'.repeat(64), commissionCalculations: [{ id: 'calc-1' }, { id: 'calc-2' }],
+    idempotencyKey: 'a'.repeat(64), commissionCalculations: [{ id: 'calc-1' }, { id: 'calc-2' }], updatedAt: new Date(),
   };
 
   beforeEach(() => {
