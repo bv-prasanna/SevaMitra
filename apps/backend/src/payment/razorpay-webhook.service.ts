@@ -145,7 +145,8 @@ export class RazorpayWebhookService {
     try {
       if (event.eventType === 'payment.captured' || event.eventType === 'order.paid') {
         const payment = payload.payment;
-        if (!payment?.id || !payment.orderId ||
+        if (!payment?.id || !/^pay_[A-Za-z0-9_-]{3,100}$/.test(payment.id) ||
+            !payment.orderId || !/^order_[A-Za-z0-9_-]{3,100}$/.test(payment.orderId) ||
             !Number.isSafeInteger(payment.amount) || !payment.currency ||
             payment.status !== 'captured') {
           throw new BadRequestException('Captured payment event is incomplete or not captured');
@@ -170,7 +171,7 @@ export class RazorpayWebhookService {
     } catch (error) {
       const permanent = error instanceof BadRequestException ||
         error instanceof ConflictException;
-      const attempts = event.attempts + 1;
+      const attempts = event.attempts;
       const dead = permanent || attempts >= this.maxAttempts;
       const delayMs = Math.min(60 * 60_000, 30_000 * (2 ** Math.min(attempts - 1, 7)));
       await this.prisma.paymentWebhookEvent.update({
