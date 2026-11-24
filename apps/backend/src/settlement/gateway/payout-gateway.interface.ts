@@ -1,4 +1,12 @@
+import { ServiceUnavailableException } from '@nestjs/common';
+
 export const PAYOUT_GATEWAY = Symbol('PAYOUT_GATEWAY');
+
+export class PayoutNotConfiguredException extends ServiceUnavailableException {
+  constructor() {
+    super('Provider payouts are disabled until settlement onboarding and finance review');
+  }
+}
 
 /**
  * SettlementService only needs to initiate one payout per settlement run
@@ -13,5 +21,6 @@ export interface PayoutGateway {
     providerId: string,
     amount: number,
     currency: string,
+    idempotencyKey: string,
   ): Promise<{ payoutReference: string }>;
 }
