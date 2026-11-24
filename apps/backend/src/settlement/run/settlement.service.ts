@@ -15,9 +15,9 @@ type SettlementWithLineItems = Settlement & {
   commissionCalculations: { id: string }[];
 };
 
-export interface SettlementResponse extends Settlement {
+export type SettlementResponse = Omit<Settlement, 'idempotencyKey' | 'manualResolvedBy'> & {
   commissionCalculationIds: string[];
-}
+};
 
 const WITH_LINE_ITEMS = {
   include: { commissionCalculations: { select: { id: true } } },
@@ -268,7 +268,7 @@ export class SettlementService {
   }
 
   private toResponse(settlement: SettlementWithLineItems): SettlementResponse {
-    const { commissionCalculations, ...rest } = settlement;
+    const { commissionCalculations, idempotencyKey, manualResolvedBy, ...rest } = settlement;
     return {
       ...rest,
       commissionCalculationIds: commissionCalculations.map((item) => item.id),
