@@ -262,7 +262,6 @@ export class SettlementService {
     return {
       ...response,
       manualResolutionNote: null,
-      manualResolvedBy: null,
       manualResolvedAt: null,
     };
   }
