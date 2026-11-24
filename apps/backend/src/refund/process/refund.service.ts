@@ -43,6 +43,8 @@ const PRECEDENCE: {
 ];
 
 @Injectable()
+export type RefundResponse = Omit<Refund, 'idempotencyKey' | 'manualResolvedBy'>;
+
 export class RefundService {
   constructor(
     private readonly prisma: PrismaService,
@@ -54,7 +56,7 @@ export class RefundService {
     @Inject(REFUND_GATEWAY) private readonly refundGateway: RefundGateway,
   ) {}
 
-  async process(bookingId: string): Promise<Refund> {
+  async process(bookingId: string): Promise<RefundResponse> {
     const booking = await this.bookingService.findByIdOrThrow(bookingId);
     const reason = this.resolveReason(booking);
     const grossPaidAmount = await this.paymentService.sumSucceededAmount(bookingId);
@@ -110,7 +112,7 @@ export class RefundService {
         booking.currency,
         refund.idempotencyKey,
       );
-      return this.prisma.refund.update({
+      const updated = await this.prisma.refund.update({
         where: { id: refund.id },
         data: {
           status: RefundStatus.REFUNDED,
@@ -119,9 +121,10 @@ export class RefundService {
           failureReason: null,
         },
       });
+      return this.toResponse(updated);
     } catch (error) {
       const definitelyNotSubmitted = error instanceof RefundNotConfiguredException;
-      return this.prisma.refund.update({
+      const updated = await this.prisma.refund.update({
         where: { id: refund.id },
         data: {
           status: definitelyNotSubmitted ? RefundStatus.FAILED : RefundStatus.UNKNOWN,
@@ -130,6 +133,7 @@ export class RefundService {
             : 'Refund outcome is unknown; manual reconciliation is required',
         },
       });
+      return this.toResponse(updated);
     }
   }
 
@@ -138,8 +142,8 @@ export class RefundService {
     actorUserId: string,
     outcome: 'REFUNDED' | 'FAILED',
     note: string,
-  ): Promise<Refund> {
-    return this.prisma.$transaction(async (tx) => {
+  ): Promise<RefundResponse> {
+    const updated = await this.prisma.$transaction(async (tx) => {
       const current = await tx.refund.findUnique({ where: { id } });
       if (!current) throw new NotFoundException('Refund not found');
       if (current.status !== RefundStatus.UNKNOWN) {
@@ -185,16 +189,16 @@ export class RefundService {
     return refund;
   }
 
-  async listAsCustomer(userId: string): Promise<Refund[]> {
+  async listAsCustomer(userId: string): Promise<RefundResponse[]> {
     const customer = await this.customerService.getActiveProfileOrThrow(userId);
     const refunds = await this.prisma.refund.findMany({
       where: { booking: { customerId: customer.id } },
       orderBy: { createdAt: 'desc' },
     });
-    return refunds.map((refund) => this.redactCustomerResolution(refund));
+    return refunds.map((refund) => this.redactCustomerResolution(this.toResponse(refund)));
   }
 
-  async findAsCustomer(userId: string, id: string): Promise<Refund> {
+  async findAsCustomer(userId: string, id: string): Promise<RefundResponse> {
     const customer = await this.customerService.getActiveProfileOrThrow(userId);
     const refund = await this.prisma.refund.findUnique({
       where: { id },
@@ -203,10 +207,17 @@ export class RefundService {
     if (!refund || refund.booking.customerId !== customer.id) {
       throw new NotFoundException('Refund not found');
     }
-    return this.redactCustomerResolution(refund);
+    return this.redactCustomerResolution(this.toResponse(refund));
   }
 
-  private redactCustomerResolution<T extends Refund>(refund: T): T {
+  private toResponse(refund: Refund): RefundResponse {
+    const { idempotencyKey, manualResolvedBy, ...response } = refund;
+    void idempotencyKey;
+    void manualResolvedBy;
+    return response;
+  }
+
+  private redactCustomerResolution(refund: RefundResponse): RefundResponse {
     return {
       ...refund,
       manualResolutionNote: null,
