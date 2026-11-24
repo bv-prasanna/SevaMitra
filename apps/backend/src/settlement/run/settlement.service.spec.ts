@@ -7,13 +7,13 @@ import type { ProviderService } from '../../provider/provider.service';
 
 describe('SettlementService', () => {
   let prisma: {
-    settlement: { update: jest.Mock; findMany: jest.Mock; findUnique: jest.Mock };
+    settlement: { update: jest.Mock; updateMany: jest.Mock; findMany: jest.Mock; findUnique: jest.Mock };
     $transaction: jest.Mock;
   };
   let tx: {
     $executeRaw: jest.Mock;
     commissionCalculation: { findMany: jest.Mock; updateMany: jest.Mock };
-    settlement: { findFirst: jest.Mock; findUnique: jest.Mock; create: jest.Mock; update: jest.Mock };
+    settlement: { findFirst: jest.Mock; findUnique: jest.Mock; create: jest.Mock; update: jest.Mock; updateMany: jest.Mock };
     auditLog: { create: jest.Mock };
   };
   let providerService: { findById: jest.Mock; getActiveProfileOrThrow: jest.Mock };
@@ -42,6 +42,7 @@ describe('SettlementService', () => {
         findUnique: jest.fn().mockResolvedValue(null),
         create: jest.fn().mockResolvedValue(claimed),
         update: jest.fn().mockResolvedValue(claimed),
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
       },
       auditLog: { create: jest.fn().mockResolvedValue({ id: 'audit-1' }) },
     };
@@ -50,8 +51,11 @@ describe('SettlementService', () => {
         update: jest.fn().mockResolvedValue({
           ...claimed, status: SettlementStatus.PAID, payoutReference: 'payout-idem-1',
         }),
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
         findMany: jest.fn().mockResolvedValue([]),
-        findUnique: jest.fn(),
+        findUnique: jest.fn().mockResolvedValue({
+          ...claimed, status: SettlementStatus.PAID, payoutReference: 'payout-idem-1',
+        }),
       },
       $transaction: jest.fn(async (callback: (client: unknown) => unknown) => callback(tx)),
     };
@@ -112,7 +116,7 @@ describe('SettlementService', () => {
         ...claimed, status: SettlementStatus.PENDING,
         updatedAt: new Date(Date.now() - 6 * 60_000),
       });
-      tx.settlement.update.mockResolvedValue({
+      tx.settlement.findUnique.mockResolvedValueOnce(null).mockResolvedValueOnce(claimed).mockResolvedValueOnce({
         ...claimed, status: SettlementStatus.UNKNOWN,
       });
 
@@ -134,13 +138,16 @@ describe('SettlementService', () => {
     it('releases commission rows only when the gateway proves no payout was submitted', async () => {
       tx.settlement.findUnique.mockResolvedValueOnce(null).mockResolvedValueOnce(claimed);
       payoutGateway.initiatePayout.mockRejectedValue(new PayoutNotConfiguredException());
-      tx.settlement.update.mockResolvedValue({
+      tx.settlement.findUnique.mockResolvedValueOnce(null).mockResolvedValueOnce(claimed).mockResolvedValueOnce({
         ...claimed, status: SettlementStatus.FAILED, commissionCalculations: [],
       });
 
       const result = await service.run('provider-1');
 
       expect(result.status).toBe(SettlementStatus.FAILED);
+      expect(tx.settlement.updateMany).toHaveBeenCalledWith(expect.objectContaining({
+        where: { id: 'settlement-1', status: SettlementStatus.PENDING },
+      }));
       expect(tx.commissionCalculation.updateMany).toHaveBeenLastCalledWith({
         where: { settlementId: 'settlement-1' },
         data: { settlementId: null },
