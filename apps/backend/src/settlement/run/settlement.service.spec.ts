@@ -136,7 +136,6 @@ describe('SettlementService', () => {
     });
 
     it('releases commission rows only when the gateway proves no payout was submitted', async () => {
-      tx.settlement.findUnique.mockResolvedValueOnce(null).mockResolvedValueOnce(claimed);
       payoutGateway.initiatePayout.mockRejectedValue(new PayoutNotConfiguredException());
       tx.settlement.findUnique.mockResolvedValueOnce(null).mockResolvedValueOnce(claimed).mockResolvedValueOnce({
         ...claimed, status: SettlementStatus.FAILED, commissionCalculations: [],
@@ -155,9 +154,8 @@ describe('SettlementService', () => {
     });
 
     it('keeps commission rows claimed when the payout outcome is unknown', async () => {
-      tx.settlement.findUnique.mockResolvedValueOnce(null).mockResolvedValueOnce(claimed);
       payoutGateway.initiatePayout.mockRejectedValue(new Error('network timeout'));
-      tx.settlement.update.mockResolvedValue({
+      tx.settlement.findUnique.mockResolvedValueOnce(null).mockResolvedValueOnce(claimed).mockResolvedValueOnce({
         ...claimed, status: SettlementStatus.UNKNOWN,
       });
 
