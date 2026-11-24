@@ -13,7 +13,7 @@ import type { CustomerService } from '../../customer/customer.service';
 
 describe('RefundService', () => {
   let prisma: {
-    refund: { update: jest.Mock; findUnique: jest.Mock; findMany: jest.Mock };
+    refund: { update: jest.Mock; updateMany: jest.Mock; findUnique: jest.Mock; findMany: jest.Mock };
     refundPolicy: { findFirst: jest.Mock };
     $transaction: jest.Mock;
   };
@@ -55,7 +55,8 @@ describe('RefundService', () => {
     prisma = {
       refund: {
         update: jest.fn().mockResolvedValue({ ...refund, status: RefundStatus.REFUNDED }),
-        findUnique: jest.fn().mockResolvedValue(null),
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+        findUnique: jest.fn().mockResolvedValue({ ...refund, status: RefundStatus.REFUNDED }),
         findMany: jest.fn().mockResolvedValue([]),
       },
       refundPolicy: { findFirst: jest.fn().mockResolvedValue(null) },
@@ -184,6 +185,7 @@ describe('RefundService', () => {
 
     it('marks a disabled gateway as FAILED because no request was submitted', async () => {
       refundGateway.initiateRefund.mockRejectedValue(new RefundNotConfiguredException());
+      prisma.refund.findUnique.mockResolvedValue({ ...refund, status: RefundStatus.FAILED });
       await service.process('booking-1');
       expect(prisma.refund.update).toHaveBeenCalledWith(expect.objectContaining({
         data: expect.objectContaining({ status: RefundStatus.FAILED }),
@@ -192,6 +194,7 @@ describe('RefundService', () => {
 
     it('marks network timeouts UNKNOWN so a second automatic refund cannot be sent', async () => {
       refundGateway.initiateRefund.mockRejectedValue(new Error('network timeout'));
+      prisma.refund.findUnique.mockResolvedValue({ ...refund, status: RefundStatus.UNKNOWN });
       await service.process('booking-1');
       expect(prisma.refund.update).toHaveBeenCalledWith(expect.objectContaining({
         data: expect.objectContaining({ status: RefundStatus.UNKNOWN }),
