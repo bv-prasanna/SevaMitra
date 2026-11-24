@@ -1,5 +1,4 @@
 import { Injectable, Logger, ServiceUnavailableException } from '@nestjs/common';
-import { randomUUID } from 'crypto';
 import { PayoutGateway } from './payout-gateway.interface';
 
 /**
@@ -17,11 +16,12 @@ export class StubPayoutGateway implements PayoutGateway {
     providerId: string,
     amount: number,
     currency: string,
+    idempotencyKey: string,
   ): Promise<{ payoutReference: string }> {
     this.assertAllowed();
-    const payoutReference = `stub_payout_${randomUUID()}`;
+    const payoutReference = `stub_payout_${idempotencyKey.slice(0, 24)}`;
     this.logger.warn(
-      `[STUB] Paid out ${amount} ${currency} to provider ${providerId} (reference ${payoutReference}) — no real payout gateway configured`,
+      `[STUB] Paid out ${amount} ${currency} to provider ${providerId} (reference ${payoutReference}, idempotency ${idempotencyKey}) — no real payout gateway configured`,
     );
     return Promise.resolve({ payoutReference });
   }
