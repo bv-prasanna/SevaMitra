@@ -107,6 +107,21 @@ describe('SettlementService', () => {
       expect(tx.commissionCalculation.findMany).not.toHaveBeenCalled();
     });
 
+    it('moves a stale PENDING payout to UNKNOWN instead of initiating a second transfer', async () => {
+      tx.settlement.findFirst.mockResolvedValue({
+        ...claimed, status: SettlementStatus.PENDING,
+        updatedAt: new Date(Date.now() - 6 * 60_000),
+      });
+      tx.settlement.update.mockResolvedValue({
+        ...claimed, status: SettlementStatus.UNKNOWN,
+      });
+
+      const result = await service.run('provider-1');
+
+      expect(result.status).toBe(SettlementStatus.UNKNOWN);
+      expect(payoutGateway.initiatePayout).not.toHaveBeenCalled();
+    });
+
     it('does not retry a payout with an UNKNOWN external outcome', async () => {
       const unknown = { ...claimed, status: SettlementStatus.UNKNOWN };
       tx.settlement.findFirst.mockResolvedValue(unknown);
