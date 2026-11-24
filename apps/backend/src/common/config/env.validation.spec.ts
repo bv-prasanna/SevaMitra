@@ -92,6 +92,20 @@ describe('validateEnv production safety', () => {
   it('rejects real-money gateway selection without webhook keys', () => {
     expect(() => validateEnv({...validProd,PAYMENT_PROVIDER:'razorpay'})).toThrow('Razorpay credentials');
   });
+  it('requires a strong reconciliation secret when Razorpay is enabled in production', () => {
+    const razorpay = {
+      ...validProd,
+      PAYMENT_PROVIDER: 'razorpay',
+      RAZORPAY_KEY_ID: 'rzp_test_key',
+      RAZORPAY_KEY_SECRET: 'test-secret',
+      RAZORPAY_WEBHOOK_SECRET: 'w'.repeat(32),
+    };
+    expect(() => validateEnv(razorpay)).toThrow('Payment reconciliation cron secret');
+    expect(validateEnv({
+      ...razorpay,
+      PAYMENT_RECONCILIATION_CRON_SECRET: 'c'.repeat(32),
+    }).NODE_ENV).toBe('production');
+  });
   it('accepts a production provider-first pilot with online payments disabled', () => {
     expect(validateEnv({...validProd,PAYMENT_PROVIDER:'disabled',REFUND_PROVIDER:'disabled',PAYOUT_PROVIDER:'disabled'}).NODE_ENV).toBe('production');
   });

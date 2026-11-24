@@ -51,6 +51,28 @@ export class RazorpayPaymentGateway implements PaymentGateway{
    throw new ServiceUnavailableException('Razorpay order response did not match requested amount');
   return {gatewayOrderId:order.id};
  }
+  async fetchOrderPayments(gatewayOrderId: string): Promise<Array<{
+    id: string; orderId: string; status: string; amount: number; currency: string;
+  }>> {
+    if (!/^order_[\w-]{3,100}$/.test(gatewayOrderId)) {
+      throw new BadRequestException('Invalid Razorpay order identifier');
+    }
+    const response = await this.call<{ items?: Array<{
+      id?: string; order_id?: string; status?: string; amount?: number; currency?: string;
+    }> }>('GET', '/orders/' + encodeURIComponent(gatewayOrderId) + '/payments');
+    if (!Array.isArray(response.items)) {
+      throw new ServiceUnavailableException('Razorpay order payments response is invalid');
+    }
+    return response.items.filter((item): item is {
+      id: string; order_id: string; status: string; amount: number; currency: string;
+    } => typeof item.id === 'string' && item.order_id === gatewayOrderId &&
+      typeof item.status === 'string' && Number.isSafeInteger(item.amount) &&
+      typeof item.currency === 'string').map(item => ({
+        id: item.id, orderId: item.order_id, status: item.status,
+        amount: item.amount, currency: item.currency,
+      }));
+  }
+
  async verifyPayment(orderId:string,paymentId:string,signature:string,amount?:number,currency?:string):Promise<boolean>{
   if(!/^order_[\w-]{3,100}$/.test(orderId)||!/^pay_[\w-]{3,100}$/.test(paymentId)||
       !/^[a-f0-9]{64}$/i.test(signature)||amount===undefined||currency!=='INR')return false;

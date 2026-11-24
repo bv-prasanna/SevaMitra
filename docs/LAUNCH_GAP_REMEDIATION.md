@@ -1,6 +1,6 @@
 # Launch hardening — implementation evidence and remaining work
 
-Updated: 2026-11-24. Target: `develop`. This document is a risk register, **not** release approval.
+Updated: 2026-11-25. Target: `develop` after reviewed payment recovery merge. This document is a risk register, **not** release approval.
 
 ## Verified implementation changes in this branch
 
@@ -9,7 +9,7 @@ Updated: 2026-11-24. Target: `develop`. This document is a risk register, **not*
 | Duplicate booking requests | Optional `clientRequestId` (UUID), DB uniqueness per customer, serialized provider/day slot reservation, serializable retry, payload consistency checks | Mobile now persists a retryable booking draft; still needs live device tests, user-scoped draft isolation and mandatory client-key enforcement |
 | Provider self-booking | Reject booking when offering owner is the same logged-in account | Device/phone/payment/household/collusion analysis and case handling remain pending |
 | Agent referral abuse | Reject a same-user referral | Duplicate-account heuristics, risk scores, human review, false-positive appeals and incentive hold needed |
-| Payment amount races | Booking-scoped PostgreSQL advisory lock inside serializable transaction; outstanding amount checked and payment reserved atomically | Real concurrent payment E2E, signature/reconciliation/webhook recovery tests; mandatory idempotency client integration |
+| Payment amount and gateway recovery | Booking-scoped PostgreSQL advisory lock and serializable reservation; immutable tax-inclusive quote snapshot; signed Razorpay webhook inbox with unique event IDs; one idempotent capture transition; signed five-minute order/webhook reconciliation worker | CI and unit tests pass in this branch; still requires deployed worker/secrets, actual Razorpay sandbox receipts, concurrent/race E2E, multiple-capture manual resolution, refund/payout ledger and finance sign-off |
 | Duplicate gateway IDs | Database unique indexes on gateway order and payment reference | Verify gateway refunds, retries and webhooks, reconcile orphaned gateway orders |
 | Reliable notifications | DB-first outbox rows, retry leases, exponential backoff, bounded retries, dead-letter state, authorized `POST /v1/notifications/retry-due` | Scheduler must call endpoint with authorized token at least every minute, test delivery in production-like connectivity, add transactional event producers from booking/payment |
 | Audit integrity | Database trigger rejects application-level UPDATE/DELETE of `ops.audit_log` | Export to independent tamper-evident storage, guard DB administrative credentials, synchronize transactionally for financial/permission changes |
@@ -20,7 +20,8 @@ Updated: 2026-11-24. Target: `develop`. This document is a risk register, **not*
 
 | Workstream | Priority | Acceptance criteria |
 |---|---|---|
-| Razorpay authenticated webhooks, reconciliation, refunds and payout workflows | P0 for taking payments | Verify HMAC, event deduplication, DB transitions with row locks, negative tests, reconciliation against provider records and manual escalation |
+| Razorpay webhook and order reconciliation | P0 for taking payments | Partial in this branch: raw-body HMAC verification, event-id dedupe, bounded retry/dead-letter state, atomic capture transition and signed scheduled reconciliation. Still required: provision worker/secrets, run real sandbox E2E, manual-review UI/alerts and finance sign-off |
+| Refund ledger, partial refunds and payouts | P0 for taking payments | Not complete: real gateway refund/payout adapters, partial-refund ledger, webhook recovery, idempotent payout state machine and audited manual overrides remain required |
 | Cash/online double collection, quote-based booking payment limits | P0 | Prevent collection beyond finalized quote; require customer approval, handle settlement reversals |
 | Provider/agent/customer offline queue and conflict handling | P0 for rural offline launch | Persist secure encrypted local drafts; retry idempotent non-financial mutations only; never silently replay an unconfirmed payment charge; reconcile after reconnect; device-level E2E |
 | Business event outbox | P0 | Booking/payment transaction inserts event atomically, notifications are eventually delivered and deduplicated by event key |
@@ -70,3 +71,12 @@ The mobile customer marketplace now securely saves a booking-request UUID prior 
 - Signed Cloudflare Cron Worker and private notification endpoint are implemented and tested; **provision Worker secrets and deploy** before considering retry operational.
 - `PILOT_DISABLE_COLLECTIONS=true` blocks online and cash payment operations at the server for the provider-only staging pilot; the real-payment financial blocker #3 remains open.
 - GCP deployment script requires exact green commit, clean worktree, verified backup, a separate direct-URL migration job, minimum-zero API instances, real OTP, private R2 and an explicit deployment approval. AWS deployment remains available.
+
+
+## 2026-11-25 payment recovery implementation (this branch)
+
+- Added `finance.payment_webhook_events` with unique provider/event identity, sanitized payload, attempt counter, lease, retry schedule and DEAD state.
+- Added raw-body Razorpay HMAC verification and strict event-id validation. Browser verification and webhook/reconciliation now share an atomic, idempotent capture transition.
+- Added a signed internal reconciliation endpoint and five-minute Cloudflare Worker. It retries due webhook rows and checks older pending Razorpay orders. No capture leaves the payment pending; multiple captures are surfaced for manual review.
+- Staging/production with `PAYMENT_PROVIDER=razorpay` now requires the dedicated 32+ character cron secret as well as API and webhook credentials.
+- CI verifies the payment Worker TypeScript, Prisma migration, backend build/tests, frontend build/E2E and Cloudflare Pages. This is code-level implementation only: the Worker is not provisioned/deployed by the PR, actual Razorpay sandbox receipts are not available in CI, and refunds/payouts/manual-review UI remain open. Keep `PILOT_DISABLE_COLLECTIONS=true` until launch gates are signed off.

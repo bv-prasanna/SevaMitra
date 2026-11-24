@@ -10,12 +10,16 @@ import { PAYMENT_GATEWAY } from './gateway/payment-gateway.interface';
 import { StubPaymentGateway } from './gateway/stub-payment.gateway';
 import { RazorpayPaymentGateway } from './gateway/razorpay-payment.gateway';
 import { DisabledPaymentGateway } from './gateway/disabled-payment.gateway';
+import { RazorpayWebhookController } from './razorpay-webhook.controller';
+import { RazorpayWebhookService } from './razorpay-webhook.service';
+import { PaymentReconciliationController } from './payment-reconciliation.controller';
 
 @Module({
   imports: [BookingModule, CustomerModule, ProviderModule],
-  controllers: [CustomerPaymentController, ProviderPaymentController],
+  controllers: [CustomerPaymentController, ProviderPaymentController, RazorpayWebhookController, PaymentReconciliationController],
   providers: [
     PaymentService,
+    RazorpayWebhookService,
     {
       provide: PAYMENT_GATEWAY, inject: [ConfigService],
       useFactory:(cfg:ConfigService)=>{
