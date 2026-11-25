@@ -3,7 +3,7 @@ import {useEffect,useState} from "react";
 import Link from "next/link";
 import {ApiClient} from "@sevamitra/api-client";
 type Service={id:string;name:string;isActive:boolean};
-type Offering={id:string;serviceId:string;pricingModel:string;amount:string|null;visitFee:string|null;isActive:boolean};
+type Offering={id:string;serviceId:string;pricingModel:string;amount:string|null;visitFee:string|null;isActive:boolean;complianceSuspendedAt?:string|null;complianceSuspensionReason?:string|null};
 type Hours={id:string;dayOfWeek:string;startTime:string;endTime:string;isActive:boolean};
 type Area={id:string;name:string;isActive:boolean};
 const days=["MONDAY","TUESDAY","WEDNESDAY","THURSDAY","FRIDAY","SATURDAY","SUNDAY"];
@@ -79,9 +79,10 @@ export default function ProviderServiceManagement(){
   <h3>{services.find(s=>s.id===o.serviceId)?.name||o.serviceId}</h3>
   <p>{o.pricingModel} · {o.amount===null?"Quote on request":`INR ${o.amount}`}</p>
   {o.visitFee&&<p>Visit fee: INR {o.visitFee}</p>}
-  <p>{o.isActive?"Listed":"Paused"}</p>
-  <button disabled={busy} onClick={()=>void work(()=>api.patch(`/provider-offerings/me/${o.id}`,{isActive:!o.isActive}),o.isActive?"Offering paused":"Offering activated")}>
-  {o.isActive?"Pause offering":"Activate offering"}</button>
+  <p>{o.complianceSuspendedAt?"Compliance hold":""}{!o.complianceSuspendedAt?(o.isActive?"Listed":"Paused"):""}</p>
+  {o.complianceSuspendedAt&&<p role="alert">{o.complianceSuspensionReason||"This service is hidden until the compliance document is renewed and approved."}</p>}
+  <button disabled={busy||!!o.complianceSuspendedAt} onClick={()=>void work(()=>api.patch(`/provider-offerings/me/${o.id}`,{isActive:!o.isActive}),o.isActive?"Offering paused":"Offering activated")}>
+  {o.complianceSuspendedAt?"Awaiting document approval":o.isActive?"Pause offering":"Activate offering"}</button>
  </article>)}</div>
  <article style={{padding:18,border:"1px solid #D9E7DD",borderRadius:14,marginTop:20}}>
   <h3>Add a service</h3>
