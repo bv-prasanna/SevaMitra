@@ -780,6 +780,7 @@ model ProviderOffering {
 
   @@index([providerId])
   @@index([serviceId])
+  @@index([complianceSuspendedAt])
   @@map("provider_offerings")
   @@schema("marketplace")
 }
