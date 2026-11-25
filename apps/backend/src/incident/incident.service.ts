@@ -119,20 +119,23 @@ export class IncidentService {
       };
       if (current.slaPolicy) {
         const holidays = await this.holidaySet(now, tx);
+        const remainingTargets = [
+          current.slaPolicy.level1Minutes,
+          current.slaPolicy.level2Minutes,
+          current.slaPolicy.level3Minutes,
+        ].slice(Math.max(0, current.level - 1));
         deadlines = {
           acknowledgedAt: now,
           acknowledgeDueAt: null,
           resolveDueAt: addBusinessMinutes(
             now,
-            current.slaPolicy.level1Minutes +
-              current.slaPolicy.level2Minutes +
-              current.slaPolicy.level3Minutes,
+            remainingTargets.reduce((total, minutes) => total + minutes, 0),
             current.slaPolicy,
             holidays,
           ),
           nextEscalationAt: addBusinessMinutes(
             now,
-            current.slaPolicy.level1Minutes,
+            remainingTargets[0] ?? current.slaPolicy.level3Minutes,
             current.slaPolicy,
             holidays,
           ),
