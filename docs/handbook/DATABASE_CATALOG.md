@@ -687,7 +687,7 @@ Physical column names respect Prisma `@map`. Types are Prisma source types (not 
 | 'reviewed_at' | 'reviewedAt' | 'DateTime?' | — |
 | 'reviewed_by_id' | 'reviewedById' | 'String?' | — |
 | 'review_note' | 'reviewNote' | 'String?' | — |
-| 'renewal_of_id' | 'renewalOfId' | 'String?' | UNIQUE |
+| 'renewal_of_id' | 'renewalOfId' | 'String?' | — |
 | 'created_at' | 'createdAt' | 'DateTime' | @default(now() |
 
  **Composite keys/indexes:** `@@index([applicationId])`; `@@index([reviewStatus,expiresAt])`; `@@index([categoryId])`
