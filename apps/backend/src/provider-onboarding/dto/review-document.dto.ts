@@ -1,6 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { OnboardingDocumentReviewStatus } from '@prisma/client';
-import { IsIn, IsNotEmpty, IsOptional, IsString, MaxLength, ValidateIf } from 'class-validator';
+import { IsIn, IsNotEmpty, IsOptional, IsString, Matches, MaxLength, ValidateIf } from 'class-validator';
 
 export class ReviewDocumentDto {
   @ApiProperty({ enum: [OnboardingDocumentReviewStatus.APPROVED, OnboardingDocumentReviewStatus.REJECTED] })
@@ -16,6 +16,7 @@ export class ReviewDocumentDto {
     dto.decision === OnboardingDocumentReviewStatus.REJECTED || dto.reviewNote !== undefined)
   @IsString()
   @IsNotEmpty()
+  @Matches(/\S/)
   @MaxLength(1000)
   reviewNote?: string;
 }
