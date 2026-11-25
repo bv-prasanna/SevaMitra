@@ -1,4 +1,4 @@
-import { ConflictException, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
 import { OnboardingChannel, OnboardingStatus, ProviderStatus, VerificationStatus } from '@prisma/client';
 import { ApplicationService } from './application.service';
 import type { PrismaService } from '../prisma/prisma.service';
@@ -20,7 +20,10 @@ describe('ApplicationService', () => {
     onboardingDocument: {
       create: jest.Mock;
       findMany: jest.Mock;
+      findFirst: jest.Mock;
+      findUnique: jest.Mock;
     };
+    serviceCategory: { findUnique: jest.Mock };
   };
   let providerService: {
     getActiveProfileOrThrow: jest.Mock;
@@ -44,7 +47,8 @@ describe('ApplicationService', () => {
       },
       providerProfile: {updateMany: jest.fn().mockResolvedValue({count:1})},
       $transaction: jest.fn(),
-      onboardingDocument: { create: jest.fn(), findMany: jest.fn() },
+      onboardingDocument: { create: jest.fn(), findMany: jest.fn(), findFirst: jest.fn(), findUnique: jest.fn() },
+      serviceCategory: { findUnique: jest.fn().mockResolvedValue({id:'category-1',isActive:true}) },
     };
     prisma.$transaction.mockImplementation(async (run:(tx:unknown)=>Promise<unknown>)=>run(prisma));
     providerService = {
@@ -133,6 +137,69 @@ describe('ApplicationService', () => {
           reviewedAt: null,
         }),
       });
+    });
+  });
+
+  describe('addOwnDocument', () => {
+    beforeEach(() => {
+      prisma.onboardingApplication.findUnique.mockResolvedValue({
+        id: 'app-1', documents: [],
+      });
+      prisma.onboardingDocument.create.mockResolvedValue({ id: 'document-1' });
+    });
+
+    it('stores expiry date, category scope and private renewal linkage', async () => {
+      const expiry = new Date(Date.now() + 90 * 86_400_000).toISOString().slice(0, 10);
+      prisma.onboardingDocument.findFirst.mockResolvedValue({
+        id: 'document-old', applicationId: 'app-1', type: 'LICENSE', categoryId: 'category-1',
+      });
+      prisma.onboardingDocument.findUnique.mockResolvedValue(null);
+      await service.addOwnDocument('user-1', {
+        type: 'LICENSE', fileUrl: 'r2://sevamitra-private/onboarding/app-1/doc.pdf',
+        categoryId: 'category-1', expiresAt: expiry, renewalOfId: 'document-old',
+      });
+      expect(prisma.onboardingDocument.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          applicationId: 'app-1', categoryId: 'category-1',
+          expiresAt: new Date(expiry + 'T18:29:59.999Z'),
+          renewalOfId: 'document-old', reviewStatus: undefined,
+        }),
+      });
+    });
+
+    it('rejects past or malformed expiry dates', async () => {
+      const yesterday = new Date(Date.now() - 86_400_000).toISOString().slice(0, 10);
+      await expect(service.addOwnDocument('user-1', {
+        type: 'LICENSE', fileUrl: 'r2://private/key', expiresAt: yesterday,
+      })).rejects.toThrow(BadRequestException);
+      await expect(service.addOwnDocument('user-1', {
+        type: 'LICENSE', fileUrl: 'r2://private/key', expiresAt: '2026-99-99',
+      })).rejects.toThrow(BadRequestException);
+    });
+
+    it('rejects a renewal belonging to another application or a different category/type', async () => {
+      prisma.onboardingDocument.findFirst.mockResolvedValue({
+        id: 'document-old', applicationId: 'other-app', type: 'LICENSE', categoryId: 'category-1',
+      });
+      await expect(service.addOwnDocument('user-1', {
+        type: 'LICENSE', fileUrl: 'r2://private/key', categoryId: 'category-1', renewalOfId: 'document-old',
+      })).rejects.toThrow(NotFoundException);
+      prisma.onboardingDocument.findFirst.mockResolvedValue({
+        id: 'document-old', applicationId: 'app-1', type: 'IDENTITY', categoryId: 'category-1',
+      });
+      await expect(service.addOwnDocument('user-1', {
+        type: 'LICENSE', fileUrl: 'r2://private/key', categoryId: 'category-1', renewalOfId: 'document-old',
+      })).rejects.toThrow(ConflictException);
+    });
+
+    it('rejects a second renewal for the same original document', async () => {
+      prisma.onboardingDocument.findFirst.mockResolvedValue({
+        id: 'document-old', applicationId: 'app-1', type: 'LICENSE', categoryId: null,
+      });
+      prisma.onboardingDocument.findUnique.mockResolvedValue({ id: 'document-renewal' });
+      await expect(service.addOwnDocument('user-1', {
+        type: 'LICENSE', fileUrl: 'r2://private/key', renewalOfId: 'document-old',
+      })).rejects.toThrow(ConflictException);
     });
   });
 
