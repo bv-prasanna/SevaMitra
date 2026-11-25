@@ -137,6 +137,9 @@ export class ApplicationService {
       if (previous.reviewStatus === OnboardingDocumentReviewStatus.SUPERSEDED) {
         throw new ConflictException('Choose the latest current document, not one already superseded');
       }
+      if (previous.reviewStatus === OnboardingDocumentReviewStatus.PENDING) {
+        throw new ConflictException('Wait for the current document review before submitting another renewal');
+      }
       if (previous.type !== dto.type || previous.categoryId !== (dto.categoryId ?? null)) {
         throw new ConflictException('A renewal must match the original document type and category');
       }
