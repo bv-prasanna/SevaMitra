@@ -125,7 +125,8 @@ describe('DocumentComplianceService', () => {
     });
     expect(prisma.onboardingDocument.updateMany).toHaveBeenNthCalledWith(2, {
       where: {
-        id: 'doc-old', applicationId: 'app-1',
+        applicationId: 'app-1', id: { not: 'doc-1' },
+        type: OnboardingDocumentType.LICENSE, categoryId: 'category-a',
         reviewStatus: { not: OnboardingDocumentReviewStatus.SUPERSEDED },
       },
       data: { reviewStatus: OnboardingDocumentReviewStatus.SUPERSEDED },
