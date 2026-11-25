@@ -32,6 +32,7 @@ import { ReviewApplicationDto } from './dto/review-application.dto';
 import { ReviewDocumentDto } from './dto/review-document.dto';
 import { DocumentComplianceService } from './document-compliance.service';
 import { ApplicationDto } from './dto/responses/application.dto';
+import { DocumentDto } from './dto/responses/document.dto';
 import { ErrorResponseDto } from '../common/dto/error-response.dto';
 
 @ApiTags('Provider Onboarding')
