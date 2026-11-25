@@ -171,6 +171,7 @@ export class IncidentService {
         throw new ConflictException('Invalid incident transition');
       }
       let nextEscalationAt: Date | null | undefined;
+      let nextResolveDueAt: Date | undefined;
       if (dto.status === IncidentStatus.RESOLVED || dto.status === IncidentStatus.CLOSED) {
         nextEscalationAt = null;
       } else if (current.status === IncidentStatus.RESOLVED && dto.status === IncidentStatus.IN_PROGRESS && current.slaPolicy) {
@@ -181,7 +182,15 @@ export class IncidentService {
           : current.level === 2
             ? current.slaPolicy.level2Minutes
             : current.slaPolicy.level3Minutes;
+        const remainingTargets = [current.slaPolicy.level1Minutes, current.slaPolicy.level2Minutes, current.slaPolicy.level3Minutes]
+          .slice(Math.max(0, current.level - 1));
         nextEscalationAt = addBusinessMinutes(now, minutes, current.slaPolicy, holidays);
+        nextResolveDueAt = addBusinessMinutes(
+          now,
+          remainingTargets.reduce((total, target) => total + target, 0),
+          current.slaPolicy,
+          holidays,
+        );
       }
       const changed = await tx.incidentCase.updateMany({
         where: { id, status: current.status, assignedToId: actorId },
@@ -189,6 +198,7 @@ export class IncidentService {
           status: dto.status,
           closedAt: dto.status === IncidentStatus.CLOSED ? new Date() : null,
           ...(nextEscalationAt !== undefined ? { nextEscalationAt } : {}),
+          ...(nextResolveDueAt !== undefined ? { resolveDueAt: nextResolveDueAt } : {}),
         },
       });
       if (changed.count !== 1) {
@@ -211,7 +221,7 @@ export class IncidentService {
     return this.prisma.$transaction(async (tx) => {
       const current = await tx.incidentCase.findUnique({ where: { id }, include: { slaPolicy: true } });
       if (!current) throw new NotFoundException('Incident not found');
-      if (current.status === IncidentStatus.CLOSED || current.level >= 3) {
+      if ([IncidentStatus.CLOSED, IncidentStatus.RESOLVED].includes(current.status) || current.level >= 3) {
         throw new ConflictException('Incident already closed or at maximum escalation');
       }
       const nextLevel = current.level + 1;
