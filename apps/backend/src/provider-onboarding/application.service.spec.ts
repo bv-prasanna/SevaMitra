@@ -194,6 +194,24 @@ describe('ApplicationService', () => {
       })).rejects.toThrow(ConflictException);
     });
 
+    it('allows a private renewal to replace a legacy URL-based pending document', async () => {
+      prisma.onboardingDocument.findMany.mockResolvedValue([{
+        id: 'legacy-doc', reviewStatus: OnboardingDocumentReviewStatus.PENDING,
+      }]);
+      prisma.onboardingDocument.findFirst
+        .mockResolvedValueOnce({
+          id: 'legacy-doc', applicationId: 'app-1', type: OnboardingDocumentType.LICENSE,
+          categoryId: null, reviewStatus: OnboardingDocumentReviewStatus.PENDING,
+          fileUrl: 'https://legacy.example.com/license.pdf',
+        })
+        .mockResolvedValueOnce(null);
+      await service.addOwnDocument('user-1', {
+        type: OnboardingDocumentType.LICENSE, fileUrl: 'r2://sevamitra-private/onboarding/app-1/new.pdf',
+        renewalOfId: 'legacy-doc',
+      });
+      expect(prisma.onboardingDocument.create).toHaveBeenCalled();
+    });
+
     it('does not allow another upload while same-scope evidence is pending review', async () => {
       prisma.onboardingDocument.findMany.mockResolvedValue([{
         id: 'document-pending', reviewStatus: OnboardingDocumentReviewStatus.PENDING,
