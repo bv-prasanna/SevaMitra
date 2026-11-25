@@ -282,7 +282,10 @@ export class DocumentComplianceService {
       tx.onboardingDocument.findMany({
         where: {
           applicationId,
-          reviewStatus: { in: [...UNRESOLVED_DOCUMENT_STATES] },
+          OR: [
+            { reviewStatus: { in: [...UNRESOLVED_DOCUMENT_STATES] } },
+            { reviewStatus: OnboardingDocumentReviewStatus.APPROVED, expiresAt: { lte: new Date() } },
+          ],
         },
         select: { categoryId: true },
       }),
