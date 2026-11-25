@@ -25,6 +25,7 @@ export default function Provider(){
  async function submit(){setBusy(true);try{await api.post("/provider-onboarding/applications/me",referralCode.trim()?{referredByAgentCode:referralCode.trim().toUpperCase()}:{});await load();setNotice("Application submitted. You can track its status here.")}catch(e){setMsg(e instanceof Error?e.message:"Submission failed")}finally{setBusy(false)}}
  async function upload(){
   if(!uploadFile||!onboard)return;
+  if(renewalRequired&&!renewalOfId){setMsg("Select the existing document being replaced before uploading this renewal.");return}
   if(uploadFile.size>5*1024*1024){setMsg("File exceeds the 5 MB limit.");return}
   if(!["application/pdf","image/jpeg","image/png"].includes(uploadFile.type)){setMsg("Use PDF/JPG/PNG only.");return}
   setBusy(true);
@@ -43,6 +44,8 @@ export default function Provider(){
   if(kind==="complete"&&!confirm("Confirm service completion?"))return;
   setBusy(true);try{await api.post(`/bookings/provider/me/${b.id}/${kind}`,kind==="reject"?{reason:reasons[b.id]?.trim()??""}:{});setReasons(old=>({...old,[b.id]:""}));await load();setNotice(kind==="accept"?"Booking accepted.":kind==="reject"?"Booking rejected.":"Service marked as completed.");}catch(e){setMsg(e instanceof Error?e.message:"Booking update failed")}finally{setBusy(false)}
  }
+ const matchingDocuments=(onboard?.documents||[]).filter(d=>d.type===documentType&&(d.categoryId||"")===documentCategoryId&&d.reviewStatus!=="SUPERSEDED");
+ const renewalRequired=matchingDocuments.length>0;
  return <main>
  <section className="workspace">{notice&&<p role="status" aria-live="polite">{notice}</p>}<div className="workspaceTop"><div><div className="pill">Provider</div><h1>{profile?.fullName||"Provider registration"}</h1><p>{profile?`Account: ${profile.status} · Verification: ${profile.verificationStatus}`:msg}</p></div><div style={{display:"flex",gap:9,flexWrap:"wrap"}}><Link href="/provider/manage" className="primary">Manage services & coverage</Link><Link href="/profile">My profile</Link></div></div>
  {!!msg&&<p role="alert">{msg}</p>}
@@ -52,10 +55,10 @@ export default function Provider(){
  <label>Document type<select value={documentType} onChange={e=>{setDocumentType(e.target.value);setRenewalOfId("")}}>{["IDENTITY","ADDRESS_PROOF","BUSINESS_REGISTRATION","SKILL_CERTIFICATE","LICENSE","REFERENCE","OTHER"].map(t=><option value={t} key={t}>{t.replaceAll("_"," ")}</option>)}</select></label>
  <label>Service category scope<select value={documentCategoryId} onChange={e=>{setDocumentCategoryId(e.target.value);setRenewalOfId("")}}><option value="">All provider services</option>{categories.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select></label>
  <label>Expiry date (optional)<input type="date" value={documentExpiryDate} onChange={e=>setDocumentExpiryDate(e.target.value)}/></label>
- <label>Document being renewed (optional)<select value={renewalOfId} onChange={e=>setRenewalOfId(e.target.value)}><option value="">New evidence / not a renewal</option>{(onboard.documents||[]).filter(d=>d.type===documentType&&(d.categoryId||"")===documentCategoryId&&["APPROVED","EXPIRED","REJECTED"].includes(d.reviewStatus||"PENDING")&&!(onboard.documents||[]).some(renewal=>renewal.renewalOfId===d.id&&["PENDING","APPROVED"].includes(renewal.reviewStatus||"PENDING"))).map(d=><option key={d.id} value={d.id}>{d.type.replaceAll("_"," ")} · {d.reviewStatus||"PENDING"} · {d.id.slice(0,8)}</option>)}</select></label>
+ <label>Document being renewed {renewalRequired?"(required)":"(optional)"}<select required={renewalRequired} value={renewalOfId} onChange={e=>setRenewalOfId(e.target.value)}><option value="">New evidence / not a renewal</option>{matchingDocuments.filter(d=>["APPROVED","EXPIRED","REJECTED"].includes(d.reviewStatus||"PENDING")&&!(onboard.documents||[]).some(renewal=>renewal.renewalOfId===d.id&&["PENDING","APPROVED"].includes(renewal.reviewStatus||"PENDING"))).map(d=><option key={d.id} value={d.id}>{d.type.replaceAll("_"," ")} · {d.reviewStatus||"PENDING"} · {d.id.slice(0,8)}</option>)}</select></label>
  <input type="file" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" onChange={e=>setUploadFile(e.target.files?.[0]||null)}/>
  <button disabled={busy||!uploadFile} onClick={()=>void upload()}>Upload securely</button>
- <p>{onboard.documents?.length||0} document(s) submitted. Expiry dates are interpreted through the end of the selected date in India Standard Time.</p>
+ <p>{onboard.documents?.length||0} document(s) submitted. Expiry dates are interpreted through the end of the selected date in India Standard Time.</p>{matchingDocuments.some(d=>d.reviewStatus==="PENDING")&&<p role="status">A document of this type and category is already awaiting review. Wait for the reviewer decision before uploading another copy.</p>}
  <div className="adminModules">{(onboard.documents||[]).map(d=><article key={d.id}><h4>{d.type.replaceAll("_"," ")}</h4><p>Status: {d.reviewStatus||"PENDING"}</p><p>Scope: {categories.find(c=>c.id===d.categoryId)?.name||"All provider services"}</p><p>Expires: {d.expiresAt?new Date(d.expiresAt).toLocaleDateString():"No expiry date recorded"}</p>{d.reviewNote&&<p role="alert">Reviewer note: {d.reviewNote}</p>}</article>)}</div>
  </section>}</article>
  <p><Link href="/provider/manage">Configure pricing, service areas and working hours →</Link></p><h2 style={{marginTop:25}}>Bookings ({bookings.length})</h2>{bookings.length===0&&<p>No bookings assigned yet.</p>}
