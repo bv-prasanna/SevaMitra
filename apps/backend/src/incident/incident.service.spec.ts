@@ -135,6 +135,19 @@ describe('IncidentService', () => {
     expect(prisma.$transaction).toHaveBeenCalledTimes(1);
   });
 
+  it('continues the existing escalation tier when an overdue unclaimed case is acknowledged', async () => {
+    const now = Date.now();
+    const tieredPolicy = { ...policy, level1Minutes: 10, level2Minutes: 20, level3Minutes: 30 };
+    prisma.incidentCase.findUnique.mockResolvedValue({
+      ...current, status: IncidentStatus.OPEN, assignedToId: null, level: 2, slaPolicy: tieredPolicy,
+    });
+    await service.claim('case-1', 'reviewer-2');
+    const data = prisma.incidentCase.updateMany.mock.calls[0][0].data;
+    expect(data.nextEscalationAt.getTime()).toBeGreaterThanOrEqual(now + 20 * 60_000);
+    expect(data.nextEscalationAt.getTime()).toBeLessThan(now + 20 * 60_000 + 2_000);
+    expect(data.resolveDueAt.getTime()).toBeGreaterThanOrEqual(now + 50 * 60_000);
+  });
+
   it('prevents concurrent double claim without creating an activity', async () => {
     prisma.incidentCase.updateMany.mockResolvedValue({ count: 0 });
     await expect(service.claim('case-1', 'reviewer-2')).rejects.toThrow(ConflictException);
