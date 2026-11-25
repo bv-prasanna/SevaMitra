@@ -159,7 +159,7 @@ export class IncidentService {
   /** Only assigned owner may move a case through legal state transitions. */
   changeStatus(id: string, actorId: string, dto: ChangeIncidentStatusDto) {
     return this.prisma.$transaction(async (tx) => {
-      const current = await tx.incidentCase.findUnique({ where: { id } });
+      const current = await tx.incidentCase.findUnique({ where: { id }, include: { slaPolicy: true } });
       if (!current) throw new NotFoundException('Incident not found');
       if (current.assignedToId !== actorId) {
         throw new ForbiddenException('Only assigned owner can change status');
@@ -167,14 +167,25 @@ export class IncidentService {
       if (!allowed[current.status]?.includes(dto.status)) {
         throw new ConflictException('Invalid incident transition');
       }
+      let nextEscalationAt: Date | null | undefined;
+      if (dto.status === IncidentStatus.RESOLVED || dto.status === IncidentStatus.CLOSED) {
+        nextEscalationAt = null;
+      } else if (current.status === IncidentStatus.RESOLVED && dto.status === IncidentStatus.IN_PROGRESS && current.slaPolicy) {
+        const now = new Date();
+        const holidays = await this.holidaySet(now, tx);
+        const minutes = current.level === 1
+          ? current.slaPolicy.level1Minutes
+          : current.level === 2
+            ? current.slaPolicy.level2Minutes
+            : current.slaPolicy.level3Minutes;
+        nextEscalationAt = addBusinessMinutes(now, minutes, current.slaPolicy, holidays);
+      }
       const changed = await tx.incidentCase.updateMany({
         where: { id, status: current.status, assignedToId: actorId },
         data: {
           status: dto.status,
           closedAt: dto.status === IncidentStatus.CLOSED ? new Date() : null,
-          ...(dto.status === IncidentStatus.RESOLVED || dto.status === IncidentStatus.CLOSED
-            ? { nextEscalationAt: null }
-            : {}),
+          ...(nextEscalationAt !== undefined ? { nextEscalationAt } : {}),
         },
       });
       if (changed.count !== 1) {
@@ -195,14 +206,24 @@ export class IncidentService {
   /** Explicit human escalation remains available and is always audited. */
   escalate(id: string, actorId: string, note: string) {
     return this.prisma.$transaction(async (tx) => {
-      const current = await tx.incidentCase.findUnique({ where: { id } });
+      const current = await tx.incidentCase.findUnique({ where: { id }, include: { slaPolicy: true } });
       if (!current) throw new NotFoundException('Incident not found');
       if (current.status === IncidentStatus.CLOSED || current.level >= 3) {
         throw new ConflictException('Incident already closed or at maximum escalation');
       }
+      const nextLevel = current.level + 1;
+      let nextEscalationAt: Date | undefined;
+      if (current.slaPolicy) {
+        const now = new Date();
+        const holidays = await this.holidaySet(now, tx);
+        const minutes = nextLevel === 2
+          ? current.slaPolicy.level2Minutes
+          : current.slaPolicy.level3Minutes;
+        nextEscalationAt = addBusinessMinutes(now, minutes, current.slaPolicy, holidays);
+      }
       const changed = await tx.incidentCase.updateMany({
         where: { id, status: current.status, level: current.level },
-        data: { level: current.level + 1 },
+        data: { level: nextLevel, ...(nextEscalationAt ? { nextEscalationAt } : {}) },
       });
       if (changed.count !== 1) {
         throw new ConflictException('Incident changed concurrently');
@@ -211,7 +232,7 @@ export class IncidentService {
         data: {
           incidentId: id,
           actorId,
-          action: 'ESCALATED_L' + (current.level + 1),
+          action: 'ESCALATED_L' + nextLevel,
           note,
         },
       });
@@ -300,6 +321,11 @@ export class IncidentService {
     let escalated = 0;
     let breached = 0;
     let skipped = 0;
+    const earliestDue = due.reduce((earliest, item) =>
+      item.nextEscalationAt && item.nextEscalationAt < earliest ? item.nextEscalationAt : earliest,
+      now,
+    );
+    const holidays = due.length ? await this.holidaySet(earliestDue) : new Set<string>();
 
     for (const incident of due) {
       const policy = incident.slaPolicy;
@@ -318,11 +344,10 @@ export class IncidentService {
 
       const targetLevel = incident.level >= 3 ? 3 : incident.level + 1;
       const isBreach = targetLevel === 3 && incident.level >= 3;
-      const holidays = await this.holidaySet(now);
       const nextEscalationAt = isBreach
         ? null
         : addBusinessMinutes(
-            now,
+            incident.nextEscalationAt ?? now,
             targetLevel === 2 ? policy.level2Minutes : policy.level3Minutes,
             policy,
             holidays,
