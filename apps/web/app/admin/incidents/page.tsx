@@ -79,7 +79,7 @@ export default function IncidentAdminPage() {
       setHolidays(Array.isArray(holidayRows) ? holidayRows : []);
       setMessage("");
     } catch (error) {
-      setAllowed(false);
+      setAllowed(false); setIncidents([]); setPolicies([]); setHolidays([]);
       setMessage(error instanceof Error ? error.message : "Unable to load incident operations.");
     } finally {
       setBusy(false);
