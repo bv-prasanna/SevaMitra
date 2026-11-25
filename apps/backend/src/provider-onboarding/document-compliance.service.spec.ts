@@ -21,6 +21,7 @@ describe('DocumentComplianceService', () => {
     id: 'doc-1',
     applicationId: 'app-1',
     type: OnboardingDocumentType.LICENSE,
+    fileUrl: 'r2://sevamitra-private/onboarding/app-1/doc-1.pdf',
     categoryId: 'category-a',
     expiresAt: null,
     renewalOfId: null,
@@ -52,6 +53,16 @@ describe('DocumentComplianceService', () => {
     await expect(service.review('app-1', 'foreign-doc', 'reviewer-1', {
       decision: OnboardingDocumentReviewStatus.APPROVED,
     })).rejects.toThrow(NotFoundException);
+  });
+
+  it('requires a private object before approving a legacy external reference', async () => {
+    prisma.onboardingDocument.findFirst.mockResolvedValue({
+      ...document, fileUrl: 'https://legacy.example.com/license.pdf',
+    });
+    await expect(service.review('app-1', 'doc-1', 'reviewer-1', {
+      decision: OnboardingDocumentReviewStatus.APPROVED,
+    })).rejects.toThrow(ConflictException);
+    expect(prisma.$transaction).not.toHaveBeenCalled();
   });
 
   it('rejects approval of already expired evidence and asks for a renewal', async () => {
