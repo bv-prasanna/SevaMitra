@@ -4,6 +4,7 @@ import type {IncidentService} from './incident.service';
 import {IncidentCustomerController,IncidentAdminController} from './incident.controller';
 import {IncidentStatus} from '@prisma/client';
 import {ChangeIncidentStatusDto,EscalateIncidentDto,IncidentListDto,OpenIncidentDto} from './incident.dto';
+import {CreateIncidentSlaHolidayDto,CreateIncidentSlaPolicyDto} from './incident-sla.dto';
 import {PERMISSIONS_KEY} from '../iam/authorization/require-permissions.decorator';
 
 describe('Incident routes and validation',()=>{
@@ -11,6 +12,7 @@ describe('Incident routes and validation',()=>{
  let service:{
   open:jest.Mock;mine:jest.Mock;mineOne:jest.Mock;
   list:jest.Mock;detail:jest.Mock;claim:jest.Mock;changeStatus:jest.Mock;escalate:jest.Mock;
+  listSlaPolicies:jest.Mock;createSlaPolicy:jest.Mock;approveSlaPolicy:jest.Mock;listSlaHolidays:jest.Mock;createSlaHoliday:jest.Mock;
  };
  let customer:IncidentCustomerController,admin:IncidentAdminController;
  beforeEach(()=>{
@@ -23,6 +25,11 @@ describe('Incident routes and validation',()=>{
    claim:jest.fn().mockResolvedValue({id:incidentId}),
    changeStatus:jest.fn().mockResolvedValue({id:incidentId}),
    escalate:jest.fn().mockResolvedValue({id:incidentId}),
+   listSlaPolicies:jest.fn().mockResolvedValue([]),
+   createSlaPolicy:jest.fn().mockResolvedValue({id:'policy-1',enabled:false}),
+   approveSlaPolicy:jest.fn().mockResolvedValue({id:'policy-1',enabled:true}),
+   listSlaHolidays:jest.fn().mockResolvedValue([]),
+   createSlaHoliday:jest.fn().mockResolvedValue({id:'holiday-1'}),
   };
   customer=new IncidentCustomerController(service as unknown as IncidentService);
   admin=new IncidentAdminController(service as unknown as IncidentService);
@@ -46,6 +53,25 @@ describe('Incident routes and validation',()=>{
   await admin.detail(incidentId);
   expect(service.list).toHaveBeenCalledWith(IncidentStatus.OPEN);
   expect(service.detail).toHaveBeenCalledWith(incidentId);
+ });
+ it('allows an incident manager to configure, approve and inspect SLA policies and holidays',async()=>{
+  const policy:CreateIncidentSlaPolicyDto={
+   name:'P2 weekday support',severity:'P2' as never,category:'SERVICE_ISSUE',
+   acknowledgeMinutes:30,level1Minutes:60,level2Minutes:60,level3Minutes:60,
+   businessHoursOnly:true,businessStartMinute:540,businessEndMinute:1020,
+   workingDays:[1,2,3,4,5],timezone:'Asia/Kolkata',
+  };
+  const holiday:CreateIncidentSlaHolidayDto={date:'2026-12-25',label:'Public holiday'};
+  await admin.listSlaPolicies();
+  await admin.createSlaPolicy(user,policy);
+  await admin.approveSlaPolicy('policy-1',user);
+  await admin.listSlaHolidays();
+  await admin.createSlaHoliday(user,holiday);
+  expect(service.listSlaPolicies).toHaveBeenCalled();
+  expect(service.createSlaPolicy).toHaveBeenCalledWith('user-1',policy);
+  expect(service.approveSlaPolicy).toHaveBeenCalledWith('policy-1','user-1');
+  expect(service.listSlaHolidays).toHaveBeenCalled();
+  expect(service.createSlaHoliday).toHaveBeenCalledWith('user-1',holiday);
  });
  it('takes reviewer identity from the validated JWT when claiming an incident',async()=>{
   await admin.claim(incidentId,user);
