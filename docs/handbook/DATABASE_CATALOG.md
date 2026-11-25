@@ -7,7 +7,7 @@
 ## Physical table inventory
 
 | PostgreSQL schema | Physical table | Prisma model | Scalar columns | Foreign-key relations |
-| --- | --- | --- | ---: | --- |
+| --- | --- | --- | ---: | ---: |
 | auth | users | User | 6 | 0 |
 | auth | credentials | Credential | 5 | 1 |
 | auth | oauth_identities | OauthIdentity | 5 | 1 |
@@ -107,7 +107,7 @@ Physical column names respect Prisma `@map`. Types are Prisma source types (not 
 | 'provider_user_id' | 'providerUserId' | 'String' | — |
 | 'created_at' | 'createdAt' | 'DateTime' | @default(now() |
 
-**Composite keys/indexes:** `@@unique([provider, providerUserId])`
+ **Composite keys/indexes:** `@@unique([provider, providerUserId])`
 
 **Declared foreign-key fields:** `userId` → `User.id`
 
@@ -124,7 +124,7 @@ Physical column names respect Prisma `@map`. Types are Prisma source types (not 
 | 'created_by_ip' | 'createdByIp' | 'String?' | — |
 | 'created_at' | 'createdAt' | 'DateTime' | @default(now() |
 
-**Composite keys/indexes:** `@@index([userId])`
+ **Composite keys/indexes:** `@@index([userId])`
 
 **Declared foreign-key fields:** `userId` → `User.id`; `deviceId` → `TrustedDevice.id`
 
@@ -140,7 +140,7 @@ Physical column names respect Prisma `@map`. Types are Prisma source types (not 
 | 'last_seen_at' | 'lastSeenAt' | 'DateTime' | @default(now() |
 | 'revoked_at' | 'revokedAt' | 'DateTime?' | — |
 
-**Composite keys/indexes:** `@@index([userId,revokedAt])`
+ **Composite keys/indexes:** `@@index([userId,revokedAt])`
 
 **Declared foreign-key fields:** `userId` → `User.id`
 
@@ -160,7 +160,7 @@ Physical column names respect Prisma `@map`. Types are Prisma source types (not 
 | 'consumed_at' | 'consumedAt' | 'DateTime?' | — |
 | 'created_at' | 'createdAt' | 'DateTime' | @default(now() |
 
-**Composite keys/indexes:** `@@index([phoneNumber, purpose])`
+ **Composite keys/indexes:** `@@index([phoneNumber, purpose])`
 
 **Declared foreign-key fields:** `userId` → `User.id`
 
@@ -192,7 +192,7 @@ Physical column names respect Prisma `@map`. Types are Prisma source types (not 
 | 'permission_id' | 'permissionId' | 'String' | — |
 | 'created_at' | 'createdAt' | 'DateTime' | @default(now() |
 
-**Composite keys/indexes:** `@@id([roleId, permissionId])`
+ **Composite keys/indexes:** `@@id([roleId, permissionId])`
 
 **Declared foreign-key fields:** `roleId` → `Role.id`; `permissionId` → `Permission.id`
 
@@ -209,7 +209,7 @@ Physical column names respect Prisma `@map`. Types are Prisma source types (not 
 | 'assigned_at' | 'assignedAt' | 'DateTime' | @default(now() |
 | 'revoked_at' | 'revokedAt' | 'DateTime?' | — |
 
-**Composite keys/indexes:** `@@index([userId])`; `@@index([roleId])`
+ **Composite keys/indexes:** `@@index([userId])`; `@@index([roleId])`
 
 **Declared foreign-key fields:** `userId` → `User.id`; `roleId` → `Role.id`
 
@@ -233,7 +233,7 @@ Physical column names respect Prisma `@map`. Types are Prisma source types (not 
 | 'created_at' | 'createdAt' | 'DateTime' | @default(now() |
 | 'updated_at' | 'updatedAt' | 'DateTime' | updatedAt |
 
-**Composite keys/indexes:** `@@index([bookingId])`; `@@unique([bookingId, clientRequestId])`
+ **Composite keys/indexes:** `@@index([bookingId])`; `@@unique([bookingId, clientRequestId])`
 
 **Declared foreign-key fields:** `bookingId` → `Booking.id`
 
@@ -260,7 +260,7 @@ Physical column names respect Prisma `@map`. Types are Prisma source types (not 
 | 'created_at' | 'createdAt' | 'DateTime' | @default(now() |
 | 'updated_at' | 'updatedAt' | 'DateTime' | updatedAt |
 
-**Composite keys/indexes:** `@@index([scopeType])`; `@@index([categoryId])`; `@@index([serviceId])`; `@@index([providerId])`; `@@index([townVillageId])`; `@@index([stateId])`; `@@index([providerCompanyId])`; `@@index([providerGroupId])`; `@@index([scopeType, effectiveFrom, effectiveTo])`
+ **Composite keys/indexes:** `@@index([scopeType])`; `@@index([categoryId])`; `@@index([serviceId])`; `@@index([providerId])`; `@@index([townVillageId])`; `@@index([stateId])`; `@@index([providerCompanyId])`; `@@index([providerGroupId])`; `@@index([scopeType, effectiveFrom, effectiveTo])`
 
 **Declared foreign-key fields:** `categoryId` → `ServiceCategory.id`; `serviceId` → `Service.id`; `providerId` → `ProviderProfile.id`; `townVillageId` → `TownVillage.id`
 
@@ -279,7 +279,7 @@ Physical column names respect Prisma `@map`. Types are Prisma source types (not 
 | 'calculated_at' | 'calculatedAt' | 'DateTime' | @default(now() |
 | 'settlement_id' | 'settlementId' | 'String?' | — |
 
-**Composite keys/indexes:** `@@index([appliedRuleId])`; `@@index([settlementId])`
+ **Composite keys/indexes:** `@@index([appliedRuleId])`; `@@index([settlementId])`
 
 **Declared foreign-key fields:** `bookingId` → `Booking.id`; `appliedRuleId` → `CommissionRule.id`; `settlementId` → `Settlement.id`
 
@@ -304,7 +304,7 @@ Physical column names respect Prisma `@map`. Types are Prisma source types (not 
 | 'created_at' | 'createdAt' | 'DateTime' | @default(now() |
 | 'updated_at' | 'updatedAt' | 'DateTime' | updatedAt |
 
-**Composite keys/indexes:** `@@index([scopeType])`; `@@index([scopeType, effectiveFrom, effectiveTo])`
+ **Composite keys/indexes:** `@@index([scopeType])`; `@@index([scopeType, effectiveFrom, effectiveTo])`
 
 **Declared foreign-key fields:** `categoryId` → `ServiceCategory.id`; `serviceId` → `Service.id`; `providerId` → `ProviderProfile.id`; `townVillageId` → `TownVillage.id`
 
@@ -327,7 +327,7 @@ Physical column names respect Prisma `@map`. Types are Prisma source types (not 
 | 'created_at' | 'createdAt' | 'DateTime' | @default(now() |
 | 'updated_at' | 'updatedAt' | 'DateTime' | updatedAt |
 
-**Composite keys/indexes:** `@@index([providerId])`
+ **Composite keys/indexes:** `@@index([providerId])`
 
 **Declared foreign-key fields:** `providerId` → `ProviderProfile.id`
 
@@ -350,7 +350,7 @@ Physical column names respect Prisma `@map`. Types are Prisma source types (not 
 | 'created_at' | 'createdAt' | 'DateTime' | @default(now() |
 | 'updated_at' | 'updatedAt' | 'DateTime' | updatedAt |
 
-**Composite keys/indexes:** `@@unique([provider, eventId])`; `@@index([status, nextAttemptAt])`; `@@index([status, leaseUntil])`
+ **Composite keys/indexes:** `@@unique([provider, eventId])`; `@@index([status, nextAttemptAt])`; `@@index([status, leaseUntil])`
 
 #### `finance.refund_policies` — `RefundPolicy`
 
@@ -374,7 +374,7 @@ Physical column names respect Prisma `@map`. Types are Prisma source types (not 
 | 'created_at' | 'createdAt' | 'DateTime' | @default(now() |
 | 'updated_at' | 'updatedAt' | 'DateTime' | updatedAt |
 
-**Composite keys/indexes:** `@@index([scopeType])`; `@@index([scopeType, effectiveFrom, effectiveTo])`; `@@index([reason])`
+ **Composite keys/indexes:** `@@index([scopeType])`; `@@index([scopeType, effectiveFrom, effectiveTo])`; `@@index([reason])`
 
 **Declared foreign-key fields:** `categoryId` → `ServiceCategory.id`; `serviceId` → `Service.id`; `providerId` → `ProviderProfile.id`; `townVillageId` → `TownVillage.id`
 
@@ -400,7 +400,7 @@ Physical column names respect Prisma `@map`. Types are Prisma source types (not 
 | 'created_at' | 'createdAt' | 'DateTime' | @default(now() |
 | 'updated_at' | 'updatedAt' | 'DateTime' | updatedAt |
 
-**Composite keys/indexes:** `@@index([appliedPolicyId])`
+ **Composite keys/indexes:** `@@index([appliedPolicyId])`
 
 **Declared foreign-key fields:** `bookingId` → `Booking.id`; `appliedPolicyId` → `RefundPolicy.id`
 
@@ -434,7 +434,7 @@ Physical column names respect Prisma `@map`. Types are Prisma source types (not 
 | 'assessed_at' | 'assessedAt' | 'DateTime?' | — |
 | 'created_at' | 'createdAt' | 'DateTime' | @default(now() |
 
-**Composite keys/indexes:** `@@index([providerId])`
+ **Composite keys/indexes:** `@@index([providerId])`
 
 #### `finance.tax_ledger_entries` — `TaxLedgerEntry`
 
@@ -448,7 +448,7 @@ Physical column names respect Prisma `@map`. Types are Prisma source types (not 
 | 'reference' | 'reference' | 'String?' | — |
 | 'recorded_at' | 'recordedAt' | 'DateTime' | @default(now() |
 
-**Composite keys/indexes:** `@@index([assessmentId])`
+ **Composite keys/indexes:** `@@index([assessmentId])`
 
 **Declared foreign-key fields:** `assessmentId` → `TaxAssessment.id`
 
@@ -473,7 +473,7 @@ Physical column names respect Prisma `@map`. Types are Prisma source types (not 
 | 'created_at' | 'createdAt' | 'DateTime' | @default(now() |
 | 'updated_at' | 'updatedAt' | 'DateTime' | updatedAt |
 
-**Composite keys/indexes:** `@@index([enabled,component])`; `@@index([geoScope,geoId])`; `@@index([targetScope,targetId])`
+ **Composite keys/indexes:** `@@index([enabled,component])`; `@@index([geoScope,geoId])`; `@@index([targetScope,targetId])`
 
 #### `finance.pricing_rules` — `FinancePriceRule`
 
@@ -499,7 +499,7 @@ Physical column names respect Prisma `@map`. Types are Prisma source types (not 
 | 'created_at' | 'createdAt' | 'DateTime' | @default(now() |
 | 'updated_at' | 'updatedAt' | 'DateTime' | updatedAt |
 
-**Composite keys/indexes:** `@@index([enabled,priority])`; `@@index([geoScope,geoId])`; `@@index([targetScope,targetId])`
+ **Composite keys/indexes:** `@@index([enabled,priority])`; `@@index([geoScope,geoId])`; `@@index([targetScope,targetId])`
 
 #### `finance.booking_price_snapshots` — `BookingPriceSnapshot`
 
@@ -550,7 +550,7 @@ Physical column names respect Prisma `@map`. Types are Prisma source types (not 
 | 'issued_at' | 'issuedAt' | 'DateTime?' | — |
 | 'created_at' | 'createdAt' | 'DateTime' | @default(now() |
 
-**Composite keys/indexes:** `@@index([status,createdAt])`
+ **Composite keys/indexes:** `@@index([status,createdAt])`
 
 **Declared foreign-key fields:** `bookingId` → `Booking.id`
 
@@ -599,7 +599,7 @@ Physical column names respect Prisma `@map`. Types are Prisma source types (not 
 | 'created_at' | 'createdAt' | 'DateTime' | @default(now() |
 | 'updated_at' | 'updatedAt' | 'DateTime' | updatedAt |
 
-**Composite keys/indexes:** `@@index([customerId])`
+ **Composite keys/indexes:** `@@index([customerId])`
 
 **Declared foreign-key fields:** `customerId` → `CustomerProfile.id`
 
@@ -690,7 +690,7 @@ Physical column names respect Prisma `@map`. Types are Prisma source types (not 
 | 'renewal_of_id' | 'renewalOfId' | 'String?' | UNIQUE |
 | 'created_at' | 'createdAt' | 'DateTime' | @default(now() |
 
-**Composite keys/indexes:** `@@index([applicationId])`; `@@index([reviewStatus,expiresAt])`; `@@index([categoryId])`
+ **Composite keys/indexes:** `@@index([applicationId])`; `@@index([reviewStatus,expiresAt])`; `@@index([categoryId])`
 
 **Declared foreign-key fields:** `applicationId` → `OnboardingApplication.id`; `categoryId` → `ServiceCategory.id`; `reviewedById` → `User.id`; `renewalOfId` → `OnboardingDocument.id`
 
@@ -722,7 +722,7 @@ Physical column names respect Prisma `@map`. Types are Prisma source types (not 
 | 'created_at' | 'createdAt' | 'DateTime' | @default(now() |
 | 'updated_at' | 'updatedAt' | 'DateTime' | updatedAt |
 
-**Composite keys/indexes:** `@@index([categoryId])`
+ **Composite keys/indexes:** `@@index([categoryId])`
 
 **Declared foreign-key fields:** `categoryId` → `ServiceCategory.id`
 
@@ -738,7 +738,7 @@ Physical column names respect Prisma `@map`. Types are Prisma source types (not 
 | 'created_at' | 'createdAt' | 'DateTime' | @default(now() |
 | 'updated_at' | 'updatedAt' | 'DateTime' | updatedAt |
 
-**Composite keys/indexes:** `@@index([serviceId])`
+ **Composite keys/indexes:** `@@index([serviceId])`
 
 **Declared foreign-key fields:** `serviceId` → `Service.id`
 
@@ -762,7 +762,7 @@ Physical column names respect Prisma `@map`. Types are Prisma source types (not 
 | 'created_at' | 'createdAt' | 'DateTime' | @default(now() |
 | 'updated_at' | 'updatedAt' | 'DateTime' | updatedAt |
 
-**Composite keys/indexes:** `@@index([providerId])`; `@@index([serviceId])`; `@@index([complianceSuspendedAt])`
+ **Composite keys/indexes:** `@@index([providerId])`; `@@index([serviceId])`; `@@index([complianceSuspendedAt])`
 
 **Declared foreign-key fields:** `providerId` → `ProviderProfile.id`; `serviceId` → `Service.id`; `variantId` → `ServiceVariant.id`
 
@@ -789,7 +789,7 @@ Physical column names respect Prisma `@map`. Types are Prisma source types (not 
 | 'created_at' | 'createdAt' | 'DateTime' | @default(now() |
 | 'updated_at' | 'updatedAt' | 'DateTime' | updatedAt |
 
-**Composite keys/indexes:** `@@unique([stateId, name])`; `@@index([stateId])`
+ **Composite keys/indexes:** `@@unique([stateId, name])`; `@@index([stateId])`
 
 **Declared foreign-key fields:** `stateId` → `State.id`
 
@@ -804,7 +804,7 @@ Physical column names respect Prisma `@map`. Types are Prisma source types (not 
 | 'created_at' | 'createdAt' | 'DateTime' | @default(now() |
 | 'updated_at' | 'updatedAt' | 'DateTime' | updatedAt |
 
-**Composite keys/indexes:** `@@unique([districtId, name])`; `@@index([districtId])`
+ **Composite keys/indexes:** `@@unique([districtId, name])`; `@@index([districtId])`
 
 **Declared foreign-key fields:** `districtId` → `District.id`
 
@@ -822,7 +822,7 @@ Physical column names respect Prisma `@map`. Types are Prisma source types (not 
 | 'created_at' | 'createdAt' | 'DateTime' | @default(now() |
 | 'updated_at' | 'updatedAt' | 'DateTime' | updatedAt |
 
-**Composite keys/indexes:** `@@unique([talukId, name])`; `@@index([talukId])`; `@@index([pincode])`
+ **Composite keys/indexes:** `@@unique([talukId, name])`; `@@index([talukId])`; `@@index([pincode])`
 
 **Declared foreign-key fields:** `talukId` → `Taluk.id`
 
@@ -854,7 +854,7 @@ Physical column names respect Prisma `@map`. Types are Prisma source types (not 
 | 'created_at' | 'createdAt' | 'DateTime' | @default(now() |
 | 'updated_at' | 'updatedAt' | 'DateTime' | updatedAt |
 
-**Composite keys/indexes:** `@@unique([providerId, townVillageId])`; `@@index([providerId])`; `@@index([townVillageId])`
+ **Composite keys/indexes:** `@@unique([providerId, townVillageId])`; `@@index([providerId])`; `@@index([townVillageId])`
 
 **Declared foreign-key fields:** `providerId` → `ProviderProfile.id`; `townVillageId` → `TownVillage.id`
 
@@ -884,7 +884,7 @@ Physical column names respect Prisma `@map`. Types are Prisma source types (not 
 | 'created_at' | 'createdAt' | 'DateTime' | @default(now() |
 | 'updated_at' | 'updatedAt' | 'DateTime' | updatedAt |
 
-**Composite keys/indexes:** `@@index([providerId])`; `@@index([providerId, dayOfWeek])`
+ **Composite keys/indexes:** `@@index([providerId])`; `@@index([providerId, dayOfWeek])`
 
 **Declared foreign-key fields:** `providerId` → `ProviderProfile.id`
 
@@ -903,7 +903,7 @@ Physical column names respect Prisma `@map`. Types are Prisma source types (not 
 | 'created_at' | 'createdAt' | 'DateTime' | @default(now() |
 | 'updated_at' | 'updatedAt' | 'DateTime' | updatedAt |
 
-**Composite keys/indexes:** `@@index([providerId])`; `@@index([providerId, startDate, endDate])`
+ **Composite keys/indexes:** `@@index([providerId])`; `@@index([providerId, startDate, endDate])`
 
 **Declared foreign-key fields:** `providerId` → `ProviderProfile.id`
 
@@ -935,7 +935,7 @@ Physical column names respect Prisma `@map`. Types are Prisma source types (not 
 | 'created_at' | 'createdAt' | 'DateTime' | @default(now() |
 | 'updated_at' | 'updatedAt' | 'DateTime' | updatedAt |
 
-**Composite keys/indexes:** `@@index([customerId])`; `@@unique([customerId, clientRequestId])`; `@@index([offeringId])`; `@@index([townVillageId])`
+ **Composite keys/indexes:** `@@index([customerId])`; `@@unique([customerId, clientRequestId])`; `@@index([offeringId])`; `@@index([townVillageId])`
 
 **Declared foreign-key fields:** `customerId` → `CustomerProfile.id`; `offeringId` → `ProviderOffering.id`; `townVillageId` → `TownVillage.id`
 
@@ -950,7 +950,7 @@ Physical column names respect Prisma `@map`. Types are Prisma source types (not 
 | 'created_at' | 'createdAt' | 'DateTime' | @default(now() |
 | 'updated_at' | 'updatedAt' | 'DateTime' | updatedAt |
 
-**Composite keys/indexes:** `@@unique([ownerUserId, name])`; `@@index([ownerUserId])`
+ **Composite keys/indexes:** `@@unique([ownerUserId, name])`; `@@index([ownerUserId])`
 
 #### `marketplace.provider_groups` — `ProviderGroup`
 
@@ -961,7 +961,7 @@ Physical column names respect Prisma `@map`. Types are Prisma source types (not 
 | 'name' | 'name' | 'String' | — |
 | 'created_at' | 'createdAt' | 'DateTime' | @default(now() |
 
-**Composite keys/indexes:** `@@unique([companyId, name])`
+ **Composite keys/indexes:** `@@unique([companyId, name])`
 
 **Declared foreign-key fields:** `companyId` → `ProviderCompany.id`
 
@@ -978,7 +978,7 @@ Physical column names respect Prisma `@map`. Types are Prisma source types (not 
 | 'is_active' | 'isActive' | 'Boolean' | @default(false) |
 | 'created_at' | 'createdAt' | 'DateTime' | @default(now() |
 
-**Composite keys/indexes:** `@@index([companyId])`
+ **Composite keys/indexes:** `@@index([companyId])`
 
 **Declared foreign-key fields:** `companyId` → `ProviderCompany.id`; `groupId` → `ProviderGroup.id`
 
@@ -993,7 +993,7 @@ Physical column names respect Prisma `@map`. Types are Prisma source types (not 
 | 'status' | 'status' | 'OrganizationStatus' | @default(PENDING) |
 | 'joined_at' | 'joinedAt' | 'DateTime' | @default(now() |
 
-**Composite keys/indexes:** `@@index([companyId])`; `@@index([groupId])`
+ **Composite keys/indexes:** `@@index([companyId])`; `@@index([groupId])`
 
 **Declared foreign-key fields:** `providerId` → `ProviderProfile.id`; `companyId` → `ProviderCompany.id`; `groupId` → `ProviderGroup.id`
 
@@ -1027,7 +1027,7 @@ Physical column names respect Prisma `@map`. Types are Prisma source types (not 
 | 'outcome' | 'outcome' | 'String' | @default("SUCCESS") |
 | 'created_at' | 'createdAt' | 'DateTime' | @default(now() |
 
-**Composite keys/indexes:** `@@index([actorUserId])`; `@@index([routePath])`
+ **Composite keys/indexes:** `@@index([actorUserId])`; `@@index([routePath])`
 
 **Declared foreign-key fields:** `actorUserId` → `User.id`
 
@@ -1050,7 +1050,7 @@ Physical column names respect Prisma `@map`. Types are Prisma source types (not 
 | 'read_at' | 'readAt' | 'DateTime?' | — |
 | 'created_at' | 'createdAt' | 'DateTime' | @default(now() |
 
-**Composite keys/indexes:** `@@index([userId])`; `@@index([status, nextAttemptAt])`
+ **Composite keys/indexes:** `@@index([userId])`; `@@index([status, nextAttemptAt])`
 
 **Declared foreign-key fields:** `userId` → `User.id`
 
@@ -1065,7 +1065,7 @@ Physical column names respect Prisma `@map`. Types are Prisma source types (not 
 | 'is_active' | 'isActive' | 'Boolean' | @default(true) |
 | 'updated_at' | 'updatedAt' | 'DateTime' | updatedAt |
 
-**Composite keys/indexes:** `@@index([userId])`
+ **Composite keys/indexes:** `@@index([userId])`
 
 **Declared foreign-key fields:** `userId` → `User.id`
 
@@ -1098,7 +1098,7 @@ Physical column names respect Prisma `@map`. Types are Prisma source types (not 
 | 'created_at' | 'createdAt' | 'DateTime' | @default(now() |
 | 'updated_at' | 'updatedAt' | 'DateTime' | updatedAt |
 
-**Composite keys/indexes:** `@@index([status,createdAt])`; `@@index([reporterId,createdAt])`; `@@index([assignedToId,status])`
+ **Composite keys/indexes:** `@@index([status,createdAt])`; `@@index([reporterId,createdAt])`; `@@index([assignedToId,status])`
 
 **Declared foreign-key fields:** `reporterId` → `User.id`; `assignedToId` → `User.id`
 
@@ -1113,7 +1113,7 @@ Physical column names respect Prisma `@map`. Types are Prisma source types (not 
 | 'note' | 'note' | 'String?' | — |
 | 'created_at' | 'createdAt' | 'DateTime' | @default(now() |
 
-**Composite keys/indexes:** `@@index([incidentId,createdAt])`
+ **Composite keys/indexes:** `@@index([incidentId,createdAt])`
 
 **Declared foreign-key fields:** `incidentId` → `IncidentCase.id`; `actorId` → `User.id`
 
