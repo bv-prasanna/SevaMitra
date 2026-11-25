@@ -150,10 +150,12 @@ describe('ApplicationService', () => {
 
     it('stores expiry date, category scope and private renewal linkage', async () => {
       const expiry = new Date(Date.now() + 90 * 86_400_000).toISOString().slice(0, 10);
-      prisma.onboardingDocument.findFirst.mockResolvedValue({
-        id: 'document-old', applicationId: 'app-1', type: OnboardingDocumentType.LICENSE, categoryId: 'category-1',
-      });
-      prisma.onboardingDocument.findUnique.mockResolvedValue(null);
+      prisma.onboardingDocument.findFirst
+        .mockResolvedValueOnce({
+          id: 'document-old', applicationId: 'app-1', type: OnboardingDocumentType.LICENSE, categoryId: 'category-1',
+          reviewStatus: OnboardingDocumentReviewStatus.EXPIRED,
+        })
+        .mockResolvedValueOnce(null);
       await service.addOwnDocument('user-1', {
         type: OnboardingDocumentType.LICENSE, fileUrl: 'r2://sevamitra-private/onboarding/app-1/doc.pdf',
         categoryId: 'category-1', expiresAt: expiry, renewalOfId: 'document-old',
@@ -184,7 +186,7 @@ describe('ApplicationService', () => {
       await expect(service.addOwnDocument('user-1', {
         type: OnboardingDocumentType.LICENSE, fileUrl: 'r2://private/key', categoryId: 'category-1', renewalOfId: 'document-old',
       })).rejects.toThrow(NotFoundException);
-      prisma.onboardingDocument.findFirst.mockResolvedValue({
+      prisma.onboardingDocument.findFirst.mockResolvedValueOnce({
         id: 'document-old', applicationId: 'app-1', type: OnboardingDocumentType.IDENTITY, categoryId: 'category-1',
       });
       await expect(service.addOwnDocument('user-1', {
