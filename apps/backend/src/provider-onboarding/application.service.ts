@@ -8,6 +8,7 @@ import {
   OnboardingApplication,
   OnboardingChannel,
   OnboardingDocument,
+  OnboardingDocumentReviewStatus,
   OnboardingStatus,
   ProviderStatus,
   VerificationStatus,
@@ -213,6 +214,18 @@ export class ApplicationService {
     if (application.status === OnboardingStatus.UNDER_REVIEW &&
         application.reviewedBy && application.reviewedBy !== reviewerId) {
       throw new ConflictException('This application is claimed by another reviewer');
+    }
+    if (dto.decision === OnboardingStatus.APPROVED) {
+      const now = Date.now();
+      const unresolvedDocument = application.documents.find((document) =>
+        document.reviewStatus !== OnboardingDocumentReviewStatus.APPROVED ||
+        (document.expiresAt && document.expiresAt.getTime() <= now),
+      );
+      if (unresolvedDocument) {
+        throw new ConflictException(
+          'Approve or renew every submitted compliance document before approving this provider application',
+        );
+      }
     }
 
     // Atomic compare-and-set decision and provider verification. If the
