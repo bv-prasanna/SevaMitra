@@ -2,7 +2,7 @@ import { createHmac, timingSafeEqual } from 'node:crypto';
 
 // Keep this signed message synchronized with the Cloudflare incident cron worker.
 export const INCIDENT_SLA_CRON_MESSAGE =
-  'SevaMitra.IncidentSla.v1\\nPOST\\n/api/v1/internal/incidents/sla/process-due\\n';
+  'SevaMitra.IncidentSla.v1\nPOST\n/api/v1/internal/incidents/sla/process-due\n';
 
 export function validIncidentSlaCronSignature(
   secret: string | undefined,
@@ -12,7 +12,7 @@ export function validIncidentSlaCronSignature(
 ): boolean {
   if (
     !secret || secret.length < 32 ||
-    !timestamp || !/^\\d{13}$/.test(timestamp) ||
+    !timestamp || !/^\d{13}$/.test(timestamp) ||
     !signature || !/^[a-fA-F0-9]{64}$/.test(signature)
   ) return false;
   const requestTime = Number(timestamp);
