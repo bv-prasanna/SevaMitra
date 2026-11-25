@@ -6,12 +6,12 @@ interface Env {
 const JOBS = [
   {
     path: '/api/v1/internal/notifications/retry-due',
-    message: 'SevaMitra.NotificationRetry.v1\\nPOST\\n/api/v1/internal/notifications/retry-due\\n',
+    message: 'SevaMitra.NotificationRetry.v1\nPOST\n/api/v1/internal/notifications/retry-due\n',
     label: 'Notification retry',
   },
   {
     path: '/api/v1/internal/incidents/sla/process-due',
-    message: 'SevaMitra.IncidentSla.v1\\nPOST\\n/api/v1/internal/incidents/sla/process-due\\n',
+    message: 'SevaMitra.IncidentSla.v1\nPOST\n/api/v1/internal/incidents/sla/process-due\n',
     label: 'Incident SLA scheduler',
   },
 ] as const;
