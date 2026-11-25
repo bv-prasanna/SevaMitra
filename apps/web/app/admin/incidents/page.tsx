@@ -1,5 +1,6 @@
 "use client";
 import { useCallback, useEffect, useState } from "react";
+import type { FormEvent } from "react";
 import Link from "next/link";
 import { ApiClient } from "@sevamitra/api-client";
 
@@ -77,10 +78,6 @@ export default function IncidentAdminPage() {
       setPolicies(Array.isArray(policyRows) ? policyRows : []);
       setHolidays(Array.isArray(holidayRows) ? holidayRows : []);
       setMessage("");
-      if (selected) {
-        const fresh = cases.find((item) => item.id === selected.id);
-        if (fresh) setSelected(fresh);
-      }
     } catch (error) {
       setAllowed(false);
       setMessage(error instanceof Error ? error.message : "Unable to load incident operations.");
@@ -134,7 +131,7 @@ export default function IncidentAdminPage() {
     setPolicyForm((current) => ({ ...current, [key]: value }));
   }
 
-  async function createPolicy(event: React.FormEvent<HTMLFormElement>) {
+  async function createPolicy(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const start = policyForm.businessHoursOnly ? policyForm.businessStart : "00:00";
     const end = policyForm.businessHoursOnly ? policyForm.businessEnd : "24:00";
@@ -194,7 +191,7 @@ export default function IncidentAdminPage() {
     }
   }
 
-  async function addHoliday(event: React.FormEvent<HTMLFormElement>) {
+  async function addHoliday(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!holidayDate || !holidayLabel.trim()) { setMessage("Enter both a holiday date and label."); return; }
     setBusy(true); setMessage("");
