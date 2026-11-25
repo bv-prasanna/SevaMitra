@@ -6,7 +6,7 @@ type Document={id:string;type:string;label?:string|null;categoryId?:string|null;
 type WorkspaceAccess={admin:boolean;adminPermissions?:string[]};
 export default function Admin(){
  const[notice,setNotice]=useState(""),[documents,setDocuments]=useState<Record<string,Document[]>>({}),[items,setItems]=useState<Application[]>([]),[msg,setMsg]=useState("Loading onboarding queue…"),[busy,setBusy]=useState<string|null>(null),[notes,setNotes]=useState<Record<string,string>>({});
- const[allowed,setAllowed]=useState<string[]>([]),[documentNotes,setDocumentNotes]=useState<Record<string,string>>([] as unknown as Record<string,string>);
+ const[allowed,setAllowed]=useState<string[]>([]),[documentNotes,setDocumentNotes]=useState<Record<string,string>>({});
  const can=(...permissions:string[])=>allowed.includes('*')||permissions.every(key=>allowed.includes(key));
  const canProviderReview=can('provider.onboarding.review');
  const api=new ApiClient(base,()=>typeof window!=="undefined"?localStorage.getItem("sevamitra_token")||undefined:undefined);
