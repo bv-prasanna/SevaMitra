@@ -1,5 +1,5 @@
 import { ConflictException, NotFoundException } from '@nestjs/common';
-import { PricingModel, ProviderStatus } from '@prisma/client';
+import { OnboardingDocumentReviewStatus, OnboardingDocumentType, PricingModel, ProviderStatus } from '@prisma/client';
 import { OfferingService } from './offering.service';
 import type { PrismaService } from '../prisma/prisma.service';
 import type { ProviderService } from '../provider/provider.service';
@@ -133,7 +133,7 @@ describe('OfferingService', () => {
   it('blocks creation when an expired global or matching-category document exists', async () => {
     prisma.providerOffering.findFirst.mockResolvedValue(null);
     prisma.onboardingApplication.findUnique.mockResolvedValue({
-      documents: [{ categoryId: null }],
+      documents: [{ categoryId: null, type: OnboardingDocumentType.LICENSE, reviewStatus: OnboardingDocumentReviewStatus.EXPIRED, expiresAt: new Date(Date.now() - 60_000) }],
     });
     await expect(service.create('user-1', {
       serviceId: 'svc-1', pricingModel: PricingModel.FIXED, amount: 100,
@@ -215,7 +215,7 @@ describe('OfferingService', () => {
       isActive: true, complianceSuspendedAt: null,
     });
     prisma.onboardingApplication.findUnique.mockResolvedValue({
-      documents: [{ categoryId: 'category-1' }],
+      documents: [{ categoryId: 'category-1', type: OnboardingDocumentType.LICENSE, reviewStatus: OnboardingDocumentReviewStatus.APPROVED, expiresAt: new Date(Date.now() - 60_000) }],
     });
     await expect(service.findOneActive('offering-1')).rejects.toThrow(ConflictException);
   });
