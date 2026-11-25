@@ -1,5 +1,5 @@
 import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
-import { OnboardingChannel, OnboardingDocumentType, OnboardingStatus, ProviderStatus, VerificationStatus } from '@prisma/client';
+import { OnboardingChannel, OnboardingDocumentReviewStatus, OnboardingDocumentType, OnboardingStatus, ProviderStatus, VerificationStatus } from '@prisma/client';
 import { ApplicationService } from './application.service';
 import type { PrismaService } from '../prisma/prisma.service';
 import type { ProviderService } from '../provider/provider.service';
@@ -267,6 +267,31 @@ describe('ApplicationService', () => {
           decision: OnboardingStatus.APPROVED,
         }),
       ).rejects.toThrow(ConflictException);
+    });
+
+    it('blocks provider approval while any submitted document is pending review', async () => {
+      prisma.onboardingApplication.findUnique.mockResolvedValue({
+        id: 'app-1', providerId: 'provider-1', status: OnboardingStatus.SUBMITTED,
+        documents: [{ reviewStatus: OnboardingDocumentReviewStatus.PENDING, expiresAt: null }],
+      });
+      await expect(service.review('app-1', 'reviewer-1', {
+        decision: OnboardingStatus.APPROVED,
+      })).rejects.toThrow(ConflictException);
+      expect(prisma.$transaction).not.toHaveBeenCalled();
+    });
+
+    it('blocks provider approval when an approved document has already expired', async () => {
+      prisma.onboardingApplication.findUnique.mockResolvedValue({
+        id: 'app-1', providerId: 'provider-1', status: OnboardingStatus.SUBMITTED,
+        documents: [{
+          reviewStatus: OnboardingDocumentReviewStatus.APPROVED,
+          expiresAt: new Date(Date.now() - 60_000),
+        }],
+      });
+      await expect(service.review('app-1', 'reviewer-1', {
+        decision: OnboardingStatus.APPROVED,
+      })).rejects.toThrow(ConflictException);
+      expect(prisma.$transaction).not.toHaveBeenCalled();
     });
 
     it('marks the provider verified on approval', async () => {
