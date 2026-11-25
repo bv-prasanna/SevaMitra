@@ -88,3 +88,26 @@ test('review action with failed subsequent refresh never claims confirmed approv
  await expect(page.getByText('now an approved agent')).toHaveCount(0);
  expect(decisionSent).toBe(true);
 });
+
+test('provider reviewers can approve individual compliance documents with an audit result',async({page})=>{
+ let status='PENDING';let reviewCalls=0;
+ await page.route(API+'/provider-onboarding/applications',r=>r.fulfill({json:[{
+  id:'app-1',providerId:'provider-1',status:'SUBMITTED',channel:'PROVIDER',submittedAt:'2026-11-20T00:00:00Z',
+ }]}));
+ await page.route(API+'/provider-onboarding/applications/app-1',r=>r.fulfill({json:{documents:[{
+  id:'doc-1',type:'LICENSE',label:'Trade licence',categoryId:'category-1',
+  expiresAt:'2027-12-31T18:29:59.999Z',reviewStatus:status,reviewNote:null,renewalOfId:null,
+ } ]}}));
+ await page.route(API+'/provider-onboarding/applications/app-1/documents/doc-1/review',r=>{
+  reviewCalls++;status=r.request().postDataJSON().decision;
+  return r.fulfill({json:{id:'doc-1',reviewStatus:status}});
+ });
+ await page.goto('/admin/');
+ await page.getByRole('button',{name:'Review documents'}).click();
+ await expect(page.getByText('Status: PENDING')).toBeVisible();
+ page.on('dialog',dialog=>dialog.accept());
+ await page.getByRole('button',{name:'Approve document'}).click();
+ await expect(page.getByRole('status')).toContainText('Compliance document approved');
+ await expect(page.getByText('Status: APPROVED')).toBeVisible();
+ expect(reviewCalls).toBe(1);
+});
