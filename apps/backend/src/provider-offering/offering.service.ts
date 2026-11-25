@@ -166,9 +166,10 @@ export class OfferingService {
       select: {
         documents: {
           where: {
-            reviewStatus: {
-              in: [OnboardingDocumentReviewStatus.REJECTED, OnboardingDocumentReviewStatus.EXPIRED],
-            },
+            OR: [
+              { reviewStatus: { in: [OnboardingDocumentReviewStatus.REJECTED, OnboardingDocumentReviewStatus.EXPIRED] } },
+              { reviewStatus: OnboardingDocumentReviewStatus.APPROVED, expiresAt: { lte: new Date() } },
+            ],
           },
           select: { categoryId: true },
         },
