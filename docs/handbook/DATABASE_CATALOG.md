@@ -2,12 +2,12 @@
 
 > Generated file. Edit `apps/backend/prisma/schema.prisma` and versioned migrations, then run `node scripts/docs/generate-prisma-catalog.mjs`. CI verifies that the generated Markdown is current. This is a **schema inventory**, not proof these migrations have been applied to a particular database.
 
-**Models:** 59 | **Enums:** 39 | **Versioned migrations:** 29 | **Namespaces:** auth, finance, marketplace, ops.
+**Models:** 59 | **Enums:** 40 | **Versioned migrations:** 30 | **Namespaces:** auth, finance, marketplace, ops.
 
 ## Physical table inventory
 
 | PostgreSQL schema | Physical table | Prisma model | Scalar columns | Foreign-key relations |
-| --- | --- | --- | ---: | ---: |
+| --- | --- | --- | ---: | --- |
 | auth | users | User | 6 | 0 |
 | auth | credentials | Credential | 5 | 1 |
 | auth | oauth_identities | OauthIdentity | 5 | 1 |
@@ -24,11 +24,11 @@
 | marketplace | agent_companies | AgentCompany | 6 | 0 |
 | marketplace | agent_profiles | AgentProfile | 12 | 2 |
 | marketplace | onboarding_applications | OnboardingApplication | 11 | 2 |
-| marketplace | onboarding_documents | OnboardingDocument | 6 | 1 |
+| marketplace | onboarding_documents | OnboardingDocument | 14 | 2 |
 | marketplace | service_categories | ServiceCategory | 6 | 0 |
 | marketplace | services | Service | 12 | 1 |
 | marketplace | service_variants | ServiceVariant | 7 | 1 |
-| marketplace | provider_offerings | ProviderOffering | 13 | 3 |
+| marketplace | provider_offerings | ProviderOffering | 15 | 3 |
 | marketplace | geo_states | State | 7 | 0 |
 | marketplace | geo_districts | District | 6 | 1 |
 | marketplace | geo_taluks | Taluk | 6 | 1 |
@@ -680,11 +680,19 @@ Physical column names respect Prisma `@map`. Types are Prisma source types (not 
 | 'type' | 'type' | 'OnboardingDocumentType' | — |
 | 'file_url' | 'fileUrl' | 'String' | — |
 | 'label' | 'label' | 'String?' | — |
+| 'category_id' | 'categoryId' | 'String?' | — |
+| 'expires_at' | 'expiresAt' | 'DateTime?' | — |
+| 'expired_at' | 'expiredAt' | 'DateTime?' | — |
+| 'review_status' | 'reviewStatus' | 'OnboardingDocumentReviewStatus' | @default(PENDING) |
+| 'reviewed_at' | 'reviewedAt' | 'DateTime?' | — |
+| 'reviewed_by_id' | 'reviewedById' | 'String?' | — |
+| 'review_note' | 'reviewNote' | 'String?' | — |
+| 'renewal_of_id' | 'renewalOfId' | 'String?' | UNIQUE |
 | 'created_at' | 'createdAt' | 'DateTime' | @default(now() |
 
-**Composite keys/indexes:** `@@index([applicationId])`
+**Composite keys/indexes:** `@@index([applicationId])`; `@@index([reviewStatus,expiresAt])`; `@@index([categoryId])`
 
-**Declared foreign-key fields:** `applicationId` → `OnboardingApplication.id`
+**Declared foreign-key fields:** `applicationId` → `OnboardingApplication.id`; `categoryId` → `ServiceCategory.id`; `reviewedById` → `User.id`; `renewalOfId` → `OnboardingDocument.id`
 
 #### `marketplace.service_categories` — `ServiceCategory`
 
@@ -749,10 +757,12 @@ Physical column names respect Prisma `@map`. Types are Prisma source types (not 
 | 'currency' | 'currency' | 'String' | @default("INR") |
 | 'notes' | 'notes' | 'String?' | — |
 | 'is_active' | 'isActive' | 'Boolean' | @default(true) |
+| 'compliance_suspended_at' | 'complianceSuspendedAt' | 'DateTime?' | — |
+| 'compliance_suspension_reason' | 'complianceSuspensionReason' | 'String?' | — |
 | 'created_at' | 'createdAt' | 'DateTime' | @default(now() |
 | 'updated_at' | 'updatedAt' | 'DateTime' | updatedAt |
 
-**Composite keys/indexes:** `@@index([providerId])`; `@@index([serviceId])`
+**Composite keys/indexes:** `@@index([providerId])`; `@@index([serviceId])`; `@@index([complianceSuspendedAt])`
 
 **Declared foreign-key fields:** `providerId` → `ProviderProfile.id`; `serviceId` → `Service.id`; `variantId` → `ServiceVariant.id`
 
@@ -1126,6 +1136,7 @@ Enums are PostgreSQL schema-qualified in Prisma; use migration SQL for the actua
 | marketplace | OnboardingChannel | SELF, AGENT_REFERRED |
 | marketplace | OnboardingStatus | SUBMITTED, UNDER_REVIEW, APPROVED, REJECTED |
 | marketplace | OnboardingDocumentType | IDENTITY, ADDRESS_PROOF, BUSINESS_REGISTRATION, SKILL_CERTIFICATE, LICENSE, REFERENCE, OTHER |
+| marketplace | OnboardingDocumentReviewStatus | PENDING, APPROVED, REJECTED, EXPIRED, SUPERSEDED |
 | marketplace | PricingModel | FIXED, STARTING_AT, QUOTE_BASED, HOURLY, DAILY, PROJECT_BASED |
 | marketplace | CoverageStatus | PENDING, APPROVED, REJECTED |
 | marketplace | DayOfWeek | MONDAY, TUESDAY, WEDNESDAY, THURSDAY, FRIDAY, SATURDAY, SUNDAY |
@@ -1186,6 +1197,7 @@ These directories are already versioned in `apps/backend/prisma/migrations/`. Ap
 - `20261101101500_finance_rules_invoicing/migration.sql`
 - `20261125090000_add_payment_webhook_events/migration.sql`
 - `20261125100000_settlement_payout_idempotency/migration.sql`
+- `20261125130000_provider_document_compliance_lifecycle/migration.sql`
 
 ## Important limits
 
