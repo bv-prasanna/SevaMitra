@@ -2,7 +2,7 @@
 import{useCallback,useEffect,useState}from"react";import{ApiClient}from"@sevamitra/api-client";import Link from"next/link";import{BarChart3,Layers3,UsersRound,ShieldCheck,Building2,ToggleRight,FileCheck2,ArrowRight,RefreshCw}from"lucide-react";
 const base=process.env.NEXT_PUBLIC_API_BASE_URL||"";
 type Application={id:string;providerId:string;status:string;channel:string;submittedAt:string;reviewNote?:string|null};
-type Document={id:string;type:string;label?:string|null;categoryId?:string|null;expiresAt?:string|null;expiredAt?:string|null;reviewStatus?:string;reviewNote?:string|null;renewalOfId?:string|null};
+type Document={id:string;type:string;fileUrl?:string;label?:string|null;categoryId?:string|null;expiresAt?:string|null;expiredAt?:string|null;reviewStatus?:string;reviewNote?:string|null;renewalOfId?:string|null};
 type WorkspaceAccess={admin:boolean;adminPermissions?:string[]};
 export default function Admin(){
  const[notice,setNotice]=useState(""),[documents,setDocuments]=useState<Record<string,Document[]>>({}),[items,setItems]=useState<Application[]>([]),[msg,setMsg]=useState("Loading onboarding queue…"),[busy,setBusy]=useState<string|null>(null),[notes,setNotes]=useState<Record<string,string>>({});
@@ -85,7 +85,7 @@ export default function Admin(){
     <strong>{doc.type.replaceAll("_"," ")}</strong><p>Status: {doc.reviewStatus||"PENDING"} · Scope: {doc.categoryId?"Category-specific":"All provider services"}</p>
     <p>Expires: {doc.expiresAt?new Date(doc.expiresAt).toLocaleDateString():"No expiry date recorded"}{doc.renewalOfId?" · Renewal submitted":""}</p>
     {doc.reviewNote&&<p>Reviewer note: {doc.reviewNote}</p>}
-    <button onClick={()=>void download(x.id,doc.id)}>Download privately</button>
+    {doc.fileUrl?.startsWith("r2://")?<button onClick={()=>void download(x.id,doc.id)}>Download privately</button>:<p role="alert">Legacy external reference. Ask the provider to upload a private replacement before review.</p>}
     {["PENDING","REJECTED"].includes(doc.reviewStatus||"PENDING")&&<button disabled={busy===x.id} onClick={()=>void reviewDocument(x.id,doc,"APPROVED")}>Approve document</button>}
     {["PENDING","REJECTED","APPROVED"].includes(doc.reviewStatus||"PENDING")&&<><label>Document rejection reason</label><input maxLength={1000} value={documentNotes[doc.id]||""} onChange={e=>setDocumentNotes(prev=>({...prev,[doc.id]:e.target.value}))} placeholder="Required if rejecting"/><button disabled={busy===x.id} onClick={()=>void reviewDocument(x.id,doc,"REJECTED")}>Reject document</button></>}
    </div>)}
