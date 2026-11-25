@@ -129,19 +129,20 @@ export class ApplicationService {
     )) {
       throw new BadRequestException('Document expiry date must be a valid future date');
     }
-    if (!dto.renewalOfId) {
-      const existingEvidence = await this.prisma.onboardingDocument.findMany({
-        where: {
-          applicationId: application.id,
-          type: dto.type,
-          categoryId: dto.categoryId ?? null,
-          reviewStatus: { not: OnboardingDocumentReviewStatus.SUPERSEDED },
-        },
-        select: { id: true },
-      });
-      if (existingEvidence.length) {
-        throw new ConflictException('Select the existing document being replaced so its history can be superseded after approval');
-      }
+    const existingEvidence = await this.prisma.onboardingDocument.findMany({
+      where: {
+        applicationId: application.id,
+        type: dto.type,
+        categoryId: dto.categoryId ?? null,
+        reviewStatus: { not: OnboardingDocumentReviewStatus.SUPERSEDED },
+      },
+      select: { id: true, reviewStatus: true },
+    });
+    if (existingEvidence.some((item) => item.reviewStatus === OnboardingDocumentReviewStatus.PENDING)) {
+      throw new ConflictException('Wait for the current document review before submitting another copy');
+    }
+    if (!dto.renewalOfId && existingEvidence.length) {
+      throw new ConflictException('Select the existing document being replaced so its history can be superseded after approval');
     }
     if (dto.renewalOfId) {
       const previous = await this.prisma.onboardingDocument.findFirst({
