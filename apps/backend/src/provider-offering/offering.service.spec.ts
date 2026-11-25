@@ -16,6 +16,8 @@ describe('OfferingService', () => {
       update: jest.Mock;
       delete: jest.Mock;
     };
+    service: { findUnique: jest.Mock };
+    onboardingApplication: { findUnique: jest.Mock };
   };
   let providerService: { getActiveProfileOrThrow: jest.Mock };
   let serviceService: { assertExistsOrThrow: jest.Mock };
@@ -34,6 +36,8 @@ describe('OfferingService', () => {
         update: jest.fn(),
         delete: jest.fn(),
       },
+      service: { findUnique: jest.fn().mockResolvedValue({ categoryId: 'category-1' }) },
+      onboardingApplication: { findUnique: jest.fn().mockResolvedValue({ documents: [] }) },
     };
     providerService = {
       getActiveProfileOrThrow: jest.fn().mockResolvedValue(activeProvider),
@@ -126,6 +130,17 @@ describe('OfferingService', () => {
     });
   });
 
+  it('blocks creation when an expired global or matching-category document exists', async () => {
+    prisma.providerOffering.findFirst.mockResolvedValue(null);
+    prisma.onboardingApplication.findUnique.mockResolvedValue({
+      documents: [{ categoryId: null }],
+    });
+    await expect(service.create('user-1', {
+      serviceId: 'svc-1', pricingModel: PricingModel.FIXED, amount: 100,
+    })).rejects.toThrow(ConflictException);
+    expect(prisma.providerOffering.create).not.toHaveBeenCalled();
+  });
+
   describe('findOwn / getOwnedOfferingOrThrow', () => {
     it('404s when the offering belongs to a different provider', async () => {
       prisma.providerOffering.findUnique.mockResolvedValue({
@@ -182,6 +197,24 @@ describe('OfferingService', () => {
         'var-2',
       );
     });
+  });
+
+  it('does not allow providers to reactivate an offering during a compliance hold', async () => {
+    prisma.providerOffering.findUnique.mockResolvedValue({
+      id: 'offering-1', providerId: 'provider-1', serviceId: 'svc-1',
+      complianceSuspendedAt: new Date(),
+    });
+    await expect(service.update('user-1', 'offering-1', { isActive: true }))
+      .rejects.toThrow(ConflictException);
+    expect(prisma.providerOffering.update).not.toHaveBeenCalled();
+  });
+
+  it('does not expose compliance-suspended offerings by id', async () => {
+    prisma.providerOffering.findUnique.mockResolvedValue({
+      id: 'offering-1', providerId: 'provider-1', isActive: false,
+      complianceSuspendedAt: new Date(),
+    });
+    await expect(service.findOneActive('offering-1')).rejects.toThrow(NotFoundException);
   });
 
   describe('remove', () => {
