@@ -12,7 +12,7 @@ This implementation adds configurable, approval-gated incident SLAs. It does not
 4. New incidents use the approved category-specific policy first, then the approved severity-wide policy. Existing incidents retain their policy reference and deadlines if a newer policy is approved.
 5. If no approved policy exists, incident deadlines remain null and no automatic escalation is scheduled. Manual assignment and escalation remain available.
 
-Targets are integer minutes. Business calendar values use local minute-of-day (0–1439/1440), ISO weekday numbers (Monday=1 through Sunday=7 is **not** used; this API uses JavaScript weekday numbers Sunday=0 through Saturday=6), and an IANA timezone such as `Asia/Kolkata`.
+Targets are integer minutes. Business calendar values use local minute-of-day (0–1439/1440), JavaScript weekday numbers (Sunday=0 through Saturday=6), and an IANA timezone such as `Asia/Kolkata`.
 
 ## Business calendar
 
