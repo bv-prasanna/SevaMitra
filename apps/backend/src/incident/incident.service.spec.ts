@@ -1,5 +1,5 @@
 import { BadRequestException, ConflictException, ForbiddenException, NotFoundException } from '@nestjs/common';
-import { IncidentSeverity, IncidentStatus } from '@prisma/client';
+import { IncidentSeverity, IncidentStatus, NotificationStatus } from '@prisma/client';
 import type { PrismaService } from '../prisma/prisma.service';
 import { IncidentService } from './incident.service';
 
