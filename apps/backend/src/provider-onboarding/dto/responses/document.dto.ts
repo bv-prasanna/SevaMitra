@@ -14,7 +14,7 @@ export class DocumentDto {
   })
   type: OnboardingDocumentType;
 
-  @ApiProperty({ example: 'https://example.com/uploads/aadhaar-front.jpg' })
+  @ApiProperty({ example: 'r2://sevamitra-private/onboarding/application-id/document-id.pdf', description: 'Private storage key; retrieve bytes only through the authenticated download route' })
   fileUrl: string;
 
   @ApiProperty({
