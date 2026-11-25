@@ -35,7 +35,7 @@ export class CreateDocumentDto {
   @ApiProperty({ required: false, example: '2027-12-31', description: 'Expiry date, valid through the end of the date in Asia/Kolkata' })
   @IsOptional()
   @IsDateString()
-  @Matches(/^\\d{4}-\\d{2}-\\d{2}$/)
+  @Matches(/^\d{4}-\d{2}-\d{2}$/)
   expiresAt?: string;
 
   @ApiProperty({ required: false, description: 'Existing document being renewed' })
