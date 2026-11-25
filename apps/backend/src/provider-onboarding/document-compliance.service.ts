@@ -56,6 +56,12 @@ export class DocumentComplianceService {
     ) {
       throw new ConflictException('This document is already approved');
     }
+    if (
+      dto.decision === OnboardingDocumentReviewStatus.APPROVED &&
+      !document.fileUrl.startsWith('r2://')
+    ) {
+      throw new ConflictException('Legacy external references cannot be approved. Ask the provider to upload a private replacement.');
+    }
     if (document.reviewStatus === OnboardingDocumentReviewStatus.REJECTED) {
       throw new ConflictException('Upload corrected evidence as a new renewal instead of re-reviewing rejected evidence');
     }
