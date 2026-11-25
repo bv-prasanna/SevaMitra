@@ -82,6 +82,7 @@ model User {
   reportedIncidents IncidentCase[] @relation("IncidentReporter")
   assignedIncidents IncidentCase[] @relation("IncidentAssignee")
   incidentActions IncidentCaseActivity[] @relation("IncidentActor")
+  reviewedOnboardingDocuments OnboardingDocument[] @relation("OnboardingDocumentReviewer")
 
   @@map("users")
   @@schema("auth")
@@ -559,6 +560,16 @@ enum OnboardingDocumentType {
   @@schema("marketplace")
 }
 
+enum OnboardingDocumentReviewStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  EXPIRED
+  SUPERSEDED
+
+  @@schema("marketplace")
+}
+
 /// One application per ProviderProfile (rejection allows resubmission by
 /// resetting this same row — see docs/modules/PROVIDER_ONBOARDING_IMPLEMENTATION.md
 /// §4 — rather than accumulating a new row per attempt).
@@ -586,10 +597,7 @@ model OnboardingApplication {
   @@schema("marketplace")
 }
 
-/// A document is a URL reference only — no Media/Document module (S3)
-/// exists yet (that's Phase 1b). fileUrl is trusted as given by the
-/// caller today; see docs/modules/PROVIDER_ONBOARDING_IMPLEMENTATION.md
-/// §1 for what changes once real upload infrastructure exists.
+/// Private uploaded compliance evidence with review, expiry and renewal history.
 model OnboardingDocument {
   id            String                @id @default(uuid())
   applicationId String                @map("application_id")
@@ -598,10 +606,24 @@ model OnboardingDocument {
   type    OnboardingDocumentType
   fileUrl String                 @map("file_url")
   label   String?
+  categoryId String? @map("category_id")
+  category ServiceCategory? @relation(fields:[categoryId],references:[id],onDelete:SetNull)
+  expiresAt DateTime? @map("expires_at")
+  expiredAt DateTime? @map("expired_at")
+  reviewStatus OnboardingDocumentReviewStatus @default(PENDING) @map("review_status")
+  reviewedAt DateTime? @map("reviewed_at")
+  reviewedById String? @map("reviewed_by_id")
+  reviewedBy User? @relation("OnboardingDocumentReviewer",fields:[reviewedById],references:[id],onDelete:SetNull)
+  reviewNote String? @map("review_note")
+  renewalOfId String? @unique @map("renewal_of_id")
+  renewalOf OnboardingDocument? @relation("OnboardingDocumentRenewal",fields:[renewalOfId],references:[id],onDelete:SetNull)
+  renewal OnboardingDocument? @relation("OnboardingDocumentRenewal")
 
   createdAt DateTime @default(now()) @map("created_at")
 
   @@index([applicationId])
+  @@index([reviewStatus,expiresAt])
+  @@index([categoryId])
   @@map("onboarding_documents")
   @@schema("marketplace")
 }
@@ -634,6 +656,7 @@ model ServiceCategory {
   commissionRules   CommissionRule[]
   settlementConfigs SettlementConfig[]
   refundPolicies    RefundPolicy[]
+  onboardingDocuments OnboardingDocument[]
 
   @@map("service_categories")
   @@schema("marketplace")
@@ -747,6 +770,8 @@ model ProviderOffering {
   currency      String       @default("INR")
   notes         String?
   isActive      Boolean      @default(true) @map("is_active")
+  complianceSuspendedAt DateTime? @map("compliance_suspended_at")
+  complianceSuspensionReason String? @map("compliance_suspension_reason")
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
