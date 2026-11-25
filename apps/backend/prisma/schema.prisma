@@ -624,7 +624,6 @@ model OnboardingDocument {
   @@index([applicationId])
   @@index([reviewStatus,expiresAt])
   @@index([categoryId])
-  @@index([renewalOfId])
   @@map("onboarding_documents")
   @@schema("marketplace")
 }
