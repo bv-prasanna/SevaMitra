@@ -19,7 +19,7 @@ export class CreateDocumentDto {
   type: OnboardingDocumentType;
 
   @ApiProperty({
-    example: 'https://example.com/uploads/aadhaar-front.jpg',
+    example: 'r2://sevamitra-private/onboarding/application-id/document-id.pdf',
     description:
       'Private storage key returned by the upload service; public URLs are not accepted',
   })
