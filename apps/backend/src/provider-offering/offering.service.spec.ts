@@ -209,6 +209,17 @@ describe('OfferingService', () => {
     expect(prisma.providerOffering.update).not.toHaveBeenCalled();
   });
 
+  it('blocks booking lookup immediately when an approved document is past expiry', async () => {
+    prisma.providerOffering.findUnique.mockResolvedValue({
+      id: 'offering-1', providerId: 'provider-1', serviceId: 'svc-1',
+      isActive: true, complianceSuspendedAt: null,
+    });
+    prisma.onboardingApplication.findUnique.mockResolvedValue({
+      documents: [{ categoryId: 'category-1' }],
+    });
+    await expect(service.findOneActive('offering-1')).rejects.toThrow(ConflictException);
+  });
+
   it('does not expose compliance-suspended offerings by id', async () => {
     prisma.providerOffering.findUnique.mockResolvedValue({
       id: 'offering-1', providerId: 'provider-1', isActive: false,
