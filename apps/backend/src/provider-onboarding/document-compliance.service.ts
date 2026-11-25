@@ -56,6 +56,9 @@ export class DocumentComplianceService {
     ) {
       throw new ConflictException('This document is already approved');
     }
+    if (document.reviewStatus === OnboardingDocumentReviewStatus.REJECTED) {
+      throw new ConflictException('Upload corrected evidence as a new renewal instead of re-reviewing rejected evidence');
+    }
     if (
       dto.decision === OnboardingDocumentReviewStatus.REJECTED &&
       document.reviewStatus === OnboardingDocumentReviewStatus.EXPIRED
@@ -313,7 +316,7 @@ export class DocumentComplianceService {
     providerId: string,
     categoryId: string | null,
   ): Promise<number> {
-    const [offerings, unresolved] = await Promise.all([
+    const [offerings, unresolved, validDocuments] = await Promise.all([
       tx.providerOffering.findMany({
         where: {
           providerId,
@@ -325,16 +328,27 @@ export class DocumentComplianceService {
       tx.onboardingDocument.findMany({
         where: {
           applicationId,
-          OR: [
-            { reviewStatus: { in: [...UNRESOLVED_DOCUMENT_STATES] } },
-            { reviewStatus: OnboardingDocumentReviewStatus.APPROVED, expiresAt: { lte: new Date() } },
-          ],
+          reviewStatus: { in: [...UNRESOLVED_DOCUMENT_STATES] },
         },
-        select: { categoryId: true },
+        select: { categoryId: true, type: true },
+      }),
+      tx.onboardingDocument.findMany({
+        where: {
+          applicationId,
+          reviewStatus: OnboardingDocumentReviewStatus.APPROVED,
+          OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
+        },
+        select: { categoryId: true, type: true },
       }),
     ]);
+    const blockers = unresolved.filter((item) => !validDocuments.some((valid) =>
+      valid.type === item.type &&
+      (item.categoryId === null
+        ? valid.categoryId === null
+        : valid.categoryId === null || valid.categoryId === item.categoryId),
+    ));
     const eligibleIds = offerings
-      .filter((offering) => !unresolved.some((item) =>
+      .filter((offering) => !blockers.some((item) =>
         item.categoryId === null || item.categoryId === offering.service.categoryId,
       ))
       .map((offering) => offering.id);
