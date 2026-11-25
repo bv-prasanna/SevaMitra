@@ -115,11 +115,18 @@ export class ApplicationService {
         throw new NotFoundException('Active service category not found');
       }
     }
+    if (dto.expiresAt && !/^\\d{4}-\\d{2}-\\d{2}$/.test(dto.expiresAt)) {
+      throw new BadRequestException('Expiry date must use YYYY-MM-DD');
+    }
     const expiresAt = dto.expiresAt
       ? new Date(dto.expiresAt + 'T18:29:59.999Z')
       : null;
-    if (expiresAt && expiresAt.getTime() <= Date.now()) {
-      throw new BadRequestException('Document expiry date must be in the future');
+    if (expiresAt && (
+      !Number.isFinite(expiresAt.getTime()) ||
+      expiresAt.toISOString().slice(0, 10) !== dto.expiresAt ||
+      expiresAt.getTime() <= Date.now()
+    )) {
+      throw new BadRequestException('Document expiry date must be a valid future date');
     }
     if (dto.renewalOfId) {
       const previous = await this.prisma.onboardingDocument.findFirst({
