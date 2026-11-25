@@ -2,7 +2,7 @@
 
 > Generated file. Edit `apps/backend/prisma/schema.prisma` and versioned migrations, then run `node scripts/docs/generate-prisma-catalog.mjs`. CI verifies that the generated Markdown is current. This is a **schema inventory**, not proof these migrations have been applied to a particular database.
 
-**Models:** 61 | **Enums:** 39 | **Versioned migrations:** 1 | **Namespaces:** auth, finance, marketplace, ops.
+**Models:** 61 | **Enums:** 39 | **Versioned migrations:** 30 | **Namespaces:** auth, finance, marketplace, ops.
 
 ## Physical table inventory
 
@@ -1206,7 +1206,36 @@ Enums are PostgreSQL schema-qualified in Prisma; use migration SQL for the actua
 
 These directories are already versioned in `apps/backend/prisma/migrations/`. Apply them **in order** through `prisma migrate deploy`, not by copying SQL fragments into a SQL editor.
 
-- `migrations/migration.sql`
+- `20260917041821_init/migration.sql`
+- `20260917122728_add_iam_roles_permissions/migration.sql`
+- `20260917133913_add_customer_module/migration.sql`
+- `20260917134845_add_provider_module/migration.sql`
+- `20260917135613_add_agent_module/migration.sql`
+- `20260917140752_add_provider_onboarding_module/migration.sql`
+- `20260917141952_add_catalogue_module/migration.sql`
+- `20260917142952_add_geography_module/migration.sql`
+- `20260917144940_add_serviceability_module/migration.sql`
+- `20260918004959_add_provider_offering_module/migration.sql`
+- `20260918011707_add_availability_module/migration.sql`
+- `20260918014148_add_booking_module/migration.sql`
+- `20260918022121_add_payment_module/migration.sql`
+- `20260918040852_add_audit_notification_modules/migration.sql`
+- `20260918055903_add_commission_module/migration.sql`
+- `20260918062634_add_settlement_module/migration.sql`
+- `20260918075204_add_refund_module/migration.sql`
+- `20261008182000_brd44_organization_finance_tax/migration.sql`
+- `20261008225000_restore_legacy_policy_effective_dates/migration.sql`
+- `20261009112500_audit_event_geo/migration.sql`
+- `20261009113000_trusted_device_sessions/migration.sql`
+- `20261010101000_launch_idempotency_and_immutable_audit/migration.sql`
+- `20261010102000_unique_gateway_reference/migration.sql`
+- `20261010103000_notification_delivery_outbox/migration.sql`
+- `20261010104000_ops_runtime_flags/migration.sql`
+- `20261028192000_incident_case_management/migration.sql`
+- `20261101101500_finance_rules_invoicing/migration.sql`
+- `20261125090000_add_payment_webhook_events/migration.sql`
+- `20261125100000_settlement_payout_idempotency/migration.sql`
+- `20261125120000_incident_sla_policy_scheduler/migration.sql`
 
 ## Important limits
 
