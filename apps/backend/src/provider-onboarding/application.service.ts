@@ -102,10 +102,10 @@ export class ApplicationService {
     return application;
   }
 
-  async addOwnDocument(
+  async prepareOwnDocument(
     userId: string,
-    dto: CreateDocumentDto,
-  ): Promise<OnboardingDocument> {
+    dto: Pick<CreateDocumentDto, 'type' | 'categoryId' | 'expiresAt' | 'renewalOfId'>,
+  ): Promise<{ applicationId: string; expiresAt: Date | null }> {
     const application = await this.findOwn(userId);
     if (dto.categoryId) {
       const category = await this.prisma.serviceCategory.findUnique({
@@ -116,7 +116,7 @@ export class ApplicationService {
         throw new NotFoundException('Active service category not found');
       }
     }
-    if (dto.expiresAt && !/^\d{4}-\d{2}-\d{2}$/.test(dto.expiresAt)) {
+    if (dto.expiresAt && !/^\\d{4}-\\d{2}-\\d{2}$/.test(dto.expiresAt)) {
       throw new BadRequestException('Expiry date must use YYYY-MM-DD');
     }
     const expiresAt = dto.expiresAt
@@ -150,20 +150,36 @@ export class ApplicationService {
         },
       });
       if (existingRenewal) {
-        throw new ConflictException('A renewal for this document is already submitted');
+        throw new ConflictException('A pending or approved renewal already exists for this document');
       }
     }
-    return this.prisma.onboardingDocument.create({
-      data: {
-        applicationId: application.id,
-        type: dto.type,
-        fileUrl: dto.fileUrl,
-        label: dto.label,
-        categoryId: dto.categoryId ?? null,
-        expiresAt,
-        renewalOfId: dto.renewalOfId ?? null,
-      },
-    });
+    return { applicationId: application.id, expiresAt };
+  }
+
+  async addOwnDocument(
+    userId: string,
+    dto: CreateDocumentDto,
+    prepared?: { applicationId: string; expiresAt: Date | null },
+  ): Promise<OnboardingDocument> {
+    const metadata = prepared ?? await this.prepareOwnDocument(userId, dto);
+    try {
+      return await this.prisma.onboardingDocument.create({
+        data: {
+          applicationId: metadata.applicationId,
+          type: dto.type,
+          fileUrl: dto.fileUrl,
+          label: dto.label,
+          categoryId: dto.categoryId ?? null,
+          expiresAt: metadata.expiresAt,
+          renewalOfId: dto.renewalOfId ?? null,
+        },
+      });
+    } catch (error) {
+      if (error && typeof error === 'object' && 'code' in error && error.code === 'P2002') {
+        throw new ConflictException('A pending or approved renewal already exists for this document');
+      }
+      throw error;
+    }
   }
 
   async listOwnDocuments(userId: string): Promise<OnboardingDocument[]> {
