@@ -218,9 +218,9 @@ export class ApplicationService {
     if (dto.decision === OnboardingStatus.APPROVED) {
       const now = Date.now();
       const unresolvedDocument = application.documents.find((document) =>
-        (document.reviewStatus !== OnboardingDocumentReviewStatus.APPROVED &&
-          document.reviewStatus !== OnboardingDocumentReviewStatus.SUPERSEDED) ||
-        (document.expiresAt && document.expiresAt.getTime() <= now),
+        document.reviewStatus !== OnboardingDocumentReviewStatus.SUPERSEDED &&
+        (document.reviewStatus !== OnboardingDocumentReviewStatus.APPROVED ||
+          (document.expiresAt && document.expiresAt.getTime() <= now)),
       );
       if (unresolvedDocument) {
         throw new ConflictException(
