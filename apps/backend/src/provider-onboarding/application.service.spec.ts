@@ -47,7 +47,7 @@ describe('ApplicationService', () => {
       },
       providerProfile: {updateMany: jest.fn().mockResolvedValue({count:1})},
       $transaction: jest.fn(),
-      onboardingDocument: { create: jest.fn(), findMany: jest.fn(), findFirst: jest.fn(), findUnique: jest.fn() },
+      onboardingDocument: { create: jest.fn(), findMany: jest.fn().mockResolvedValue([]), findFirst: jest.fn(), findUnique: jest.fn() },
       serviceCategory: { findUnique: jest.fn().mockResolvedValue({id:'category-1',isActive:true}) },
     };
     prisma.$transaction.mockImplementation(async (run:(tx:unknown)=>Promise<unknown>)=>run(prisma));
@@ -192,6 +192,14 @@ describe('ApplicationService', () => {
       await expect(service.addOwnDocument('user-1', {
         type: OnboardingDocumentType.LICENSE, fileUrl: 'r2://private/key', categoryId: 'category-1', renewalOfId: 'document-old',
       })).rejects.toThrow(ConflictException);
+    });
+
+    it('requires explicit renewal linkage when replacing existing evidence', async () => {
+      prisma.onboardingDocument.findMany.mockResolvedValue([{ id: 'document-old' }]);
+      await expect(service.addOwnDocument('user-1', {
+        type: OnboardingDocumentType.LICENSE, fileUrl: 'r2://private/key',
+      })).rejects.toThrow(ConflictException);
+      expect(prisma.onboardingDocument.create).not.toHaveBeenCalled();
     });
 
     it('rejects a second renewal for the same original document', async () => {
