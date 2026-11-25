@@ -138,12 +138,6 @@ export class ApplicationService {
       },
       select: { id: true, reviewStatus: true },
     });
-    if (existingEvidence.some((item) => item.reviewStatus === OnboardingDocumentReviewStatus.PENDING)) {
-      throw new ConflictException('Wait for the current document review before submitting another copy');
-    }
-    if (!dto.renewalOfId && existingEvidence.length) {
-      throw new ConflictException('Select the existing document being replaced so its history can be superseded after approval');
-    }
     if (dto.renewalOfId) {
       const previous = await this.prisma.onboardingDocument.findFirst({
         where: { id: dto.renewalOfId, applicationId: application.id },
@@ -152,11 +146,19 @@ export class ApplicationService {
       if (previous.reviewStatus === OnboardingDocumentReviewStatus.SUPERSEDED) {
         throw new ConflictException('Choose the latest current document, not one already superseded');
       }
-      if (previous.reviewStatus === OnboardingDocumentReviewStatus.PENDING) {
-        throw new ConflictException('Wait for the current document review before submitting another renewal');
+      if (
+        previous.reviewStatus === OnboardingDocumentReviewStatus.PENDING &&
+        previous.fileUrl.startsWith('r2://')
+      ) {
+        throw new ConflictException('Wait for the current private document review before submitting another renewal');
       }
       if (previous.type !== dto.type || previous.categoryId !== (dto.categoryId ?? null)) {
         throw new ConflictException('A renewal must match the original document type and category');
+      }
+      if (existingEvidence.some((item) =>
+        item.reviewStatus === OnboardingDocumentReviewStatus.PENDING && item.id !== previous.id,
+      )) {
+        throw new ConflictException('Another document of this type and category is already awaiting review');
       }
       const existingRenewal = await this.prisma.onboardingDocument.findFirst({
         where: {
@@ -167,6 +169,8 @@ export class ApplicationService {
       if (existingRenewal) {
         throw new ConflictException('A pending or approved renewal already exists for this document');
       }
+    } else if (existingEvidence.length) {
+      throw new ConflictException('Select the existing document being replaced so its history can be superseded after approval');
     }
     return { applicationId: application.id, expiresAt };
   }
