@@ -195,10 +195,12 @@ describe('ApplicationService', () => {
     });
 
     it('rejects a second renewal for the same original document', async () => {
-      prisma.onboardingDocument.findFirst.mockResolvedValue({
-        id: 'document-old', applicationId: 'app-1', type: OnboardingDocumentType.LICENSE, categoryId: null,
-      });
-      prisma.onboardingDocument.findUnique.mockResolvedValue({ id: 'document-renewal' });
+      prisma.onboardingDocument.findFirst
+        .mockResolvedValueOnce({
+          id: 'document-old', applicationId: 'app-1', type: OnboardingDocumentType.LICENSE, categoryId: null,
+          reviewStatus: OnboardingDocumentReviewStatus.EXPIRED,
+        })
+        .mockResolvedValueOnce({ id: 'document-renewal' });
       await expect(service.addOwnDocument('user-1', {
         type: OnboardingDocumentType.LICENSE, fileUrl: 'r2://private/key', renewalOfId: 'document-old',
       })).rejects.toThrow(ConflictException);
