@@ -169,3 +169,12 @@ button:disabled{cursor:not-allowed;opacity:.58}
 .workspace .uatConfirmActions .uatDanger{background:#ae362f;border-color:#ae362f;color:#fff}
 @media(max-width:1050px){.accountContext{display:none}.accountBar{flex-wrap:wrap}.accountMenuToggle{display:inline-flex;margin-left:auto}.accountBar .accountNav{display:none;order:3;flex-basis:100%;margin-left:0;padding:12px 0 6px;border-top:1px solid #e5eee7;flex-direction:column;align-items:stretch}.accountBar .accountNav.isOpen{display:flex}.accountNavLink{width:100%;padding:13px 15px}.accountBar nav .accountSignOut,.accountBar nav .accountSignIn{margin-top:6px;text-align:center}}
 @media(max-width:560px){.workspace{padding:24px 15px 60px}.workspaceTop{padding:19px}.uatStatStrip{grid-template-columns:repeat(2,minmax(0,1fr))}.uatPageHeading{align-items:flex-start}.uatConfirmDialog{padding:21px}.uatFilters{flex-direction:column;align-items:stretch}.uatFilters label{width:100%}}
+
+
+/* Incident SLA administration forms */
+.formGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+.formGrid label{display:grid;gap:7px;font-weight:700;color:var(--deep)}
+.analyticsPanel form label{display:grid;gap:7px;font-weight:700;color:var(--deep)}
+.analyticsPanel fieldset{border:1px solid var(--line);border-radius:14px;padding:14px}
+.analyticsPanel fieldset legend{font-weight:800;padding:0 6px}
+@media(max-width:760px){.formGrid{grid-template-columns:minmax(0,1fr)}}

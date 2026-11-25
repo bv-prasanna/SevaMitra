@@ -1,8 +1,9 @@
-import {IncidentStatus} from '@prisma/client';
-import {IsIn,IsNotEmpty,IsOptional,IsString,MaxLength,Matches} from 'class-validator';
+import {IncidentSeverity,IncidentStatus} from '@prisma/client';
+import {IsEnum,IsIn,IsNotEmpty,IsOptional,IsString,MaxLength,Matches} from 'class-validator';
 export const INCIDENT_CATEGORIES=['SERVICE_ISSUE','SAFETY','ACCOUNT','PROVIDER_ONBOARDING','OTHER'] as const;
 export class OpenIncidentDto {
  @IsIn(INCIDENT_CATEGORIES) category:(typeof INCIDENT_CATEGORIES)[number];
+ @IsOptional() @IsEnum(IncidentSeverity) severity?:IncidentSeverity;
  @IsString() @IsNotEmpty() @Matches(/\S/) @MaxLength(160) title:string;
  @IsString() @IsNotEmpty() @Matches(/\S/) @MaxLength(2000) description:string;
 }

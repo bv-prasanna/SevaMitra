@@ -82,6 +82,9 @@ model User {
   reportedIncidents IncidentCase[] @relation("IncidentReporter")
   assignedIncidents IncidentCase[] @relation("IncidentAssignee")
   incidentActions IncidentCaseActivity[] @relation("IncidentActor")
+  createdIncidentSlaPolicies IncidentSlaPolicy[] @relation("IncidentSlaPolicyCreator")
+  approvedIncidentSlaPolicies IncidentSlaPolicy[] @relation("IncidentSlaPolicyApprover")
+  createdIncidentSlaHolidays IncidentSlaHoliday[] @relation("IncidentSlaHolidayCreator")
 
   @@map("users")
   @@schema("auth")
@@ -1889,8 +1892,12 @@ model IncidentCase {
   severity IncidentSeverity @default(P2)
   status IncidentStatus @default(OPEN)
   level Int @default(1)
+  slaPolicyId String? @map("sla_policy_id")
+  slaPolicy IncidentSlaPolicy? @relation(fields:[slaPolicyId],references:[id],onDelete:SetNull)
   acknowledgeDueAt DateTime? @map("acknowledge_due_at")
+  acknowledgedAt DateTime? @map("acknowledged_at")
   resolveDueAt DateTime? @map("resolve_due_at")
+  nextEscalationAt DateTime? @map("next_escalation_at")
   closedAt DateTime? @map("closed_at")
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -1898,6 +1905,7 @@ model IncidentCase {
   @@index([status,createdAt])
   @@index([reporterId,createdAt])
   @@index([assignedToId,status])
+  @@index([nextEscalationAt,status])
   @@map("incident_cases")
   @@schema("ops")
 }
@@ -1905,13 +1913,54 @@ model IncidentCaseActivity {
   id String @id @default(uuid())
   incidentId String @map("incident_id")
   incident IncidentCase @relation(fields:[incidentId],references:[id],onDelete:Restrict)
-  actorId String @map("actor_id")
-  actor User @relation("IncidentActor",fields:[actorId],references:[id],onDelete:Restrict)
+  actorId String? @map("actor_id")
+  actor User? @relation("IncidentActor",fields:[actorId],references:[id],onDelete:Restrict)
   action String
   note String?
   createdAt DateTime @default(now()) @map("created_at")
   @@index([incidentId,createdAt])
   @@map("incident_case_activity")
+  @@schema("ops")
+}
+model IncidentSlaPolicy {
+  id String @id @default(uuid())
+  name String
+  severity IncidentSeverity
+  category String?
+  acknowledgeMinutes Int @map("acknowledge_minutes")
+  level1Minutes Int @map("level_1_minutes")
+  level2Minutes Int @map("level_2_minutes")
+  level3Minutes Int @map("level_3_minutes")
+  businessHoursOnly Boolean @default(true) @map("business_hours_only")
+  businessStartMinute Int @map("business_start_minute")
+  businessEndMinute Int @map("business_end_minute")
+  workingDays Int[] @map("working_days")
+  timezone String
+  enabled Boolean @default(false)
+  approvedById String? @map("approved_by_id")
+  approvedBy User? @relation("IncidentSlaPolicyApprover",fields:[approvedById],references:[id],onDelete:SetNull)
+  approvedAt DateTime? @map("approved_at")
+  createdById String @map("created_by_id")
+  createdBy User @relation("IncidentSlaPolicyCreator",fields:[createdById],references:[id],onDelete:Restrict)
+  updatedById String @map("updated_by_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  incidents IncidentCase[]
+  @@index([severity,category,enabled,approvedAt])
+  @@map("incident_sla_policies")
+  @@schema("ops")
+}
+model IncidentSlaHoliday {
+  id String @id @default(uuid())
+  date DateTime @db.Date
+  label String
+  isActive Boolean @default(true) @map("is_active")
+  createdById String @map("created_by_id")
+  createdBy User @relation("IncidentSlaHolidayCreator",fields:[createdById],references:[id],onDelete:Restrict)
+  createdAt DateTime @default(now()) @map("created_at")
+  @@unique([date])
+  @@index([isActive,date])
+  @@map("incident_sla_holidays")
   @@schema("ops")
 }
 

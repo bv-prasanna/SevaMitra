@@ -2,12 +2,12 @@
 
 > Generated file. Edit `apps/backend/prisma/schema.prisma` and versioned migrations, then run `node scripts/docs/generate-prisma-catalog.mjs`. CI verifies that the generated Markdown is current. This is a **schema inventory**, not proof these migrations have been applied to a particular database.
 
-**Models:** 59 | **Enums:** 39 | **Versioned migrations:** 29 | **Namespaces:** auth, finance, marketplace, ops.
+**Models:** 61 | **Enums:** 39 | **Versioned migrations:** 30 | **Namespaces:** auth, finance, marketplace, ops.
 
 ## Physical table inventory
 
 | PostgreSQL schema | Physical table | Prisma model | Scalar columns | Foreign-key relations |
-| --- | --- | --- | ---: | ---: |
+| --- | --- | --- | ---: | --- |
 | auth | users | User | 6 | 0 |
 | auth | credentials | Credential | 5 | 1 |
 | auth | oauth_identities | OauthIdentity | 5 | 1 |
@@ -59,8 +59,10 @@
 | marketplace | matching_cursors | MatchingCursor | 4 | 0 |
 | ops | push_devices | PushDevice | 6 | 1 |
 | ops | runtime_flags | RuntimeFlag | 5 | 0 |
-| ops | incident_cases | IncidentCase | 14 | 0 |
+| ops | incident_cases | IncidentCase | 17 | 1 |
 | ops | incident_case_activity | IncidentCaseActivity | 6 | 1 |
+| ops | incident_sla_policies | IncidentSlaPolicy | 20 | 0 |
+| ops | incident_sla_holidays | IncidentSlaHoliday | 6 | 0 |
 | finance | tax_rules | FinanceTaxRule | 16 | 0 |
 | finance | pricing_rules | FinancePriceRule | 19 | 0 |
 | finance | booking_price_snapshots | BookingPriceSnapshot | 12 | 1 |
@@ -1082,15 +1084,18 @@ Physical column names respect Prisma `@map`. Types are Prisma source types (not 
 | 'severity' | 'severity' | 'IncidentSeverity' | @default(P2) |
 | 'status' | 'status' | 'IncidentStatus' | @default(OPEN) |
 | 'level' | 'level' | 'Int' | @default(1) |
+| 'sla_policy_id' | 'slaPolicyId' | 'String?' | — |
 | 'acknowledge_due_at' | 'acknowledgeDueAt' | 'DateTime?' | — |
+| 'acknowledged_at' | 'acknowledgedAt' | 'DateTime?' | — |
 | 'resolve_due_at' | 'resolveDueAt' | 'DateTime?' | — |
+| 'next_escalation_at' | 'nextEscalationAt' | 'DateTime?' | — |
 | 'closed_at' | 'closedAt' | 'DateTime?' | — |
 | 'created_at' | 'createdAt' | 'DateTime' | @default(now() |
 | 'updated_at' | 'updatedAt' | 'DateTime' | updatedAt |
 
-**Composite keys/indexes:** `@@index([status,createdAt])`; `@@index([reporterId,createdAt])`; `@@index([assignedToId,status])`
+**Composite keys/indexes:** `@@index([status,createdAt])`; `@@index([reporterId,createdAt])`; `@@index([assignedToId,status])`; `@@index([nextEscalationAt,status])`
 
-**Declared foreign-key fields:** `reporterId` → `User.id`; `assignedToId` → `User.id`
+**Declared foreign-key fields:** `reporterId` → `User.id`; `assignedToId` → `User.id`; `slaPolicyId` → `IncidentSlaPolicy.id`
 
 #### `ops.incident_case_activity` — `IncidentCaseActivity`
 
@@ -1098,7 +1103,7 @@ Physical column names respect Prisma `@map`. Types are Prisma source types (not 
 | --- | --- | --- | --- |
 | 'id' | 'id' | 'String' | PK, @default(uuid() |
 | 'incident_id' | 'incidentId' | 'String' | — |
-| 'actor_id' | 'actorId' | 'String' | — |
+| 'actor_id' | 'actorId' | 'String?' | — |
 | 'action' | 'action' | 'String' | — |
 | 'note' | 'note' | 'String?' | — |
 | 'created_at' | 'createdAt' | 'DateTime' | @default(now() |
@@ -1106,6 +1111,50 @@ Physical column names respect Prisma `@map`. Types are Prisma source types (not 
 **Composite keys/indexes:** `@@index([incidentId,createdAt])`
 
 **Declared foreign-key fields:** `incidentId` → `IncidentCase.id`; `actorId` → `User.id`
+
+#### `ops.incident_sla_policies` — `IncidentSlaPolicy`
+
+| Column | Prisma field | Type | Attributes |
+| --- | --- | --- | --- |
+| 'id' | 'id' | 'String' | PK, @default(uuid() |
+| 'name' | 'name' | 'String' | — |
+| 'severity' | 'severity' | 'IncidentSeverity' | — |
+| 'category' | 'category' | 'String?' | — |
+| 'acknowledge_minutes' | 'acknowledgeMinutes' | 'Int' | — |
+| 'level_1_minutes' | 'level1Minutes' | 'Int' | — |
+| 'level_2_minutes' | 'level2Minutes' | 'Int' | — |
+| 'level_3_minutes' | 'level3Minutes' | 'Int' | — |
+| 'business_hours_only' | 'businessHoursOnly' | 'Boolean' | @default(true) |
+| 'business_start_minute' | 'businessStartMinute' | 'Int' | — |
+| 'business_end_minute' | 'businessEndMinute' | 'Int' | — |
+| 'working_days' | 'workingDays' | 'Int[]' | — |
+| 'timezone' | 'timezone' | 'String' | — |
+| 'enabled' | 'enabled' | 'Boolean' | @default(false) |
+| 'approved_by_id' | 'approvedById' | 'String?' | — |
+| 'approved_at' | 'approvedAt' | 'DateTime?' | — |
+| 'created_by_id' | 'createdById' | 'String' | — |
+| 'updated_by_id' | 'updatedById' | 'String' | — |
+| 'created_at' | 'createdAt' | 'DateTime' | @default(now() |
+| 'updated_at' | 'updatedAt' | 'DateTime' | updatedAt |
+
+**Composite keys/indexes:** `@@index([severity,category,enabled,approvedAt])`
+
+**Declared foreign-key fields:** `approvedById` → `User.id`; `createdById` → `User.id`
+
+#### `ops.incident_sla_holidays` — `IncidentSlaHoliday`
+
+| Column | Prisma field | Type | Attributes |
+| --- | --- | --- | --- |
+| 'id' | 'id' | 'String' | PK, @default(uuid() |
+| 'date' | 'date' | 'DateTime' | @db.Date |
+| 'label' | 'label' | 'String' | — |
+| 'is_active' | 'isActive' | 'Boolean' | @default(true) |
+| 'created_by_id' | 'createdById' | 'String' | — |
+| 'created_at' | 'createdAt' | 'DateTime' | @default(now() |
+
+**Composite keys/indexes:** `@@unique([date])`; `@@index([isActive,date])`
+
+**Declared foreign-key fields:** `createdById` → `User.id`
 
 ## Enumerations
 
@@ -1186,6 +1235,7 @@ These directories are already versioned in `apps/backend/prisma/migrations/`. Ap
 - `20261101101500_finance_rules_invoicing/migration.sql`
 - `20261125090000_add_payment_webhook_events/migration.sql`
 - `20261125100000_settlement_payout_idempotency/migration.sql`
+- `20261125120000_incident_sla_policy_scheduler/migration.sql`
 
 ## Important limits
 

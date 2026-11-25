@@ -62,6 +62,7 @@ export default function Admin(){
   <h2>Management tools</h2><div className="adminToolGrid">
    {[
     {title:"Operations & reports",description:"Booking activity, trends and reporting",href:"/admin/operations",permissions:["agent.review","provider.onboarding.review"],icon:BarChart3},
+    {title:"Incident management",description:"Support case queue, SLA policies and holiday calendar",href:"/admin/incidents",permissions:["incident.manage"],icon:FileCheck2},
     {title:"Service catalogue",description:"Categories and live services",href:"/admin/catalogue",permissions:["catalogue.manage"],icon:Layers3},
     {title:"Agent approvals",description:"Onboarding and agent verification",href:"/admin/agents",permissions:["agent.review"],icon:UsersRound},
     {title:"Tax, pricing & billing",description:"Geographic tax rules, dynamic pricing and invoices",href:"/admin/finance",permissions:["finance.tax.manage","finance.pricing.manage","finance.billing.manage"],icon:Building2},
