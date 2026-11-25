@@ -116,7 +116,7 @@ export class ApplicationService {
         throw new NotFoundException('Active service category not found');
       }
     }
-    if (dto.expiresAt && !/^\\d{4}-\\d{2}-\\d{2}$/.test(dto.expiresAt)) {
+    if (dto.expiresAt && !/^\d{4}-\d{2}-\d{2}$/.test(dto.expiresAt)) {
       throw new BadRequestException('Expiry date must use YYYY-MM-DD');
     }
     const expiresAt = dto.expiresAt
