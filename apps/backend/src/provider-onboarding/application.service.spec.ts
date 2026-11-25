@@ -1,5 +1,5 @@
 import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
-import { OnboardingChannel, OnboardingStatus, ProviderStatus, VerificationStatus } from '@prisma/client';
+import { OnboardingChannel, OnboardingDocumentType, OnboardingStatus, ProviderStatus, VerificationStatus } from '@prisma/client';
 import { ApplicationService } from './application.service';
 import type { PrismaService } from '../prisma/prisma.service';
 import type { ProviderService } from '../provider/provider.service';
@@ -151,7 +151,7 @@ describe('ApplicationService', () => {
     it('stores expiry date, category scope and private renewal linkage', async () => {
       const expiry = new Date(Date.now() + 90 * 86_400_000).toISOString().slice(0, 10);
       prisma.onboardingDocument.findFirst.mockResolvedValue({
-        id: 'document-old', applicationId: 'app-1', type: 'LICENSE', categoryId: 'category-1',
+        id: 'document-old', applicationId: 'app-1', type: OnboardingDocumentType.LICENSE, categoryId: 'category-1',
       });
       prisma.onboardingDocument.findUnique.mockResolvedValue(null);
       await service.addOwnDocument('user-1', {
@@ -162,7 +162,7 @@ describe('ApplicationService', () => {
         data: expect.objectContaining({
           applicationId: 'app-1', categoryId: 'category-1',
           expiresAt: new Date(expiry + 'T18:29:59.999Z'),
-          renewalOfId: 'document-old', reviewStatus: undefined,
+          renewalOfId: 'document-old',
         }),
       });
     });
@@ -185,7 +185,7 @@ describe('ApplicationService', () => {
         type: 'LICENSE', fileUrl: 'r2://private/key', categoryId: 'category-1', renewalOfId: 'document-old',
       })).rejects.toThrow(NotFoundException);
       prisma.onboardingDocument.findFirst.mockResolvedValue({
-        id: 'document-old', applicationId: 'app-1', type: 'IDENTITY', categoryId: 'category-1',
+        id: 'document-old', applicationId: 'app-1', type: OnboardingDocumentType.IDENTITY, categoryId: 'category-1',
       });
       await expect(service.addOwnDocument('user-1', {
         type: 'LICENSE', fileUrl: 'r2://private/key', categoryId: 'category-1', renewalOfId: 'document-old',
