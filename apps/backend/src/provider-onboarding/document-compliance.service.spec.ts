@@ -97,6 +97,18 @@ describe('DocumentComplianceService', () => {
     });
   });
 
+  it('does not suspend a category when equivalent current approved evidence still exists', async () => {
+    prisma.onboardingDocument.findFirst
+      .mockResolvedValueOnce(document)
+      .mockResolvedValueOnce({ id: 'doc-valid' });
+    await service.review('app-1', 'doc-1', 'reviewer-1', {
+      decision: OnboardingDocumentReviewStatus.REJECTED,
+      reviewNote: 'Duplicate document was unreadable',
+    });
+    expect(prisma.providerOffering.findMany).not.toHaveBeenCalled();
+    expect(prisma.providerOffering.updateMany).not.toHaveBeenCalled();
+  });
+
   it('supersedes the old document on approved renewal and restores only unblocked categories', async () => {
     prisma.onboardingDocument.findFirst.mockResolvedValue({
       ...document, renewalOfId: 'doc-old',
