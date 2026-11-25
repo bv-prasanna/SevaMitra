@@ -2,7 +2,7 @@ import {plainToInstance} from 'class-transformer';
 import {validate} from 'class-validator';
 import type {IncidentService} from './incident.service';
 import {IncidentCustomerController,IncidentAdminController} from './incident.controller';
-import {IncidentStatus} from '@prisma/client';
+import {IncidentSeverity,IncidentStatus} from '@prisma/client';
 import {ChangeIncidentStatusDto,EscalateIncidentDto,IncidentListDto,OpenIncidentDto} from './incident.dto';
 import {CreateIncidentSlaHolidayDto,CreateIncidentSlaPolicyDto} from './incident-sla.dto';
 import {PERMISSIONS_KEY} from '../iam/authorization/require-permissions.decorator';
@@ -56,7 +56,7 @@ describe('Incident routes and validation',()=>{
  });
  it('allows an incident manager to configure, approve and inspect SLA policies and holidays',async()=>{
   const policy:CreateIncidentSlaPolicyDto={
-   name:'P2 weekday support',severity:'P2' as never,category:'SERVICE_ISSUE',
+   name:'P2 weekday support',severity:IncidentSeverity.P2,category:'SERVICE_ISSUE',
    acknowledgeMinutes:30,level1Minutes:60,level2Minutes:60,level3Minutes:60,
    businessHoursOnly:true,businessStartMinute:540,businessEndMinute:1020,
    workingDays:[1,2,3,4,5],timezone:'Asia/Kolkata',
