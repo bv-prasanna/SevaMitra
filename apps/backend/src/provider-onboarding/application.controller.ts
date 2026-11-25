@@ -78,11 +78,14 @@ export class ApplicationController {
   async uploadDocument(
     @CurrentUser() user:AuthenticatedUser,
     @Body('type',new ParseEnumPipe(OnboardingDocumentType)) type:OnboardingDocumentType,
+    @Body('expiresAt') expiresAt?:string,
+    @Body('categoryId') categoryId?:string,
+    @Body('renewalOfId') renewalOfId?:string,
     @UploadedFile() file:UploadedDocument,
   ){
     const application=await this.applicationService.findOwn(user.id);
     const fileUrl=await this.storage.upload(application.id,file);
-    return this.applicationService.addOwnDocument(user.id,{type,fileUrl});
+    return this.applicationService.addOwnDocument(user.id,{type,fileUrl,expiresAt,categoryId,renewalOfId});
   }
 
   @Get('documents')
