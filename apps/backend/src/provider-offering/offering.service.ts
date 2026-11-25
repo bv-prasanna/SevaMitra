@@ -166,17 +166,28 @@ export class OfferingService {
       where: { providerId },
       select: {
         documents: {
-          where: {
-            OR: [
-              { reviewStatus: { in: [OnboardingDocumentReviewStatus.REJECTED, OnboardingDocumentReviewStatus.EXPIRED] } },
-              { reviewStatus: OnboardingDocumentReviewStatus.APPROVED, expiresAt: { lte: new Date() } },
-            ],
-          },
-          select: { categoryId: true },
+          select: { categoryId: true, type: true, reviewStatus: true, expiresAt: true },
         },
       },
     });
-    const blocked = application?.documents.some(
+    const documents = application?.documents ?? [];
+    const now = Date.now();
+    const validDocuments = documents.filter((document) =>
+      document.reviewStatus === OnboardingDocumentReviewStatus.APPROVED &&
+      (!document.expiresAt || document.expiresAt.getTime() > now),
+    );
+    const blockers = documents.filter((document) =>
+      document.reviewStatus === OnboardingDocumentReviewStatus.REJECTED ||
+      document.reviewStatus === OnboardingDocumentReviewStatus.EXPIRED ||
+      (document.reviewStatus === OnboardingDocumentReviewStatus.APPROVED &&
+        document.expiresAt && document.expiresAt.getTime() <= now),
+    ).filter((document) => !validDocuments.some((valid) =>
+      valid.type === document.type &&
+      (document.categoryId === null
+        ? valid.categoryId === null
+        : valid.categoryId === null || valid.categoryId === document.categoryId),
+    ));
+    const blocked = blockers.some(
       (document) => document.categoryId === null || document.categoryId === service.categoryId,
     );
     if (blocked) {
