@@ -5,7 +5,7 @@ import{WorkspaceHero,MobileFeedback}from"../src/components/WorkspaceHero";
 import{requestWithSession}from"../src/session";
 
 type Service={id:string;name:string;isActive:boolean};
-type Offering={id:string;serviceId:string;pricingModel:string;amount:string|null;isActive:boolean};
+type Offering={id:string;serviceId:string;pricingModel:string;amount:string|null;isActive:boolean;complianceSuspendedAt?:string|null;complianceSuspensionReason?:string|null};
 type Hours={id:string;dayOfWeek:string;startTime:string;endTime:string;isActive:boolean};
 type Area={id:string;name:string;isActive:boolean};
 const days=["MONDAY","TUESDAY","WEDNESDAY","THURSDAY","FRIDAY","SATURDAY","SUNDAY"];
@@ -74,8 +74,9 @@ export default function ProviderManage(){
  {!!message&&<MobileFeedback message={message} kind={/saved|changed/i.test(message)?"success":"error"}/>}
  <Text style={styles.section}>Current offerings</Text>
  {offers.map(o=><View key={o.id} style={styles.card}><Text style={styles.label}>{services.find(s=>s.id===o.serviceId)?.name||o.serviceId}</Text>
- <Text>{o.pricingModel} · {o.amount===null?"Quote":"INR "+o.amount}</Text><Text style={styles.muted}>{o.isActive?"Listed":"Paused"}</Text>
- <Pressable disabled={busy} style={styles.button} onPress={()=>void save(()=>requestWithSession("PATCH",`/provider-offerings/me/${o.id}`,{isActive:!o.isActive}),"Offering changed")}><Text style={styles.white}>{o.isActive?"Pause":"Activate"}</Text></Pressable></View>)}
+ <Text>{o.pricingModel} · {o.amount===null?"Quote":"INR "+o.amount}</Text><Text style={styles.muted}>{o.complianceSuspendedAt?"Compliance hold":o.isActive?"Listed":"Paused"}</Text>
+ {o.complianceSuspendedAt&&<Text style={styles.notice}>{o.complianceSuspensionReason||"Renew the compliance document and wait for approval before reactivating this service."}</Text>}
+ <Pressable disabled={busy||!!o.complianceSuspendedAt} style={styles.button} onPress={()=>void save(()=>requestWithSession("PATCH",`/provider-offerings/me/${o.id}`,{isActive:!o.isActive}),"Offering changed")}><Text style={styles.white}>{o.complianceSuspendedAt?"Awaiting document approval":o.isActive?"Pause":"Activate"}</Text></Pressable></View>)}
  <View style={styles.card}><Text style={styles.section}>Add a service</Text>
  {choices("Service",services,serviceId,setServiceId)}
  {choices("Pricing",pricing.map(p=>({id:p,name:p.replaceAll("_"," ")})),pricingModel,setPricingModel)}
@@ -109,6 +110,6 @@ const styles=StyleSheet.create({
  input:{borderColor:"#CADCD0",borderWidth:1,borderRadius:9,padding:11,marginVertical:6},
  chip:{borderWidth:1,borderColor:"#C7E4D4",borderRadius:9,padding:9,marginRight:7,marginBottom:5,backgroundColor:"#F0F8F3"},
  active:{backgroundColor:"#087A4B"},white:{color:"#fff",fontWeight:"800"},text:{color:"#144C31"},
- button:{backgroundColor:"#087A4B",padding:12,borderRadius:9,alignItems:"center",marginTop:9},
+ button:{backgroundColor:"#087A4B",padding:12,borderRadius:9,alignItems:"center",marginTop:9},notice:{color:"#A44A1B",marginVertical:8},
  block:{marginVertical:4},notice:{color:"#A44A1B",marginVertical:8}
 });
