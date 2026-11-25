@@ -194,6 +194,17 @@ describe('ApplicationService', () => {
       })).rejects.toThrow(ConflictException);
     });
 
+    it('does not allow another upload while same-scope evidence is pending review', async () => {
+      prisma.onboardingDocument.findMany.mockResolvedValue([{
+        id: 'document-pending', reviewStatus: OnboardingDocumentReviewStatus.PENDING,
+      }]);
+      await expect(service.addOwnDocument('user-1', {
+        type: OnboardingDocumentType.LICENSE, fileUrl: 'r2://private/key',
+        renewalOfId: 'document-old',
+      })).rejects.toThrow(ConflictException);
+      expect(prisma.onboardingDocument.create).not.toHaveBeenCalled();
+    });
+
     it('requires explicit renewal linkage when replacing existing evidence', async () => {
       prisma.onboardingDocument.findMany.mockResolvedValue([{ id: 'document-old' }]);
       await expect(service.addOwnDocument('user-1', {
