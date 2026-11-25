@@ -18,5 +18,15 @@ describe('PrivateDocumentStorage',()=>{
    method:'PUT',headers:expect.objectContaining({authorization:expect.stringContaining('AWS4-HMAC-SHA256')}),
   }));
  });
+ it('deletes only a managed private document key using a signed DELETE',async()=>{
+  const http=jest.spyOn(global,'fetch').mockResolvedValue({ok:true,status:204} as Response);
+  await make().delete('r2://sevamitra-private/onboarding/application-1/01234567-89ab-cdef-0123-456789abcdef.pdf');
+  expect(http).toHaveBeenCalledWith(expect.stringContaining('.r2.cloudflarestorage.com/'),expect.objectContaining({
+   method:'DELETE',headers:expect.objectContaining({authorization:expect.stringContaining('AWS4-HMAC-SHA256')}),
+  }));
+ });
+ it('does not delete a key outside the managed private bucket',async()=>{
+  await expect(make().delete('https://attacker.test/document.pdf')).rejects.toThrow('not in managed private storage');
+ });
  it('does not accept a public URL as a private document key',async()=>{await expect(make().download('https://attacker.test/x.pdf')).rejects.toThrow('not in managed private storage')});
 });
