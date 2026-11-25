@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   Injectable,
   NotFoundException,
@@ -105,12 +106,45 @@ export class ApplicationService {
     dto: CreateDocumentDto,
   ): Promise<OnboardingDocument> {
     const application = await this.findOwn(userId);
+    if (dto.categoryId) {
+      const category = await this.prisma.serviceCategory.findUnique({
+        where: { id: dto.categoryId },
+        select: { id: true, isActive: true },
+      });
+      if (!category || !category.isActive) {
+        throw new NotFoundException('Active service category not found');
+      }
+    }
+    const expiresAt = dto.expiresAt
+      ? new Date(dto.expiresAt + 'T18:29:59.999Z')
+      : null;
+    if (expiresAt && expiresAt.getTime() <= Date.now()) {
+      throw new BadRequestException('Document expiry date must be in the future');
+    }
+    if (dto.renewalOfId) {
+      const previous = await this.prisma.onboardingDocument.findFirst({
+        where: { id: dto.renewalOfId, applicationId: application.id },
+      });
+      if (!previous) throw new NotFoundException('Renewal document not found');
+      if (previous.type !== dto.type || previous.categoryId !== (dto.categoryId ?? null)) {
+        throw new ConflictException('A renewal must match the original document type and category');
+      }
+      const existingRenewal = await this.prisma.onboardingDocument.findUnique({
+        where: { renewalOfId: previous.id },
+      });
+      if (existingRenewal) {
+        throw new ConflictException('A renewal for this document is already submitted');
+      }
+    }
     return this.prisma.onboardingDocument.create({
       data: {
         applicationId: application.id,
         type: dto.type,
         fileUrl: dto.fileUrl,
         label: dto.label,
+        categoryId: dto.categoryId ?? null,
+        expiresAt,
+        renewalOfId: dto.renewalOfId ?? null,
       },
     });
   }
