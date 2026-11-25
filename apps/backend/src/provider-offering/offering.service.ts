@@ -139,6 +139,7 @@ export class OfferingService {
     if (!offering || !offering.isActive || offering.complianceSuspendedAt) {
       throw new NotFoundException('Offering not found');
     }
+    await this.assertNoComplianceHold(offering.providerId, offering.serviceId);
     return offering;
   }
 
