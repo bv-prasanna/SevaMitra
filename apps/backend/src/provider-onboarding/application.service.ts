@@ -134,11 +134,17 @@ export class ApplicationService {
         where: { id: dto.renewalOfId, applicationId: application.id },
       });
       if (!previous) throw new NotFoundException('Renewal document not found');
+      if (previous.reviewStatus === OnboardingDocumentReviewStatus.SUPERSEDED) {
+        throw new ConflictException('Choose the latest current document, not one already superseded');
+      }
       if (previous.type !== dto.type || previous.categoryId !== (dto.categoryId ?? null)) {
         throw new ConflictException('A renewal must match the original document type and category');
       }
-      const existingRenewal = await this.prisma.onboardingDocument.findUnique({
-        where: { renewalOfId: previous.id },
+      const existingRenewal = await this.prisma.onboardingDocument.findFirst({
+        where: {
+          renewalOfId: previous.id,
+          reviewStatus: { in: [OnboardingDocumentReviewStatus.PENDING, OnboardingDocumentReviewStatus.APPROVED] },
+        },
       });
       if (existingRenewal) {
         throw new ConflictException('A renewal for this document is already submitted');
