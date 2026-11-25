@@ -6,6 +6,9 @@ import {
   IsString,
   IsUrl,
   MaxLength,
+  IsUUID,
+  IsDateString,
+  Matches,
 } from 'class-validator';
 
 export class CreateDocumentDto {
@@ -19,10 +22,26 @@ export class CreateDocumentDto {
   @ApiProperty({
     example: 'https://example.com/uploads/aadhaar-front.jpg',
     description:
-      'A reference URL — no upload endpoint exists yet (Media/Document module is Phase 1b), this is trusted as given for now',
+      'Private storage key returned by the upload service; public URLs are not accepted',
   })
   @IsUrl()
   fileUrl: string;
+
+  @ApiProperty({ required: false, description: 'Optional service category scope; omit to apply to all provider services' })
+  @IsOptional()
+  @IsUUID()
+  categoryId?: string;
+
+  @ApiProperty({ required: false, example: '2027-12-31', description: 'Expiry date, valid through the end of the date in Asia/Kolkata' })
+  @IsOptional()
+  @IsDateString()
+  @Matches(/^\\d{4}-\\d{2}-\\d{2}$/)
+  expiresAt?: string;
+
+  @ApiProperty({ required: false, description: 'Existing document being renewed' })
+  @IsOptional()
+  @IsUUID()
+  renewalOfId?: string;
 
   @ApiProperty({ example: 'Aadhaar card, front', required: false })
   @IsOptional()
