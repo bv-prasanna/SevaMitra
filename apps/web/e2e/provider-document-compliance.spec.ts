@@ -45,5 +45,5 @@ test('provider can submit expiry, category and renewal metadata with a private d
  expect(uploadedBody).toContain('category-1');
  expect(uploadedBody).toContain('renewalOfId');
  expect(uploadedBody).toContain('doc-old');
- await expect(page.getByText('LICENSE · PENDING')).toBeVisible();
+ await expect(page.getByText('Status: PENDING')).toBeVisible();
 });
