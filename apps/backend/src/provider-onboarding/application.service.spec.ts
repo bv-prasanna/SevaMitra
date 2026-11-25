@@ -296,6 +296,26 @@ describe('ApplicationService', () => {
       expect(prisma.$transaction).not.toHaveBeenCalled();
     });
 
+    it('ignores superseded historical documents after an approved renewal', async () => {
+      prisma.onboardingApplication.findUnique.mockResolvedValue({
+        id: 'app-1', providerId: 'provider-1', status: OnboardingStatus.SUBMITTED,
+        documents: [
+          {
+            reviewStatus: OnboardingDocumentReviewStatus.SUPERSEDED,
+            expiresAt: new Date(Date.now() - 86_400_000),
+          },
+          {
+            reviewStatus: OnboardingDocumentReviewStatus.APPROVED,
+            expiresAt: new Date(Date.now() + 86_400_000),
+          },
+        ],
+      });
+      await expect(service.review('app-1', 'reviewer-1', {
+        decision: OnboardingStatus.APPROVED,
+      })).resolves.toBeDefined();
+      expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+    });
+
     it('marks the provider verified on approval', async () => {
       prisma.onboardingApplication.findUnique.mockResolvedValue({
         id: 'app-1',
