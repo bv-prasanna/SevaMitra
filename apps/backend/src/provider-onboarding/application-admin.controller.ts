@@ -29,6 +29,8 @@ import { PrivateDocumentStorage } from './private-document.storage';
 import type { Response } from 'express';
 import { ListApplicationsQueryDto } from './dto/list-applications-query.dto';
 import { ReviewApplicationDto } from './dto/review-application.dto';
+import { ReviewDocumentDto } from './dto/review-document.dto';
+import { DocumentComplianceService } from './document-compliance.service';
 import { ApplicationDto } from './dto/responses/application.dto';
 import { ErrorResponseDto } from '../common/dto/error-response.dto';
 
@@ -38,7 +40,7 @@ import { ErrorResponseDto } from '../common/dto/error-response.dto';
 @RequirePermissions('provider.onboarding.review')
 @Controller({ path: 'provider-onboarding/applications', version: '1' })
 export class ApplicationAdminController {
-  constructor(private readonly applicationService: ApplicationService, private readonly storage:PrivateDocumentStorage) {}
+  constructor(private readonly applicationService: ApplicationService, private readonly storage:PrivateDocumentStorage, private readonly compliance:DocumentComplianceService) {}
 
   @Get()
   @ApiOperation({
@@ -72,6 +74,18 @@ export class ApplicationAdminController {
     response.setHeader('X-Content-Type-Options','nosniff');
     response.setHeader('Content-Disposition','attachment; filename="provider-evidence"');
     return new StreamableFile(result.content,{type:result.contentType});
+  }
+
+  @Patch(':id/documents/:documentId/review')
+  @ApiOperation({ summary: 'Approve or reject one compliance document and apply category-scoped suspension or renewal restoration' })
+  @ApiOkResponse({ type: DocumentDto })
+  reviewDocument(
+    @Param('id') id: string,
+    @Param('documentId') documentId: string,
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() dto: ReviewDocumentDto,
+  ) {
+    return this.compliance.review(id, documentId, user.id, dto);
   }
 
   @Patch(':id/claim')
