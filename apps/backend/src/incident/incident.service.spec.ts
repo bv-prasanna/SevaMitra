@@ -217,7 +217,7 @@ describe('IncidentService', () => {
     });
   });
 
-  it.each([IncidentStatus.CLOSED, IncidentStatus.OPEN])(
+  it.each([IncidentStatus.CLOSED, IncidentStatus.RESOLVED, IncidentStatus.OPEN])(
     'does not escalate invalid closed or L3 case %s',
     async (status) => {
       prisma.incidentCase.findUnique.mockResolvedValue({
