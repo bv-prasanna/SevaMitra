@@ -105,9 +105,9 @@ describe('DocumentComplianceService', () => {
       { id: 'offer-a', service: { categoryId: 'category-a' } },
       { id: 'offer-b', service: { categoryId: 'category-b' } },
     ]);
-    prisma.onboardingDocument.findMany.mockResolvedValue([
-      { categoryId: 'category-b' },
-    ]);
+    prisma.onboardingDocument.findMany
+      .mockResolvedValueOnce([{ categoryId: 'category-b', type: OnboardingDocumentType.LICENSE }])
+      .mockResolvedValueOnce([]);
     await service.review('app-1', 'doc-1', 'reviewer-1', {
       decision: OnboardingDocumentReviewStatus.APPROVED,
     });
