@@ -4,7 +4,6 @@ import {
   IsEnum,
   IsOptional,
   IsString,
-  IsUrl,
   MaxLength,
   IsUUID,
   IsDateString,
@@ -24,7 +23,8 @@ export class CreateDocumentDto {
     description:
       'Private storage key returned by the upload service; public URLs are not accepted',
   })
-  @IsUrl()
+  @IsString()
+  @MaxLength(500)
   fileUrl: string;
 
   @ApiProperty({ required: false, description: 'Optional service category scope; omit to apply to all provider services' })
