@@ -29,6 +29,15 @@ export class PrivateDocumentStorage{
   if(!response.ok)throw new ServiceUnavailableException('Private document storage rejected the upload');
   return `r2://${bucket}/${key}`;
  }
+ async delete(fileUrl:string):Promise<void>{
+  const bucket=this.getSettings().bucket;
+  const prefix=`r2://${bucket}/onboarding/`;
+  if(!fileUrl.startsWith(prefix))throw new NotFoundException('Document is not in managed private storage');
+  const key=fileUrl.slice(`r2://${bucket}/`.length);
+  if(!/^onboarding\/[0-9a-f-]+\/[0-9a-f-]+\.(pdf|png|jpg)$/.test(key))throw new NotFoundException('Invalid document reference');
+  const response=await this.signedFetch('DELETE',key);
+  if(!response.ok&&response.status!==404)throw new ServiceUnavailableException('Private document cleanup failed');
+ }
  async download(fileUrl:string):Promise<{content:Buffer,contentType:string}>{
   const bucket=this.getSettings().bucket;
   const prefix=`r2://${bucket}/onboarding/`;
@@ -52,7 +61,7 @@ export class PrivateDocumentStorage{
   if(!/^[a-f0-9]{32}$/i.test(account)||!/^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$/.test(bucket))throw new ServiceUnavailableException('Invalid private storage configuration');
   return {account,bucket,access,secret};
  }
- private async signedFetch(method:'PUT'|'GET',key:string,body?:Buffer,contentType?:string):Promise<Response>{
+ private async signedFetch(method:'PUT'|'GET'|'DELETE',key:string,body?:Buffer,contentType?:string):Promise<Response>{
   const {account,bucket,access,secret}=this.getSettings();
   const host=`${account}.r2.cloudflarestorage.com`;
   const date=new Date().toISOString().replace(/[:-]|\.\d{3}/g,'');
