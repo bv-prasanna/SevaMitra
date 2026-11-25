@@ -20,8 +20,10 @@ ALTER TABLE "marketplace"."provider_offerings"
   ADD COLUMN "compliance_suspended_at" TIMESTAMP(3),
   ADD COLUMN "compliance_suspension_reason" TEXT;
 
-CREATE INDEX "onboarding_documents_renewal_of_id_idx"
-  ON "marketplace"."onboarding_documents"("renewal_of_id");
+CREATE UNIQUE INDEX "onboarding_documents_active_renewal_of_id_key"
+  ON "marketplace"."onboarding_documents"("renewal_of_id")
+  WHERE "renewal_of_id" IS NOT NULL
+    AND "review_status" IN ('PENDING', 'APPROVED');
 CREATE INDEX "onboarding_documents_review_status_expires_at_idx"
   ON "marketplace"."onboarding_documents"("review_status","expires_at");
 CREATE INDEX "onboarding_documents_category_id_idx"
