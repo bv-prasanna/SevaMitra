@@ -221,7 +221,7 @@ export class IncidentService {
     return this.prisma.$transaction(async (tx) => {
       const current = await tx.incidentCase.findUnique({ where: { id }, include: { slaPolicy: true } });
       if (!current) throw new NotFoundException('Incident not found');
-      if ([IncidentStatus.CLOSED, IncidentStatus.RESOLVED].includes(current.status) || current.level >= 3) {
+      if (current.status === IncidentStatus.CLOSED || current.status === IncidentStatus.RESOLVED || current.level >= 3) {
         throw new ConflictException('Incident already closed or at maximum escalation');
       }
       const nextLevel = current.level + 1;
