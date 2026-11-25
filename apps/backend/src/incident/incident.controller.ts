@@ -7,6 +7,7 @@ import {PermissionsGuard} from '../iam/authorization/permissions.guard';
 import {RequirePermissions} from '../iam/authorization/require-permissions.decorator';
 import {IncidentService} from './incident.service';
 import {ChangeIncidentStatusDto,EscalateIncidentDto,IncidentListDto,OpenIncidentDto} from './incident.dto';
+import {CreateIncidentSlaHolidayDto,CreateIncidentSlaPolicyDto} from './incident-sla.dto';
 
 @ApiTags('Incidents')
 @ApiBearerAuth()
@@ -30,6 +31,22 @@ export class IncidentAdminController {
  constructor(private readonly incidents:IncidentService){}
  @Get()
  list(@Query() q:IncidentListDto){return this.incidents.list(q.status)}
+ @Get('sla-policies')
+ listSlaPolicies(){return this.incidents.listSlaPolicies()}
+ @Post('sla-policies')
+ createSlaPolicy(@CurrentUser() actor:AuthenticatedUser,@Body() dto:CreateIncidentSlaPolicyDto){
+  return this.incidents.createSlaPolicy(actor.id,dto);
+ }
+ @Post('sla-policies/:id/approve')
+ approveSlaPolicy(@Param('id') id:string,@CurrentUser() actor:AuthenticatedUser){
+  return this.incidents.approveSlaPolicy(id,actor.id);
+ }
+ @Get('sla-holidays')
+ listSlaHolidays(){return this.incidents.listSlaHolidays()}
+ @Post('sla-holidays')
+ createSlaHoliday(@CurrentUser() actor:AuthenticatedUser,@Body() dto:CreateIncidentSlaHolidayDto){
+  return this.incidents.createSlaHoliday(actor.id,dto);
+ }
  @Get(':id')
  detail(@Param('id') id:string){return this.incidents.detail(id)}
  @Patch(':id/claim')
