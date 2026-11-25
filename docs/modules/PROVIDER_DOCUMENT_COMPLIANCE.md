@@ -14,9 +14,9 @@ The API stores review status separately from onboarding-application status. New 
 
 - Reviewers with `provider.onboarding.review` can approve or reject individual documents.
 - A rejection requires a reason and records reviewer ID/time/note.
-- Provider application approval is blocked while any submitted document is pending, rejected, superseded incorrectly or expired. A provider with no submitted documents is still subject to the existing business review policy; this module does not invent a mandatory document checklist.
-- A renewal must reference a document in the same application and match its type and category. Only one renewal can reference an original document.
-- Approving a renewal marks the previous document `SUPERSEDED`; its history and expiry timestamp remain available.
+- Provider application approval is blocked while any submitted document is pending, rejected or expired; superseded historical evidence is ignored after an approved replacement. A provider with no submitted documents is still subject to the existing business review policy; this module does not invent a mandatory document checklist.
+- A renewal must reference a document in the same application and match its type and category. Only one pending or approved renewal can reference the same prior document; rejected attempts remain in history and can be replaced.
+- Approving a renewal marks prior documents of the same type and category `SUPERSEDED`; their history and expiry timestamps remain available.
 - An expired document cannot be approved in place. The provider must upload a renewal and the reviewer must approve it.
 
 ## Category-scoped service holds
