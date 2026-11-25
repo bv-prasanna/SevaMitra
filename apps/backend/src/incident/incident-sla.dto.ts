@@ -17,7 +17,7 @@ import {
 import { INCIDENT_CATEGORIES } from './incident.dto';
 
 export class CreateIncidentSlaPolicyDto {
-  @IsString() @Matches(/\\S/) @MaxLength(100)
+  @IsString() @Matches(/\S/) @MaxLength(100)
   name: string;
 
   @IsEnum(IncidentSeverity)
@@ -50,7 +50,7 @@ export class CreateIncidentSlaPolicyDto {
   @IsArray() @ArrayUnique() @IsInt({ each: true }) @Min(0, { each: true }) @Max(6, { each: true })
   workingDays: number[];
 
-  @IsString() @Matches(/\\S/) @MaxLength(100)
+  @IsString() @Matches(/\S/) @MaxLength(100)
   timezone: string;
 }
 
@@ -58,6 +58,6 @@ export class CreateIncidentSlaHolidayDto {
   @IsDateString()
   date: string;
 
-  @IsString() @Matches(/\\S/) @MaxLength(120)
+  @IsString() @Matches(/\S/) @MaxLength(120)
   label: string;
 }
