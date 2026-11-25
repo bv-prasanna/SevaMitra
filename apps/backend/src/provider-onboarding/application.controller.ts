@@ -83,9 +83,14 @@ export class ApplicationController {
     @Body('renewalOfId') renewalOfId?:string,
     @UploadedFile() file:UploadedDocument,
   ){
-    const application=await this.applicationService.findOwn(user.id);
-    const fileUrl=await this.storage.upload(application.id,file);
-    return this.applicationService.addOwnDocument(user.id,{type,fileUrl,expiresAt,categoryId,renewalOfId});
+    const prepared=await this.applicationService.prepareOwnDocument(user.id,{type,expiresAt,categoryId,renewalOfId});
+    const fileUrl=await this.storage.upload(prepared.applicationId,file);
+    try{
+      return await this.applicationService.addOwnDocument(user.id,{type,fileUrl,expiresAt,categoryId,renewalOfId},prepared);
+    }catch(error){
+      await this.storage.delete(fileUrl).catch(()=>undefined);
+      throw error;
+    }
   }
 
   @Get('documents')
