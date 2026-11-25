@@ -68,6 +68,7 @@ describe('DocumentComplianceService', () => {
 
   it('rejects only offerings in the document category and records a provider notice', async () => {
     prisma.providerOffering.findMany.mockResolvedValue([{ id: 'offer-a' }]);
+    prisma.onboardingDocument.findFirst.mockResolvedValueOnce(document).mockResolvedValueOnce(null);
     await service.review('app-1', 'doc-1', 'reviewer-1', {
       decision: OnboardingDocumentReviewStatus.REJECTED,
       reviewNote: 'License image is unreadable',
@@ -132,6 +133,7 @@ describe('DocumentComplianceService', () => {
     prisma.onboardingDocument.findMany
       .mockResolvedValueOnce([expired])
       .mockResolvedValueOnce([]);
+    prisma.onboardingDocument.findFirst.mockResolvedValue(null);
     prisma.providerOffering.findMany.mockResolvedValue([{ id: 'offer-a' }]);
     const result = await service.processDue(new Date('2026-11-25T06:00:00.000Z'));
     expect(result).toEqual({
