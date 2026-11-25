@@ -226,7 +226,6 @@ export class DocumentComplianceService {
         application: { select: { provider: { select: { userId: true } } } },
       },
       orderBy: { expiresAt: 'asc' },
-      take: 500,
     });
     const reminders = expiring.map((document) => {
       const expiresAt = document.expiresAt as Date;
