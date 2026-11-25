@@ -3,7 +3,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { ProviderOffering, ProviderStatus } from '@prisma/client';
+import { OnboardingDocumentReviewStatus, ProviderOffering, ProviderStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { ProviderService } from '../provider/provider.service';
 import { ServiceService } from '../catalogue/service/service.service';
@@ -31,6 +31,7 @@ export class OfferingService {
       );
     }
     await this.serviceService.assertExistsOrThrow(dto.serviceId);
+    await this.assertNoComplianceHold(provider.id, dto.serviceId);
     if (dto.variantId) {
       await this.variantService.assertBelongsToService(
         dto.serviceId,
@@ -78,8 +79,14 @@ export class OfferingService {
   ): Promise<ProviderOffering> {
     const provider = await this.providerService.getActiveProfileOrThrow(userId);
     const existing = await this.getOwnedOfferingOrThrow(provider.id, id);
+    if (existing.complianceSuspendedAt && (dto.isActive !== undefined || dto.serviceId !== undefined)) {
+      throw new ConflictException('This offering is on a compliance hold. Complete document renewal and review before changing its listing state or category.');
+    }
     if (dto.serviceId) {
       await this.serviceService.assertExistsOrThrow(dto.serviceId);
+      await this.assertNoComplianceHold(provider.id, dto.serviceId);
+    } else if (dto.isActive === true) {
+      await this.assertNoComplianceHold(provider.id, existing.serviceId);
     }
     if (dto.variantId) {
       const effectiveServiceId = dto.serviceId ?? existing.serviceId;
@@ -129,7 +136,7 @@ export class OfferingService {
     const offering = await this.prisma.providerOffering.findUnique({
       where: { id },
     });
-    if (!offering) {
+    if (!offering || !offering.isActive || offering.complianceSuspendedAt) {
       throw new NotFoundException('Offering not found');
     }
     return offering;
@@ -146,6 +153,35 @@ export class OfferingService {
       throw new NotFoundException('Offering not found');
     }
     return offering;
+  }
+
+  private async assertNoComplianceHold(providerId: string, serviceId: string): Promise<void> {
+    const service = await this.prisma.service.findUnique({
+      where: { id: serviceId },
+      select: { categoryId: true },
+    });
+    if (!service) throw new NotFoundException('Service not found');
+    const application = await this.prisma.onboardingApplication.findUnique({
+      where: { providerId },
+      select: {
+        documents: {
+          where: {
+            reviewStatus: {
+              in: [OnboardingDocumentReviewStatus.REJECTED, OnboardingDocumentReviewStatus.EXPIRED],
+            },
+          },
+          select: { categoryId: true },
+        },
+      },
+    });
+    const blocked = application?.documents.some(
+      (document) => document.categoryId === null || document.categoryId === service.categoryId,
+    );
+    if (blocked) {
+      throw new ConflictException(
+        'A rejected or expired compliance document affects this service category. Upload a renewal and wait for approval before listing it.',
+      );
+    }
   }
 
   private async assertNoDuplicateOffering(
