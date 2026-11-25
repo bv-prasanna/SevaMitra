@@ -81,13 +81,23 @@ export class DocumentComplianceService {
       }
 
       if (dto.decision === OnboardingDocumentReviewStatus.REJECTED) {
-        await this.suspendForDocument(
+        const hasValidEquivalent = await this.hasValidEquivalent(
           tx,
-          document.application.providerId,
+          applicationId,
+          document.id,
+          document.type,
           document.categoryId,
           now,
-          `Compliance document ${document.type} was rejected`,
         );
+        if (!hasValidEquivalent) {
+          await this.suspendForDocument(
+            tx,
+            document.application.providerId,
+            document.categoryId,
+            now,
+            `Compliance document ${document.type} was rejected`,
+          );
+        }
       } else if (document.renewalOfId) {
         const superseded = await tx.onboardingDocument.updateMany({
           where: {
@@ -174,7 +184,15 @@ export class DocumentComplianceService {
           },
         });
         if (changed.count !== 1) return null;
-        const suspended = await this.suspendForDocument(
+        const hasValidEquivalent = await this.hasValidEquivalent(
+          tx,
+          document.applicationId,
+          document.id,
+          document.type,
+          document.categoryId,
+          now,
+        );
+        const suspended = hasValidEquivalent ? 0 : await this.suspendForDocument(
           tx,
           document.application.providerId,
           document.categoryId,
@@ -235,6 +253,31 @@ export class DocumentComplianceService {
       remindersQueued: reminderResult.count,
       skipped,
     };
+  }
+
+  private hasValidEquivalent(
+    tx: Prisma.TransactionClient,
+    applicationId: string,
+    excludeDocumentId: string,
+    type: string,
+    categoryId: string | null,
+    now: Date,
+  ) {
+    return tx.onboardingDocument.findFirst({
+      where: {
+        applicationId,
+        id: { not: excludeDocumentId },
+        type,
+        reviewStatus: OnboardingDocumentReviewStatus.APPROVED,
+        AND: [
+          categoryId
+            ? { OR: [{ categoryId }, { categoryId: null }] }
+            : { categoryId: null },
+          { OR: [{ expiresAt: null }, { expiresAt: { gt: now } }] },
+        ],
+      },
+      select: { id: true },
+    });
   }
 
   private async suspendForDocument(
