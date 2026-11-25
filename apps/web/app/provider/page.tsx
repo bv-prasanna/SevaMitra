@@ -3,16 +3,18 @@ import HelpChat from "../components/HelpChat";
 import{useEffect,useState}from"react";import{ApiClient}from"@sevamitra/api-client";import Link from"next/link";
 type Profile={id:string;fullName:string;status:string;verificationStatus:string};
 type Booking={id:string;status:string;scheduledDate:string;scheduledStartTime:string;scheduledEndTime:string;amount?:string|null;currency:string};
-type App={id:string;status:string;reviewNote?:string|null;documents?:{id:string;type:string;createdAt:string}[]};
+type App={id:string;status:string;reviewNote?:string|null;documents?:{id:string;type:string;createdAt:string;categoryId?:string|null;expiresAt?:string|null;reviewStatus?:string;reviewNote?:string|null;renewalOfId?:string|null}[]};
+type Category={id:string;name:string;isActive:boolean};
 export default function Provider(){
- const[profileState,setProfileState]=useState<"loading"|"missing"|"ready"|"error">("loading"),[notice,setNotice]=useState(""),[uploadFile,setUploadFile]=useState<File|null>(null),[documentType,setDocumentType]=useState("IDENTITY"),[referralCode,setReferralCode]=useState(""),[profile,setProfile]=useState<Profile|null>(null),[onboard,setOnboard]=useState<App|null>(null),[bookings,setBookings]=useState<Booking[]>([]),[name,setName]=useState(""),[reasons,setReasons]=useState<Record<string,string>>({}),[msg,setMsg]=useState("Loading…"),[busy,setBusy]=useState(false);
+ const[profileState,setProfileState]=useState<"loading"|"missing"|"ready"|"error">("loading"),[notice,setNotice]=useState(""),[uploadFile,setUploadFile]=useState<File|null>(null),[documentType,setDocumentType]=useState("IDENTITY"),[documentExpiryDate,setDocumentExpiryDate]=useState(""),[documentCategoryId,setDocumentCategoryId]=useState(""),[renewalOfId,setRenewalOfId]=useState(""),[categories,setCategories]=useState<Category[]>([]),[referralCode,setReferralCode]=useState(""),[profile,setProfile]=useState<Profile|null>(null),[onboard,setOnboard]=useState<App|null>(null),[bookings,setBookings]=useState<Booking[]>([]),[name,setName]=useState(""),[reasons,setReasons]=useState<Record<string,string>>({}),[msg,setMsg]=useState("Loading…"),[busy,setBusy]=useState(false);
  const api=new ApiClient(process.env.NEXT_PUBLIC_API_BASE_URL||"",()=>localStorage.getItem("sevamitra_token")||undefined);
  async function load(){
   try{
    const p=await api.get<Profile>("/providers/me");setProfile(p);setProfileState("ready");
-   const r=await Promise.allSettled([api.get<Booking[]>("/bookings/provider/me"),api.get<App>("/provider-onboarding/applications/me")]);
+   const r=await Promise.allSettled([api.get<Booking[]>("/bookings/provider/me"),api.get<App>("/provider-onboarding/applications/me"),api.get<Category[]>("/catalogue/categories")]);
    setBookings(r[0].status==="fulfilled"&&Array.isArray(r[0].value)?r[0].value:[]);
    setOnboard(r[1].status==="fulfilled"?r[1].value:null);
+   setCategories(r[2].status==="fulfilled"&&Array.isArray(r[2].value)?r[2].value.filter(x=>x.isActive):[]);
    const bookingsError=r[0].status==="rejected"?r[0].reason:null;
    const onboardingError=r[1].status==="rejected"&&(r[1].reason as {status?:number})?.status!==404?r[1].reason:null;
    setMsg(bookingsError||onboardingError?"Some provider details could not be loaded. Refresh to retry.":"");
@@ -27,13 +29,13 @@ export default function Provider(){
   if(!["application/pdf","image/jpeg","image/png"].includes(uploadFile.type)){setMsg("Use PDF/JPG/PNG only.");return}
   setBusy(true);
   try{
-   const data=new FormData();data.append("file",uploadFile);data.append("type",documentType);
+   const data=new FormData();data.append("file",uploadFile);data.append("type",documentType);if(documentExpiryDate)data.append("expiresAt",documentExpiryDate);if(documentCategoryId)data.append("categoryId",documentCategoryId);if(renewalOfId)data.append("renewalOfId",renewalOfId);
    const token=localStorage.getItem("sevamitra_token");
    if(!token)throw new Error("Sign in to upload evidence");
    const base=(process.env.NEXT_PUBLIC_API_BASE_URL||"").replace(/\/$/,"");
    const response=await fetch(base+"/api/v1/provider-onboarding/applications/me/documents/upload",{method:"POST",headers:{Authorization:"Bearer "+token},body:data});
    if(!response.ok){const details=await response.json().catch(()=>null) as {message?:string}|null;throw new Error(details?.message||"Upload failed")}
-   setUploadFile(null);await load();setNotice("Document uploaded privately for verification.");
+   setUploadFile(null);setDocumentExpiryDate("");setRenewalOfId("");await load();setNotice("Document uploaded privately for verification. A reviewer must approve it before it can satisfy compliance.");
   }catch(e){setMsg(e instanceof Error?e.message:"Upload failed")}finally{setBusy(false)}
  }
  async function action(b:Booking,kind:"accept"|"reject"|"complete"){
@@ -47,10 +49,14 @@ export default function Provider(){
  {profileState==="error"&&<p><Link href="/login">Sign in →</Link> <button type="button" onClick={()=>void load()}>Retry</button></p>}{profileState==="missing"&&<article><label htmlFor="provider-name">Your full name</label><input id="provider-name" maxLength={150} value={name} onChange={e=>setName(e.target.value)}/><button disabled={busy||name.trim().length<2} onClick={()=>void create()}>Create provider profile</button></article>}
  {profile&&<><article><h2>Verification</h2><p>Application: {onboard?.status||"Not submitted"}</p>{onboard?.reviewNote&&<p>{onboard.reviewNote}</p>}{(!onboard||onboard.status==="REJECTED")&&<><label>Agent referral code (optional)</label><input maxLength={20} placeholder="Referral code" value={referralCode} onChange={e=>setReferralCode(e.target.value.toUpperCase())}/><button disabled={busy} onClick={()=>void submit()}>Submit application for review</button></>}
  {onboard&&<section><h3>Private verification documents</h3><p>PDF/JPG/PNG, up to 5 MB. Only authorized operations reviewers can download these documents.</p>
- <label>Document type<select value={documentType} onChange={e=>setDocumentType(e.target.value)}>{["IDENTITY","ADDRESS_PROOF","BUSINESS_REGISTRATION","SKILL_CERTIFICATE","LICENSE","REFERENCE","OTHER"].map(t=><option value={t} key={t}>{t.replaceAll("_"," ")}</option>)}</select></label>
+ <label>Document type<select value={documentType} onChange={e=>{setDocumentType(e.target.value);setRenewalOfId("")}}>{["IDENTITY","ADDRESS_PROOF","BUSINESS_REGISTRATION","SKILL_CERTIFICATE","LICENSE","REFERENCE","OTHER"].map(t=><option value={t} key={t}>{t.replaceAll("_"," ")}</option>)}</select></label>
+ <label>Service category scope<select value={documentCategoryId} onChange={e=>{setDocumentCategoryId(e.target.value);setRenewalOfId("")}}><option value="">All provider services</option>{categories.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select></label>
+ <label>Expiry date (optional)<input type="date" value={documentExpiryDate} onChange={e=>setDocumentExpiryDate(e.target.value)}/></label>
+ <label>Document being renewed (optional)<select value={renewalOfId} onChange={e=>setRenewalOfId(e.target.value)}><option value="">New evidence / not a renewal</option>{(onboard.documents||[]).filter(d=>d.type===documentType&&(d.categoryId||"")===documentCategoryId).map(d=><option key={d.id} value={d.id}>{d.type.replaceAll("_"," ")} · {d.reviewStatus||"PENDING"} · {d.id.slice(0,8)}</option>)}</select></label>
  <input type="file" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" onChange={e=>setUploadFile(e.target.files?.[0]||null)}/>
  <button disabled={busy||!uploadFile} onClick={()=>void upload()}>Upload securely</button>
- <p>{onboard.documents?.length||0} document(s) submitted</p>
+ <p>{onboard.documents?.length||0} document(s) submitted. Expiry dates are interpreted through the end of the selected date in India Standard Time.</p>
+ <div className="adminModules">{(onboard.documents||[]).map(d=><article key={d.id}><h4>{d.type.replaceAll("_"," ")}</h4><p>Status: {d.reviewStatus||"PENDING"}</p><p>Scope: {categories.find(c=>c.id===d.categoryId)?.name||"All provider services"}</p><p>Expires: {d.expiresAt?new Date(d.expiresAt).toLocaleDateString():"No expiry date recorded"}</p>{d.reviewNote&&<p role="alert">Reviewer note: {d.reviewNote}</p>}</article>)}</div>
  </section>}</article>
  <p><Link href="/provider/manage">Configure pricing, service areas and working hours →</Link></p><h2 style={{marginTop:25}}>Bookings ({bookings.length})</h2>{bookings.length===0&&<p>No bookings assigned yet.</p>}
  <div className="adminModules">{bookings.map(b=><article key={b.id}><h3>{b.status}</h3><p>{String(b.scheduledDate).slice(0,10)} · {b.scheduledStartTime}–{b.scheduledEndTime}</p><p>{b.currency} {b.amount??"Price on request"}</p><small>{b.id}</small>
