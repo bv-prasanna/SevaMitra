@@ -615,15 +615,16 @@ model OnboardingDocument {
   reviewedById String? @map("reviewed_by_id")
   reviewedBy User? @relation("OnboardingDocumentReviewer",fields:[reviewedById],references:[id],onDelete:SetNull)
   reviewNote String? @map("review_note")
-  renewalOfId String? @unique @map("renewal_of_id")
+  renewalOfId String? @map("renewal_of_id")
   renewalOf OnboardingDocument? @relation("OnboardingDocumentRenewal",fields:[renewalOfId],references:[id],onDelete:SetNull)
-  renewal OnboardingDocument? @relation("OnboardingDocumentRenewal")
+  renewals OnboardingDocument[] @relation("OnboardingDocumentRenewal")
 
   createdAt DateTime @default(now()) @map("created_at")
 
   @@index([applicationId])
   @@index([reviewStatus,expiresAt])
   @@index([categoryId])
+  @@index([renewalOfId])
   @@map("onboarding_documents")
   @@schema("marketplace")
 }
