@@ -105,8 +105,10 @@ export class DocumentComplianceService {
       } else if (document.renewalOfId) {
         const superseded = await tx.onboardingDocument.updateMany({
           where: {
-            id: document.renewalOfId,
             applicationId,
+            id: { not: document.id },
+            type: document.type,
+            categoryId: document.categoryId,
             reviewStatus: { not: OnboardingDocumentReviewStatus.SUPERSEDED },
           },
           data: { reviewStatus: OnboardingDocumentReviewStatus.SUPERSEDED },
