@@ -7,6 +7,7 @@ import {
   NotificationChannel,
   NotificationStatus,
   OnboardingDocumentReviewStatus,
+  OnboardingDocumentType,
   Prisma,
 } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
@@ -259,7 +260,7 @@ export class DocumentComplianceService {
     tx: Prisma.TransactionClient,
     applicationId: string,
     excludeDocumentId: string,
-    type: string,
+    type: OnboardingDocumentType,
     categoryId: string | null,
     now: Date,
   ) {
